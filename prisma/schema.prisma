@@ -1,0 +1,35 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Friend {
+  id          String    @id @default(cuid())
+  name        String
+  birthday    DateTime?
+  howWeMet    String?
+  notes       String?
+  lastContact DateTime?
+  createdAt   DateTime  @default(now())
+  memories    Memory[]
+}
+
+model Memory {
+  id        String   @id @default(cuid())
+  friendId  String
+  friend    Friend   @relation(fields: [friendId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  messages  String   @default("[]")
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,298 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { MemoryList } from '@/components/memory-list';
+import { ArrowLeft, Edit, Trash2, Check, X } from 'lucide-react';
+import { format } from 'date-fns';
+
+interface Friend {
+  id: string;
+  name: string;
+  birthday?: Date | null;
+  howWeMet?: string | null;
+  notes?: string | null;
+  lastContact?: Date | null;
+  memories: Memory[];
+}
+
+interface Memory {
+  id: string;
+  content: string;
+  createdAt: Date;
+}
+
+export default function FriendProfilePage() {
+  const params = useParams();
+  const router = useRouter();
+  const [friend, setFriend] = useState<Friend | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    birthday: '',
+    howWeMet: '',
+    notes: '',
+    lastContact: '',
+  });
+
+  useEffect(() => {
+    fetchFriend();
+  }, [params.id]);
+
+  const fetchFriend = async () => {
+    try {
+      const response = await fetch('/api/friends');
+      const data = await response.json();
+      const foundFriend = data.find((f: Friend) => f.id === params.id);
+
+      if (foundFriend) {
+        setFriend(foundFriend);
+        setFormData({
+          name: foundFriend.name,
+          birthday: foundFriend.birthday
+            ? format(new Date(foundFriend.birthday), 'yyyy-MM-dd')
+            : '',
+          howWeMet: foundFriend.howWeMet || '',
+          notes: foundFriend.notes || '',
+          lastContact: foundFriend.lastContact
+            ? format(new Date(foundFriend.lastContact), 'yyyy-MM-dd')
+            : '',
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching friend:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdate = async () => {
+    try {
+      const response = await fetch('/api/friends', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: params.id, ...formData }),
+      });
+
+      if (response.ok) {
+        setEditing(false);
+        fetchFriend();
+      }
+    } catch (error) {
+      console.error('Error updating friend:', error);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`Are you sure you want to delete ${friend?.name}?`)) return;
+
+    try {
+      const response = await fetch(`/api/friends?id=${params.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        router.push('/friends');
+      }
+    } catch (error) {
+      console.error('Error deleting friend:', error);
+    }
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A8C5A8]" />
+      </div>
+    );
+  }
+
+  if (!friend) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Friend not found</h2>
+          <Button onClick={() => router.push('/friends')}>Go Back</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pb-20 px-4 max-w-2xl mx-auto">
+      <div className="py-8">
+        <Button
+          variant="ghost"
+          onClick={() => router.push('/friends')}
+          className="mb-4"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
+
+        <Card className="p-6 mb-6 border-[#A8C5A8]/20">
+          <div className="flex items-start gap-4 mb-6">
+            <Avatar className="w-16 h-16 bg-[#A8C5A8] text-white text-xl">
+              <AvatarFallback className="bg-[#A8C5A8] text-white text-xl">
+                {getInitials(friend.name)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              {editing ? (
+                <Input
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  className="font-semibold text-lg mb-2"
+                />
+              ) : (
+                <h1 className="text-2xl font-bold text-gray-900">{friend.name}</h1>
+              )}
+            </div>
+            <div className="flex gap-2">
+              {editing ? (
+                <>
+                  <Button
+                    size="sm"
+                    onClick={handleUpdate}
+                    className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
+                  >
+                    <Check className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditing(false);
+                      fetchFriend();
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setEditing(true)}
+                  >
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleDelete}
+                    className="text-red-500 hover:text-red-600"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-gray-600">Birthday</label>
+              {editing ? (
+                <Input
+                  type="date"
+                  value={formData.birthday}
+                  onChange={(e) =>
+                    setFormData({ ...formData, birthday: e.target.value })
+                  }
+                  className="mt-1"
+                />
+              ) : (
+                <p className="mt-1">
+                  {friend.birthday
+                    ? format(new Date(friend.birthday), 'MMMM d, yyyy')
+                    : 'Not set'}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-600">How We Met</label>
+              {editing ? (
+                <Input
+                  value={formData.howWeMet}
+                  onChange={(e) =>
+                    setFormData({ ...formData, howWeMet: e.target.value })
+                  }
+                  className="mt-1"
+                />
+              ) : (
+                <p className="mt-1">{friend.howWeMet || 'Not set'}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-600">Last Contact</label>
+              {editing ? (
+                <Input
+                  type="date"
+                  value={formData.lastContact}
+                  onChange={(e) =>
+                    setFormData({ ...formData, lastContact: e.target.value })
+                  }
+                  className="mt-1"
+                />
+              ) : (
+                <p className="mt-1">
+                  {friend.lastContact
+                    ? format(new Date(friend.lastContact), 'MMMM d, yyyy')
+                    : 'Not set'}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-600">Notes</label>
+              {editing ? (
+                <Textarea
+                  value={formData.notes}
+                  onChange={(e) =>
+                    setFormData({ ...formData, notes: e.target.value })
+                  }
+                  rows={3}
+                  className="mt-1"
+                />
+              ) : (
+                <p className="mt-1 whitespace-pre-wrap">
+                  {friend.notes || 'No notes'}
+                </p>
+              )}
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6 border-[#A8C5A8]/20">
+          <h2 className="text-xl font-semibold mb-4">Memories</h2>
+          <MemoryList
+            friendId={friend.id}
+            memories={friend.memories}
+            onUpdate={fetchFriend}
+          />
+        </Card>
+      </div>
+    </div>
+  );
+}
