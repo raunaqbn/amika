@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +35,7 @@ interface DiaryNote {
   title: string | null;
   content: string;
   analysis: string | null;
+  imageUrl: string | null;
   createdAt: string;
   updatedAt: string;
   friends: { id: string; name: string }[];
@@ -433,20 +435,33 @@ export default function FriendProfilePage() {
                     className="p-3 rounded-xl border border-[#A8C5A8]/30 bg-white/60 cursor-pointer hover:shadow-md hover:border-[#A8C5A8]/50 transition-all"
                     onClick={() => router.push(`/diary?id=${note.id}`)}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1">
-                        <h3 className="font-medium text-gray-900">
-                          {note.title?.trim() || 'Untitled note'}
-                        </h3>
-                        <p className="text-sm text-[#D4A5A5] font-medium">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-medium text-gray-900 truncate">
+                            {note.title?.trim() || 'Untitled note'}
+                          </h3>
+                          <span className="text-xs text-gray-500 whitespace-nowrap flex-shrink-0">
+                            {formatDistanceToNow(new Date(note.updatedAt), {
+                              addSuffix: true,
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-[#D4A5A5] font-medium line-clamp-2">
                           {summary}
                         </p>
                       </div>
-                      <span className="text-xs text-gray-500 whitespace-nowrap">
-                        {formatDistanceToNow(new Date(note.updatedAt), {
-                          addSuffix: true,
-                        })}
-                      </span>
+                      {note.imageUrl && (
+                        <div className="relative w-14 h-14 flex-shrink-0 rounded-lg overflow-hidden">
+                          <Image
+                            src={note.imageUrl}
+                            alt=""
+                            fill
+                            className="object-cover"
+                            sizes="56px"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

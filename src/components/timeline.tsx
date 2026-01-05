@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Calendar, FileText, Heart } from 'lucide-react';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -16,6 +17,7 @@ interface TimelineEntry {
   createdAt: Date;
   friends?: { id: string; name: string }[];
   friendId?: string;
+  imageUrl?: string | null;
 }
 
 export function Timeline() {
@@ -60,6 +62,7 @@ export function Timeline() {
             summary,
             createdAt: new Date(note.createdAt),
             friends: note.friends || [],
+            imageUrl: note.imageUrl || null,
           };
         });
 
@@ -78,6 +81,7 @@ export function Timeline() {
             createdAt: new Date(memory.createdAt),
             friends: memory.friend ? [memory.friend] : [],
             friendId: memory.friendId,
+            imageUrl: memory.imageUrl || null,
           };
         });
 
@@ -156,20 +160,20 @@ export function Timeline() {
                 className="p-4 border border-[#A8C5A8]/30 bg-white/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                 onClick={handleClick}
               >
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="flex-1">
+                <div className="flex items-start gap-3 mb-2">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       {isMemory ? (
-                        <Heart className="w-4 h-4 text-[#D4A5A5]" />
+                        <Heart className="w-4 h-4 text-[#D4A5A5] flex-shrink-0" />
                       ) : (
-                        <FileText className="w-4 h-4 text-[#A8C5A8]" />
+                        <FileText className="w-4 h-4 text-[#A8C5A8] flex-shrink-0" />
                       )}
-                      <h3 className="font-semibold text-gray-900">
+                      <h3 className="font-semibold text-gray-900 truncate">
                         {entry.title || (isMemory ? 'Memory' : 'Diary Entry')}
                       </h3>
                     </div>
 
-                    <p className="text-sm text-[#D4A5A5] font-medium mb-2">
+                    <p className="text-sm text-[#D4A5A5] font-medium mb-2 line-clamp-2">
                       {entry.summary}
                     </p>
 
@@ -180,6 +184,18 @@ export function Timeline() {
                       <span>{formatDistanceToNow(entry.createdAt, { addSuffix: true })}</span>
                     </div>
                   </div>
+
+                  {entry.imageUrl && (
+                    <div className="relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden">
+                      <Image
+                        src={entry.imageUrl}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes="64px"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {entry.friends && entry.friends.length > 0 && (
