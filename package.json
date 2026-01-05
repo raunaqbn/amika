@@ -9,7 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.2",
     "@ai-sdk/google": "^0.0.48",
+    "@ai-sdk/openai": "^3.0.2",
     "@libsql/client": "^0.15.15",
     "@prisma/client": "^7.2.0",
     "@radix-ui/react-avatar": "^1.1.11",
