@@ -9,10 +9,20 @@ import { useEffect, useRef } from 'react';
 export function ChatInterface() {
   const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
     api: '/api/chat',
+    onResponse: (response) => {
+      console.log('Response received:', response);
+    },
+    onFinish: (message) => {
+      console.log('Message finished:', message);
+    },
     onError: (error) => {
       console.error('Chat error:', error);
     },
   });
+
+  useEffect(() => {
+    console.log('Messages updated:', messages);
+  }, [messages]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
