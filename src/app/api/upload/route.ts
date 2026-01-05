@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
-import { randomUUID } from 'crypto';
 
 export const dynamic = 'force-dynamic';
-
-// Configure body size limit to 4MB (Vercel's max is 4.5MB)
 export const runtime = 'nodejs';
 
-// POST /api/upload - Upload an image
+// POST /api/upload - Upload an image (converts to base64 for Vercel compatibility)
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -33,19 +28,16 @@ export async function POST(request: NextRequest) {
     // Validate file size (max 4MB to stay within Vercel limits)
     const maxSize = 4 * 1024 * 1024; // 4MB
     if (file.size > maxSize) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 4MB.' },
-        { status: 400 }
+        { error: `Image is too large (${sizeMB}MB). Please use an image smaller than 4MB.` },
+        { status: 413 }
       );
     }
 
-    // For Vercel deployment, we need to use /tmp directory as it's the only writable location
-    // Then we'll need to serve these files differently
-    // For now, let's convert the image to base64 and return it
+    // Convert image to base64 data URL for storage
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-
-    // Convert to base64 data URL
     const base64 = buffer.toString('base64');
     const mimeType = file.type;
     const dataUrl = `data:${mimeType};base64,${base64}`;
@@ -57,7 +49,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error uploading file:', error);
     return NextResponse.json(
-      { error: 'Failed to upload file' },
+      { error: 'Failed to upload file. Please try again.' },
       { status: 500 }
     );
   }
