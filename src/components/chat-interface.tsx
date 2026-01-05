@@ -7,9 +7,22 @@ import { Send } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
 export function ChatInterface() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+  const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
     api: '/api/chat',
+    onResponse: (response) => {
+      console.log('Response received:', response);
+    },
+    onFinish: (message) => {
+      console.log('Message finished:', message);
+    },
+    onError: (error) => {
+      console.error('Chat error:', error);
+    },
   });
+
+  useEffect(() => {
+    console.log('Messages updated:', messages);
+  }, [messages]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -70,6 +83,12 @@ export function ChatInterface() {
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+          <p className="text-sm text-red-800">Error: {error.message}</p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="border-t pt-4">
         <div className="flex gap-2">
