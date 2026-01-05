@@ -4,12 +4,14 @@ import { useChat } from 'ai/react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export function ChatInterface() {
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
     api: '/api/chat',
     onResponse: (response) => {
+      setErrorMessage(null);
       console.log('Response received:', response);
       console.log('Response status:', response.status);
       console.log('Response headers:', response.headers);
@@ -20,6 +22,13 @@ export function ChatInterface() {
     onError: (error) => {
       console.error('Chat error:', error);
       console.error('Error details:', error.message, error.stack);
+
+      try {
+        const parsed = JSON.parse(error.message);
+        setErrorMessage(parsed.error || error.message);
+      } catch {
+        setErrorMessage(error.message);
+      }
     },
   });
 
@@ -49,8 +58,8 @@ export function ChatInterface() {
               Welcome to Mirror
             </h2>
             <p className="text-gray-600 max-w-md mx-auto">
-              I'm here to help you nurture your friendships. Share what's on your mind,
-              and let's explore how to be a better friend together.
+              I&apos;m here to help you nurture your friendships. Share what&apos;s on your mind,
+              and let&apos;s explore how to be a better friend together.
             </p>
           </div>
         ) : (
@@ -87,10 +96,10 @@ export function ChatInterface() {
         <div ref={messagesEndRef} />
       </div>
 
-      {error && (
+      {(error || errorMessage) && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
           <p className="text-sm text-red-800">
-            Error: {error.message || JSON.stringify(error)}
+            Error: {errorMessage || error?.message || JSON.stringify(error)}
           </p>
         </div>
       )}
@@ -106,7 +115,7 @@ export function ChatInterface() {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                handleSubmit(e as any);
+                handleSubmit();
               }
             }}
           />
