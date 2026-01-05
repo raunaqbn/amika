@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
+// Helper function to parse date strings from HTML date inputs
+// Ensures dates are treated as local dates, not UTC
+function parseLocalDate(dateString: string | null | undefined): Date | null {
+  if (!dateString) return null;
+  // Parse the date string and create a Date object at local midnight
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 export async function GET() {
   try {
     const friends = await prisma.friend.findMany({
@@ -26,10 +35,10 @@ export async function POST(request: NextRequest) {
     const friend = await prisma.friend.create({
       data: {
         name,
-        birthday: birthday ? new Date(birthday) : null,
+        birthday: parseLocalDate(birthday),
         howWeMet: howWeMet || null,
         notes: notes || null,
-        lastContact: lastContact ? new Date(lastContact) : null,
+        lastContact: parseLocalDate(lastContact),
       },
     });
 
@@ -49,10 +58,10 @@ export async function PUT(request: NextRequest) {
       where: { id },
       data: {
         name,
-        birthday: birthday ? new Date(birthday) : null,
+        birthday: parseLocalDate(birthday),
         howWeMet: howWeMet || null,
         notes: notes || null,
-        lastContact: lastContact ? new Date(lastContact) : null,
+        lastContact: parseLocalDate(lastContact),
       },
     });
 

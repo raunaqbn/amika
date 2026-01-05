@@ -9,6 +9,7 @@ type Friend = {
   howWeMet: string | null;
   notes: string | null;
   lastContact: Date | null;
+  profileImage: string | null;
   createdAt: Date;
 };
 
@@ -16,6 +17,7 @@ type Memory = {
   id: string;
   friendId: string;
   content: string;
+  imageUrl: string | null;
   createdAt: Date;
 };
 
@@ -30,6 +32,24 @@ type DiaryNote = {
 type DiaryNoteTag = {
   noteId: string;
   friendId: string;
+  createdAt: Date;
+};
+
+type Event = {
+  id: string;
+  title: string;
+  description: string | null;
+  eventDate: Date;
+  location: string | null;
+  friendId: string;
+  createdAt: Date;
+};
+
+type ChatTranscript = {
+  id: string;
+  sessionId: string;
+  role: string;
+  content: string;
   createdAt: Date;
 };
 
@@ -62,6 +82,7 @@ async function ensureTablesExist() {
         howWeMet TEXT,
         notes TEXT,
         lastContact TEXT,
+        profileImage TEXT,
         createdAt TEXT NOT NULL
       )
     `);
@@ -71,6 +92,7 @@ async function ensureTablesExist() {
         id TEXT PRIMARY KEY,
         friendId TEXT NOT NULL,
         content TEXT NOT NULL,
+        imageUrl TEXT,
         createdAt TEXT NOT NULL,
         FOREIGN KEY (friendId) REFERENCES friends(id) ON DELETE CASCADE
       )
@@ -97,6 +119,42 @@ async function ensureTablesExist() {
       )
     `);
 
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS events (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT,
+        eventDate TEXT NOT NULL,
+        location TEXT,
+        friendId TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (friendId) REFERENCES friends(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS chat_transcripts (
+        id TEXT PRIMARY KEY,
+        sessionId TEXT NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        createdAt TEXT NOT NULL
+      )
+    `);
+
+    // Add migrations for existing tables
+    try {
+      await client.execute(`ALTER TABLE friends ADD COLUMN profileImage TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
+
+    try {
+      await client.execute(`ALTER TABLE memories ADD COLUMN imageUrl TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
+
     tablesInitialized = true;
   } catch (error) {
     console.error('Error initializing tables:', error);
@@ -117,6 +175,7 @@ export const prisma = {
         howWeMet: row.howWeMet as string | null,
         notes: row.notes as string | null,
         lastContact: row.lastContact ? new Date(row.lastContact as string) : null,
+        profileImage: row.profileImage as string | null,
         createdAt: new Date(row.createdAt as string),
       }));
 
@@ -126,6 +185,7 @@ export const prisma = {
           id: row.id as string,
           friendId: row.friendId as string,
           content: row.content as string,
+          imageUrl: row.imageUrl as string | null,
           createdAt: new Date(row.createdAt as string),
         }));
 
@@ -150,11 +210,12 @@ export const prisma = {
         howWeMet: data.howWeMet ?? null,
         notes: data.notes ?? null,
         lastContact: data.lastContact ?? null,
+        profileImage: data.profileImage ?? null,
         createdAt: new Date(),
       };
 
       await client.execute({
-        sql: 'INSERT INTO friends (id, name, birthday, howWeMet, notes, lastContact, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        sql: 'INSERT INTO friends (id, name, birthday, howWeMet, notes, lastContact, profileImage, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         args: [
           newFriend.id,
           newFriend.name,
@@ -162,6 +223,7 @@ export const prisma = {
           newFriend.howWeMet,
           newFriend.notes,
           newFriend.lastContact ? newFriend.lastContact.toISOString() : null,
+          newFriend.profileImage,
           newFriend.createdAt.toISOString(),
         ],
       });
@@ -189,17 +251,19 @@ export const prisma = {
         howWeMet: (data.howWeMet !== undefined ? data.howWeMet : existing.howWeMet) as string | null,
         notes: (data.notes !== undefined ? data.notes : existing.notes) as string | null,
         lastContact: data.lastContact !== undefined ? data.lastContact : (existing.lastContact ? new Date(existing.lastContact as string) : null),
+        profileImage: (data.profileImage !== undefined ? data.profileImage : existing.profileImage) as string | null,
         createdAt: new Date(existing.createdAt as string),
       };
 
       await client.execute({
-        sql: 'UPDATE friends SET name = ?, birthday = ?, howWeMet = ?, notes = ?, lastContact = ? WHERE id = ?',
+        sql: 'UPDATE friends SET name = ?, birthday = ?, howWeMet = ?, notes = ?, lastContact = ?, profileImage = ? WHERE id = ?',
         args: [
           updated.name,
           updated.birthday ? updated.birthday.toISOString() : null,
           updated.howWeMet,
           updated.notes,
           updated.lastContact ? updated.lastContact.toISOString() : null,
+          updated.profileImage,
           where.id,
         ],
       });
@@ -235,7 +299,7 @@ export const prisma = {
     },
   },
   memory: {
-    create: async ({ data }: { data: { friendId: string; content: string } }) => {
+    create: async ({ data }: { data: { friendId: string; content: string; imageUrl?: string | null } }) => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -252,15 +316,17 @@ export const prisma = {
         id: randomUUID(),
         friendId: data.friendId,
         content: data.content,
+        imageUrl: data.imageUrl ?? null,
         createdAt: new Date(),
       };
 
       await client.execute({
-        sql: 'INSERT INTO memories (id, friendId, content, createdAt) VALUES (?, ?, ?, ?)',
+        sql: 'INSERT INTO memories (id, friendId, content, imageUrl, createdAt) VALUES (?, ?, ?, ?, ?)',
         args: [
           memory.id,
           memory.friendId,
           memory.content,
+          memory.imageUrl,
           memory.createdAt.toISOString(),
         ],
       });
@@ -309,6 +375,7 @@ export const prisma = {
             howWeMet: null,
             notes: null,
             lastContact: null,
+            profileImage: null,
             createdAt: new Date(),
           },
         ])
@@ -446,6 +513,167 @@ export const prisma = {
       await client.execute({
         sql: 'DELETE FROM diary_notes WHERE id = ?',
         args: [where.id],
+      });
+
+      return { success: true };
+    },
+  },
+  event: {
+    findMany: async (args?: { where?: { friendId?: string } }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      let sql = 'SELECT * FROM events ORDER BY eventDate ASC';
+      let sqlArgs: any[] = [];
+
+      if (args?.where?.friendId) {
+        sql = 'SELECT * FROM events WHERE friendId = ? ORDER BY eventDate ASC';
+        sqlArgs = [args.where.friendId];
+      }
+
+      const result = await client.execute({ sql, args: sqlArgs });
+      return result.rows.map((row: any) => ({
+        id: row.id as string,
+        title: row.title as string,
+        description: row.description as string | null,
+        eventDate: new Date(row.eventDate as string),
+        location: row.location as string | null,
+        friendId: row.friendId as string,
+        createdAt: new Date(row.createdAt as string),
+      }));
+    },
+    create: async ({ data }: { data: { title: string; description?: string | null; eventDate: Date; location?: string | null; friendId: string } }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const event: Event = {
+        id: randomUUID(),
+        title: data.title,
+        description: data.description ?? null,
+        eventDate: data.eventDate,
+        location: data.location ?? null,
+        friendId: data.friendId,
+        createdAt: new Date(),
+      };
+
+      await client.execute({
+        sql: 'INSERT INTO events (id, title, description, eventDate, location, friendId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        args: [
+          event.id,
+          event.title,
+          event.description,
+          event.eventDate.toISOString(),
+          event.location,
+          event.friendId,
+          event.createdAt.toISOString(),
+        ],
+      });
+
+      return event;
+    },
+    update: async ({ where, data }: { where: { id: string }; data: Partial<Event> }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existingResult = await client.execute({
+        sql: 'SELECT * FROM events WHERE id = ?',
+        args: [where.id],
+      });
+
+      if (existingResult.rows.length === 0) {
+        throw new Error('Event not found');
+      }
+
+      const existing = existingResult.rows[0];
+      const updated: Event = {
+        id: existing.id as string,
+        title: (data.title ?? existing.title) as string,
+        description: (data.description !== undefined ? data.description : existing.description) as string | null,
+        eventDate: data.eventDate ?? new Date(existing.eventDate as string),
+        location: (data.location !== undefined ? data.location : existing.location) as string | null,
+        friendId: (data.friendId ?? existing.friendId) as string,
+        createdAt: new Date(existing.createdAt as string),
+      };
+
+      await client.execute({
+        sql: 'UPDATE events SET title = ?, description = ?, eventDate = ?, location = ? WHERE id = ?',
+        args: [
+          updated.title,
+          updated.description,
+          updated.eventDate.toISOString(),
+          updated.location,
+          where.id,
+        ],
+      });
+
+      return updated;
+    },
+    delete: async ({ where }: { where: { id: string } }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      await client.execute({
+        sql: 'DELETE FROM events WHERE id = ?',
+        args: [where.id],
+      });
+
+      return { success: true };
+    },
+  },
+  chatTranscript: {
+    findMany: async (args?: { where?: { sessionId?: string } }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      let sql = 'SELECT * FROM chat_transcripts ORDER BY createdAt ASC';
+      let sqlArgs: any[] = [];
+
+      if (args?.where?.sessionId) {
+        sql = 'SELECT * FROM chat_transcripts WHERE sessionId = ? ORDER BY createdAt ASC';
+        sqlArgs = [args.where.sessionId];
+      }
+
+      const result = await client.execute({ sql, args: sqlArgs });
+      return result.rows.map((row: any) => ({
+        id: row.id as string,
+        sessionId: row.sessionId as string,
+        role: row.role as string,
+        content: row.content as string,
+        createdAt: new Date(row.createdAt as string),
+      }));
+    },
+    create: async ({ data }: { data: { sessionId: string; role: string; content: string } }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const transcript: ChatTranscript = {
+        id: randomUUID(),
+        sessionId: data.sessionId,
+        role: data.role,
+        content: data.content,
+        createdAt: new Date(),
+      };
+
+      await client.execute({
+        sql: 'INSERT INTO chat_transcripts (id, sessionId, role, content, createdAt) VALUES (?, ?, ?, ?, ?)',
+        args: [
+          transcript.id,
+          transcript.sessionId,
+          transcript.role,
+          transcript.content,
+          transcript.createdAt.toISOString(),
+        ],
+      });
+
+      return transcript;
+    },
+    delete: async ({ where }: { where: { sessionId: string } }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      await client.execute({
+        sql: 'DELETE FROM chat_transcripts WHERE sessionId = ?',
+        args: [where.sessionId],
       });
 
       return { success: true };

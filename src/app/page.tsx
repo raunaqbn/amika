@@ -3,9 +3,13 @@
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { FriendCard } from '@/components/friend-card';
+import { EventCard } from '@/components/event-card';
+import { AddEventDialog } from '@/components/add-event-dialog';
+import { Timeline } from '@/components/timeline';
 import { differenceInDays, format, isBefore, addDays } from 'date-fns';
-import { Cake, Clock } from 'lucide-react';
+import { Cake, Clock, Calendar, Plus, TrendingUp } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -15,12 +19,24 @@ interface Friend {
   notes?: string | null;
 }
 
+interface Event {
+  id: string;
+  title: string;
+  description: string | null;
+  eventDate: Date;
+  location: string | null;
+  friendId: string;
+}
+
 export default function Home() {
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchFriends();
+    fetchEvents();
   }, []);
 
   const fetchFriends = async () => {
@@ -32,6 +48,30 @@ export default function Home() {
       console.error('Error fetching friends:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEvents = async () => {
+    try {
+      const response = await fetch('/api/events');
+      const data = await response.json();
+      setEvents(data);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      const response = await fetch(`/api/events?id=${eventId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setEvents(events.filter((e) => e.id !== eventId));
+      }
+    } catch (error) {
+      console.error('Error deleting event:', error);
     }
   };
 
@@ -78,6 +118,11 @@ export default function Home() {
   const upcomingBirthdays = getUpcomingBirthdays();
   const friendsToContact = getFriendsToContact();
 
+  const upcomingEvents = events
+    .filter((event) => new Date(event.eventDate) >= new Date())
+    .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())
+    .slice(0, 5);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -92,6 +137,48 @@ export default function Home() {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Amika</h1>
         <p className="text-gray-600">Nurture your friendships</p>
       </div>
+
+      {/* Upcoming Events Section */}
+      <section className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-[#A8C5A8]" />
+            <h2 className="text-xl font-semibold text-gray-900">Upcoming Events</h2>
+          </div>
+          <Button
+            onClick={() => setAddEventDialogOpen(true)}
+            size="sm"
+            className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Plan Event
+          </Button>
+        </div>
+
+        {upcomingEvents.length > 0 ? (
+          <div className="space-y-3">
+            {upcomingEvents.map((event) => {
+              const friend = friends.find((f) => f.id === event.friendId);
+              return (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  friendName={friend?.name}
+                  onDelete={handleDeleteEvent}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <Card className="p-6 border border-[#A8C5A8]/30 bg-white/60 text-center">
+            <Calendar className="w-8 h-8 text-[#A8C5A8] mx-auto mb-2" />
+            <p className="text-gray-600 text-sm">No upcoming events.</p>
+            <p className="text-gray-500 text-xs mt-1">
+              Click "Plan Event" to schedule time with friends!
+            </p>
+          </Card>
+        )}
+      </section>
 
       {upcomingBirthdays.length > 0 && (
         <section className="mb-8">
@@ -178,6 +265,26 @@ export default function Home() {
             </p>
           </Card>
         )}
+
+      {/* Timeline Section */}
+      {friends.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp className="w-5 h-5 text-[#D4A5A5]" />
+            <h2 className="text-xl font-semibold text-gray-900">Your Timeline</h2>
+          </div>
+          <Timeline />
+        </section>
+      )}
+
+      <AddEventDialog
+        open={addEventDialogOpen}
+        onOpenChange={setAddEventDialogOpen}
+        friends={friends.map((f) => ({ id: f.id, name: f.name }))}
+        onEventAdded={() => {
+          fetchEvents();
+        }}
+      />
     </div>
   );
 }
