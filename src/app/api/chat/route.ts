@@ -2,6 +2,7 @@ import { streamText } from 'ai';
 import { getModel, systemPrompt } from '@/lib/ai';
 import { prisma } from '@/lib/db';
 import { formatDistanceToNow } from 'date-fns';
+import { getUserId } from '@/lib/auth';
 
 function ensureApiKeyConfigured() {
   const provider = (process.env.AI_PROVIDER || 'google').toLowerCase();
@@ -25,15 +26,16 @@ function ensureApiKeyConfigured() {
   }
 }
 
-async function buildContextualPrompt(): Promise<string> {
+async function buildContextualPrompt(userId: string): Promise<string> {
   try {
-    // Fetch friends with memories
+    // Fetch friends with memories for this user
     const friends = await prisma.friend.findMany({
+      userId,
       include: { memories: { orderBy: { createdAt: 'desc' } } },
     });
 
-    // Fetch diary notes with tags
-    const diaryNotes = await prisma.diaryNote.findMany();
+    // Fetch diary notes for this user
+    const diaryNotes = await prisma.diaryNote.findMany({ userId });
 
     // Build context string
     let contextPrompt = '\n\n---CONTEXTUAL INFORMATION---\n';
@@ -90,6 +92,14 @@ async function buildContextualPrompt(): Promise<string> {
 
 export async function POST(req: Request) {
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const { messages, sessionId } = await req.json();
 
     if (!Array.isArray(messages)) {
@@ -101,8 +111,8 @@ export async function POST(req: Request) {
 
     ensureApiKeyConfigured();
 
-    // Build enhanced system prompt with contextual information
-    const contextualInfo = await buildContextualPrompt();
+    // Build enhanced system prompt with contextual information for this user
+    const contextualInfo = await buildContextualPrompt(userId);
     const enhancedSystemPrompt = systemPrompt + contextualInfo;
 
     // Store chat transcript if sessionId is provided
@@ -112,6 +122,7 @@ export async function POST(req: Request) {
         if (latestMessage) {
           await prisma.chatTranscript.create({
             data: {
+              userId,
               sessionId,
               role: latestMessage.role,
               content: latestMessage.content,

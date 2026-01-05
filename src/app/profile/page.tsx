@@ -1,0 +1,244 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
+import { format } from 'date-fns';
+import {
+  User,
+  Camera,
+  Save,
+  Loader2,
+  LogOut,
+  Users,
+  BookOpen,
+  Calendar,
+  Heart
+} from 'lucide-react';
+
+export default function ProfilePage() {
+  const router = useRouter();
+  const { user, stats, loading, signOut, updateProfile, refreshSession } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [name, setName] = useState('');
+  const [birthday, setBirthday] = useState('');
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name);
+      if (user.birthday) {
+        const date = new Date(user.birthday);
+        setBirthday(format(date, 'yyyy-MM-dd'));
+      }
+      setProfileImage(user.profileImage);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/signin');
+    }
+  }, [loading, user, router]);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 4 * 1024 * 1024) {
+      setError('Image must be less than 4MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfileImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    setSuccess('');
+
+    const result = await updateProfile({
+      name,
+      birthday: birthday || null,
+      profileImage,
+    });
+
+    if (result.success) {
+      setSuccess('Profile updated successfully');
+      await refreshSession();
+    } else {
+      setError(result.error || 'Failed to update profile');
+    }
+
+    setSaving(false);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/signin');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#A8C5A8]" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-8">
+      <h1 className="text-2xl font-semibold text-gray-800 mb-6">Profile</h1>
+
+      {/* Profile Picture */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+        <div className="flex items-center gap-6">
+          <div className="relative">
+            <div className="w-24 h-24 rounded-full bg-[#A8C5A8]/10 flex items-center justify-center overflow-hidden">
+              {profileImage ? (
+                <img
+                  src={profileImage}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="w-12 h-12 text-[#A8C5A8]" />
+              )}
+            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute bottom-0 right-0 w-8 h-8 bg-[#A8C5A8] rounded-full flex items-center justify-center text-white hover:bg-[#97B497] transition-colors"
+            >
+              <Camera className="w-4 h-4" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-800">{user.name}</h2>
+            <p className="text-gray-500">{user.email}</p>
+            <p className="text-gray-400 text-sm mt-1">
+              Member since {format(new Date(user.createdAt), 'MMMM yyyy')}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
+            <Users className="w-6 h-6 text-[#A8C5A8] mx-auto mb-2" />
+            <div className="text-2xl font-semibold text-gray-800">{stats.friendsCount}</div>
+            <div className="text-sm text-gray-500">Friends</div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
+            <Heart className="w-6 h-6 text-[#A8C5A8] mx-auto mb-2" />
+            <div className="text-2xl font-semibold text-gray-800">{stats.memoriesCount}</div>
+            <div className="text-sm text-gray-500">Memories</div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
+            <BookOpen className="w-6 h-6 text-[#A8C5A8] mx-auto mb-2" />
+            <div className="text-2xl font-semibold text-gray-800">{stats.diaryCount}</div>
+            <div className="text-sm text-gray-500">Diary Entries</div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
+            <Calendar className="w-6 h-6 text-[#A8C5A8] mx-auto mb-2" />
+            <div className="text-2xl font-semibold text-gray-800">{stats.eventsCount}</div>
+            <div className="text-sm text-gray-500">Events</div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Edit Profile</h3>
+
+        {error && (
+          <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="bg-green-50 text-green-600 p-3 rounded-lg text-sm mb-4">
+            {success}
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+              Name
+            </label>
+            <input
+              id="name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#A8C5A8]/50 focus:border-[#A8C5A8]"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="birthday" className="block text-sm font-medium text-gray-700 mb-2">
+              Birthday
+            </label>
+            <input
+              id="birthday"
+              type="date"
+              value={birthday}
+              onChange={(e) => setBirthday(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#A8C5A8]/50 focus:border-[#A8C5A8]"
+            />
+          </div>
+
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full py-3 px-4 bg-[#A8C5A8] text-white rounded-xl font-medium hover:bg-[#97B497] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-5 h-5" />
+                Save Changes
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Sign Out */}
+      <button
+        onClick={handleSignOut}
+        className="w-full py-3 px-4 bg-white border border-red-200 text-red-600 rounded-xl font-medium hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+      >
+        <LogOut className="w-5 h-5" />
+        Sign Out
+      </button>
+    </div>
+  );
+}

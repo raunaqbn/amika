@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { generateText } from 'ai';
 import { getModel } from '@/lib/ai';
+import { getUserId } from '@/lib/auth';
 
 async function generateAnalysis(content: string): Promise<string | null> {
   try {
@@ -33,7 +34,12 @@ Provide your therapeutic reflection:`,
 
 export async function GET() {
   try {
-    const notes = await prisma.diaryNote.findMany();
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const notes = await prisma.diaryNote.findMany({ userId });
     return NextResponse.json(notes);
   } catch (error) {
     console.error('Error fetching diary notes:', error);
@@ -43,6 +49,11 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { title, content, imageUrl, friendIds } = body;
 
@@ -55,6 +66,7 @@ export async function POST(request: NextRequest) {
 
     const note = await prisma.diaryNote.create({
       data: {
+        userId,
         title: title?.trim() || null,
         content,
         analysis,
@@ -74,6 +86,11 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { id, title, content, imageUrl, friendIds } = body;
 
@@ -82,18 +99,22 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get existing note to check if content changed
-    const existingNotes = await prisma.diaryNote.findMany();
+    const existingNotes = await prisma.diaryNote.findMany({ userId });
     const existingNote = existingNotes.find(n => n.id === id);
+
+    if (!existingNote) {
+      return NextResponse.json({ error: 'Note not found' }, { status: 404 });
+    }
 
     let analysis = undefined;
 
     // Only regenerate analysis if content has changed
-    if (content && existingNote && content !== existingNote.content) {
+    if (content && content !== existingNote.content) {
       analysis = await generateAnalysis(content);
     }
 
     const note = await prisma.diaryNote.update({
-      where: { id },
+      where: { id, userId },
       data: {
         title: title === undefined ? undefined : title?.trim() || null,
         content,
@@ -114,6 +135,11 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -121,7 +147,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Note ID required' }, { status: 400 });
     }
 
-    await prisma.diaryNote.delete({ where: { id } });
+    await prisma.diaryNote.delete({ where: { id, userId } });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting diary note:', error);

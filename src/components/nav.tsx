@@ -2,10 +2,17 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, Sparkles, Compass, BookOpen } from 'lucide-react';
+import { Home, Users, Sparkles, Compass, BookOpen, User, LogIn } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
 
 export function Nav() {
   const pathname = usePathname();
+  const { user, loading } = useAuth();
+
+  // Don't show nav on auth pages
+  if (pathname === '/signin' || pathname === '/signup') {
+    return null;
+  }
 
   const links = [
     { href: '/', icon: Home, label: 'Home' },
@@ -46,8 +53,42 @@ export function Nav() {
             })}
           </div>
 
-          {/* Right side spacer for balance */}
-          <div className="w-16" />
+          {/* Right side - User menu */}
+          <div className="w-32 flex justify-end">
+            {loading ? (
+              <div className="w-8 h-8 rounded-full bg-gray-100 animate-pulse" />
+            ) : user ? (
+              <Link
+                href="/profile"
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                  pathname === '/profile'
+                    ? 'text-[#A8C5A8] bg-[#A8C5A8]/10'
+                    : 'text-gray-500 hover:text-[#A8C5A8] hover:bg-gray-50'
+                }`}
+              >
+                {user.profileImage ? (
+                  <img
+                    src={user.profileImage}
+                    alt={user.name}
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-[#A8C5A8]/10 flex items-center justify-center">
+                    <User className="w-4 h-4 text-[#A8C5A8]" />
+                  </div>
+                )}
+                <span className="text-sm font-medium hidden lg:block">{user.name.split(' ')[0]}</span>
+              </Link>
+            ) : (
+              <Link
+                href="/signin"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-[#A8C5A8] hover:bg-[#A8C5A8]/10 transition-colors"
+              >
+                <LogIn className="w-5 h-5" />
+                <span className="text-sm font-medium">Sign In</span>
+              </Link>
+            )}
+          </div>
         </div>
       </nav>
 
@@ -71,6 +112,41 @@ export function Nav() {
               </Link>
             );
           })}
+          {/* Profile/Sign in on mobile */}
+          {loading ? (
+            <div className="flex flex-col items-center justify-center flex-1 h-full">
+              <div className="w-6 h-6 rounded-full bg-gray-200 animate-pulse" />
+              <span className="text-xs mt-1 text-gray-400">...</span>
+            </div>
+          ) : user ? (
+            <Link
+              href="/profile"
+              className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
+                pathname === '/profile'
+                  ? 'text-[#A8C5A8]'
+                  : 'text-gray-400 hover:text-[#A8C5A8]'
+              }`}
+            >
+              {user.profileImage ? (
+                <img
+                  src={user.profileImage}
+                  alt={user.name}
+                  className="w-6 h-6 rounded-full object-cover"
+                />
+              ) : (
+                <User className="w-6 h-6" />
+              )}
+              <span className="text-xs mt-1">Profile</span>
+            </Link>
+          ) : (
+            <Link
+              href="/signin"
+              className="flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-[#A8C5A8] transition-colors"
+            >
+              <LogIn className="w-6 h-6" />
+              <span className="text-xs mt-1">Sign In</span>
+            </Link>
+          )}
         </div>
       </nav>
     </>

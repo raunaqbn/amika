@@ -9,27 +9,100 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  birthday     DateTime?
+  profileImage String?
+  createdAt    DateTime  @default(now())
+  sessions     Session[]
+  friends      Friend[]
+  memories     Memory[]
+  diaryNotes   DiaryNote[]
+  events       Event[]
+  chatTranscripts ChatTranscript[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
 model Friend {
-  id          String    @id @default(cuid())
-  name        String
-  birthday    DateTime?
-  howWeMet    String?
-  notes       String?
-  lastContact DateTime?
-  createdAt   DateTime  @default(now())
-  memories    Memory[]
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  birthday     DateTime?
+  howWeMet     String?
+  notes        String?
+  lastContact  DateTime?
+  profileImage String?
+  createdAt    DateTime  @default(now())
+  memories     Memory[]
+  events       Event[]
+  diaryNoteTags DiaryNoteTag[]
 }
 
 model Memory {
   id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   friendId  String
   friend    Friend   @relation(fields: [friendId], references: [id], onDelete: Cascade)
   content   String
+  imageUrl  String?
   createdAt DateTime @default(now())
 }
 
-model Conversation {
+model DiaryNote {
   id        String   @id @default(cuid())
-  messages  String   @default("[]")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?
+  content   String
+  analysis  String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tags      DiaryNoteTag[]
+}
+
+model DiaryNoteTag {
+  noteId    String
+  note      DiaryNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  friendId  String
+  friend    Friend    @relation(fields: [friendId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
+  @@id([noteId, friendId])
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  eventDate   DateTime
+  location    String?
+  friendId    String
+  friend      Friend   @relation(fields: [friendId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}
+
+model ChatTranscript {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String
+  role      String
+  content   String
   createdAt DateTime @default(now())
 }

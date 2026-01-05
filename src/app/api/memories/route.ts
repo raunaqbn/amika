@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getUserId } from '@/lib/auth';
 
 export async function GET() {
   try {
-    const memories = await prisma.memory.findMany();
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const memories = await prisma.memory.findMany({ userId });
     return NextResponse.json(memories);
   } catch (error) {
     console.error('Error fetching memories:', error);
@@ -13,6 +19,11 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { friendId, content, imageUrl } = body;
 
@@ -25,6 +36,7 @@ export async function POST(request: NextRequest) {
 
     const memory = await prisma.memory.create({
       data: {
+        userId,
         friendId,
         content,
         imageUrl: imageUrl || null,
@@ -40,6 +52,11 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -48,7 +65,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     await prisma.memory.delete({
-      where: { id },
+      where: { id, userId },
     });
 
     return NextResponse.json({ success: true });

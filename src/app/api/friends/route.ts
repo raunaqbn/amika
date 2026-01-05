@@ -1,19 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getUserId } from '@/lib/auth';
 
 // Helper function to parse date strings from HTML date inputs
-// Ensures dates are treated as local dates, not UTC
 function parseLocalDate(dateString: string | null | undefined): Date | null {
   if (!dateString) return null;
-  // Parse the date string and create a Date object at noon to avoid timezone shifts
-  // Using noon (12:00) ensures the date doesn't roll back when converted to UTC
   const [year, month, day] = dateString.split('-').map(Number);
   return new Date(year, month - 1, day, 12, 0, 0);
 }
 
 export async function GET() {
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const friends = await prisma.friend.findMany({
+      userId,
       include: {
         memories: {
           orderBy: { createdAt: 'desc' },
@@ -30,11 +34,17 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { name, birthday, howWeMet, notes, lastContact } = body;
 
     const friend = await prisma.friend.create({
       data: {
+        userId,
         name,
         birthday: parseLocalDate(birthday),
         howWeMet: howWeMet || null,
@@ -52,11 +62,16 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { id, name, birthday, howWeMet, notes, lastContact, profileImage } = body;
 
     const friend = await prisma.friend.update({
-      where: { id },
+      where: { id, userId },
       data: {
         ...(name !== undefined && { name }),
         ...(birthday !== undefined && { birthday: parseLocalDate(birthday) }),
@@ -76,6 +91,11 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -84,7 +104,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     await prisma.friend.delete({
-      where: { id },
+      where: { id, userId },
     });
 
     return NextResponse.json({ success: true });
