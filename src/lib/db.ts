@@ -375,6 +375,7 @@ export const prisma = {
             howWeMet: null,
             notes: null,
             lastContact: null,
+            profileImage: null,
             createdAt: new Date(),
           },
         ])
