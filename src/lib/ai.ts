@@ -19,8 +19,8 @@ export function getModel() {
     case 'google':
     case 'gemini':
     default:
-      // Gemini 1.5 was retired in April 2025 - use Gemini 2.0 Flash
-      return google(process.env.GOOGLE_MODEL || 'gemini-2.0-flash-exp');
+      // Use stable Gemini 2.0 Flash (not experimental - exp has 0 free tier quota)
+      return google(process.env.GOOGLE_MODEL || 'gemini-2.0-flash');
   }
 }
 
