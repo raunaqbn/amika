@@ -9,8 +9,8 @@ export function getModel() {
   switch (provider.toLowerCase()) {
     case 'anthropic':
     case 'claude':
-      // Claude 3.5 was retired - use Claude Sonnet 4.5 (current as of 2025)
-      return anthropic(process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929');
+      // Use Claude 3.7 Sonnet - more stable than 4.5 for streaming
+      return anthropic(process.env.ANTHROPIC_MODEL || 'claude-3-7-sonnet-20250219');
 
     case 'openai':
       // GPT-4o is still valid, GPT-4.1 is newer but gpt-4o works
