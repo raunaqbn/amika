@@ -4,7 +4,7 @@ import { useChat } from 'ai/react';
 import type { Message } from 'ai';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Plus, MessageSquare, Sparkles, ChevronDown } from 'lucide-react';
+import { Send, Plus, MessageSquare, Trash2, Sparkles, ChevronDown } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dialog,
@@ -211,6 +211,17 @@ export function ChatInterface() {
     activeSessionIdRef.current = session.id;
     setActiveSessionId(session.id);
     setMessages(session.messages);
+  };
+
+  const deleteSession = (sessionId: string) => {
+    setChatHistory((prev) => prev.filter((entry) => entry.id !== sessionId));
+
+    // If deleting the active session, clear the current chat
+    if (activeSessionId === sessionId || activeSessionIdRef.current === sessionId) {
+      activeSessionIdRef.current = null;
+      setActiveSessionId(null);
+      setMessages([]);
+    }
   };
 
   useEffect(() => {
@@ -489,26 +500,41 @@ export function ChatInterface() {
         ) : (
           <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
             {sortedHistory.map((session) => (
-              <button
+              <div
                 key={session.id}
-                type="button"
-                onClick={() => loadSession(session.id)}
-                className={`w-full text-left px-3 py-2 rounded-xl border transition-colors flex items-start gap-2 ${
+                className={`group w-full text-left px-3 py-2 rounded-xl border transition-colors flex items-start gap-2 ${
                   activeSessionId === session.id
                     ? 'border-[#A8C5A8]/60 bg-[#A8C5A8]/10'
                     : 'border-transparent hover:border-[#A8C5A8]/40 hover:bg-[#A8C5A8]/5'
                 }`}
               >
-                <MessageSquare className="w-4 h-4 mt-0.5 text-[#A8C5A8]" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900 line-clamp-1">
-                    {session.title || 'Conversation'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(session.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => loadSession(session.id)}
+                  className="flex items-start gap-2 flex-1 min-w-0"
+                >
+                  <MessageSquare className="w-4 h-4 mt-0.5 text-[#A8C5A8] flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 line-clamp-1">
+                      {session.title || 'Conversation'}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(session.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteSession(session.id);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded text-gray-400 hover:text-red-500 flex-shrink-0"
+                  title="Delete chat"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             ))}
           </div>
         )}
