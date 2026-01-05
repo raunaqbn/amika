@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { MemoryList } from '@/components/memory-list';
 import { ArrowLeft, Edit, Trash2, Check, X } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
 interface Friend {
   id: string;
@@ -27,6 +27,15 @@ interface Memory {
   createdAt: Date;
 }
 
+interface DiaryNote {
+  id: string;
+  title: string | null;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  friends: { id: string; name: string }[];
+}
+
 export default function FriendProfilePage() {
   const params = useParams();
   const router = useRouter();
@@ -40,10 +49,38 @@ export default function FriendProfilePage() {
     notes: '',
     lastContact: '',
   });
+  const [taggedNotes, setTaggedNotes] = useState<DiaryNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
 
   useEffect(() => {
     fetchFriend();
   }, [params.id]);
+
+  useEffect(() => {
+    if (!friend) return;
+
+    const loadNotes = async () => {
+      setNotesLoading(true);
+      try {
+        const response = await fetch('/api/diary');
+        if (!response.ok) return;
+        const data = await response.json();
+        setTaggedNotes(
+          data.filter((note: DiaryNote) =>
+            Array.isArray(note.friends)
+              ? note.friends.some((f) => f.id === friend.id)
+              : false
+          )
+        );
+      } catch (error) {
+        console.error('Error fetching diary notes', error);
+      } finally {
+        setNotesLoading(false);
+      }
+    };
+
+    loadNotes();
+  }, [friend]);
 
   const fetchFriend = async () => {
     try {
@@ -291,6 +328,50 @@ export default function FriendProfilePage() {
             memories={friend.memories}
             onUpdate={fetchFriend}
           />
+        </Card>
+
+        <Card className="p-6 border-[#A8C5A8]/20 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-semibold">Diary</h2>
+              <p className="text-sm text-gray-600">
+                Notes where {friend.name} was tagged
+              </p>
+            </div>
+          </div>
+
+          {notesLoading ? (
+            <div className="text-sm text-gray-500">Loading notes...</div>
+          ) : taggedNotes.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              No diary entries yet for this friend.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {taggedNotes.map((note) => (
+                <div
+                  key={note.id}
+                  className="p-3 rounded-xl border border-[#A8C5A8]/30 bg-white/60"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-1">
+                      <h3 className="font-medium text-gray-900">
+                        {note.title?.trim() || 'Untitled note'}
+                      </h3>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                        {note.content}
+                      </p>
+                    </div>
+                    <span className="text-xs text-gray-500 whitespace-nowrap">
+                      {formatDistanceToNow(new Date(note.updatedAt), {
+                        addSuffix: true,
+                      })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
     </div>
