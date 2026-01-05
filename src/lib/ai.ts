@@ -1,6 +1,11 @@
-import { google } from '@ai-sdk/google';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 
-export const model = google('gemini-1.5-flash');
+// Use the stable v1 API endpoint for Gemini access
+const google = createGoogleGenerativeAI({
+  baseURL: 'https://generativelanguage.googleapis.com/v1',
+});
+
+export const model = google('gemini-1.5-flash-latest');
 
 export const systemPrompt = `You are Mirror, a warm relationship coach helping users be better friends.
 
