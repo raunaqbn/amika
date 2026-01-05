@@ -1,9 +1,10 @@
 'use client';
 
-import { Calendar, MapPin, Trash2 } from 'lucide-react';
+import { Calendar, MapPin, Trash2, Check, Circle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { format, formatDistanceToNow } from 'date-fns';
+import { useState } from 'react';
 
 interface EventCardProps {
   event: {
@@ -13,34 +14,83 @@ interface EventCardProps {
     eventDate: Date;
     location: string | null;
     friendId: string;
+    completed?: boolean;
   };
   friendName?: string;
   onDelete?: (id: string) => void;
+  onToggleComplete?: (id: string, completed: boolean) => void;
 }
 
-export function EventCard({ event, friendName, onDelete }: EventCardProps) {
+export function EventCard({ event, friendName, onDelete, onToggleComplete }: EventCardProps) {
+  const [isCompleting, setIsCompleting] = useState(false);
+
   const handleDelete = () => {
     if (onDelete && confirm('Delete this event?')) {
       onDelete(event.id);
     }
   };
 
+  const handleToggleComplete = async () => {
+    if (!onToggleComplete) return;
+    setIsCompleting(true);
+    try {
+      await onToggleComplete(event.id, !event.completed);
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
+  const isCompleted = event.completed ?? false;
+
   return (
-    <Card className="p-4 border border-[#A8C5A8]/30 bg-white/60 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between gap-3">
+    <Card className={`p-4 border shadow-sm hover:shadow-md transition-all ${
+      isCompleted
+        ? 'border-[#A8C5A8]/50 bg-[#A8C5A8]/5'
+        : 'border-[#A8C5A8]/30 bg-white/60'
+    }`}>
+      <div className="flex items-start gap-3">
+        {/* Completion toggle */}
+        {onToggleComplete && (
+          <button
+            onClick={handleToggleComplete}
+            disabled={isCompleting}
+            className={`mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+              isCompleted
+                ? 'border-[#A8C5A8] bg-[#A8C5A8] text-white'
+                : 'border-gray-300 hover:border-[#A8C5A8] hover:bg-[#A8C5A8]/10'
+            } ${isCompleting ? 'opacity-50' : ''}`}
+          >
+            {isCompleted && <Check className="w-4 h-4" />}
+          </button>
+        )}
+
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-900 mb-1">{event.title}</h3>
+          <h3 className={`font-semibold mb-1 ${
+            isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'
+          }`}>
+            {event.title}
+          </h3>
 
           {friendName && (
-            <p className="text-sm text-[#A8C5A8] font-medium mb-2">with {friendName}</p>
+            <p className={`text-sm font-medium mb-2 ${
+              isCompleted ? 'text-[#A8C5A8]/60' : 'text-[#A8C5A8]'
+            }`}>
+              with {friendName}
+            </p>
           )}
 
           {event.description && (
-            <p className="text-sm text-gray-600 mb-2">{event.description}</p>
+            <p className={`text-sm mb-2 ${
+              isCompleted ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              {event.description}
+            </p>
           )}
 
           <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2 text-sm text-gray-500">
+            <div className={`flex items-center gap-2 text-sm ${
+              isCompleted ? 'text-gray-400' : 'text-gray-500'
+            }`}>
               <Calendar className="w-4 h-4" />
               <span>
                 {format(new Date(event.eventDate), 'PPP')} (
@@ -49,7 +99,9 @@ export function EventCard({ event, friendName, onDelete }: EventCardProps) {
             </div>
 
             {event.location && (
-              <div className="flex items-center gap-2 text-sm text-gray-500">
+              <div className={`flex items-center gap-2 text-sm ${
+                isCompleted ? 'text-gray-400' : 'text-gray-500'
+              }`}>
                 <MapPin className="w-4 h-4" />
                 <span>{event.location}</span>
               </div>
