@@ -14,7 +14,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, content, friendIds } = body;
+    const { title, content, imageUrl, friendIds } = body;
 
     if (!content || typeof content !== 'string' || !content.trim()) {
       return NextResponse.json({ error: 'Content is required' }, { status: 400 });
@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
       data: {
         title: title?.trim() || null,
         content,
+        imageUrl: imageUrl || null,
         friendIds: Array.isArray(friendIds)
           ? (friendIds.filter((id: string) => typeof id === 'string') as string[])
           : [],
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, title, content, friendIds } = body;
+    const { id, title, content, imageUrl, friendIds } = body;
 
     if (!id || typeof id !== 'string') {
       return NextResponse.json({ error: 'Note ID is required' }, { status: 400 });
@@ -51,6 +52,7 @@ export async function PUT(request: NextRequest) {
       data: {
         title: title === undefined ? undefined : title?.trim() || null,
         content,
+        imageUrl: imageUrl === undefined ? undefined : imageUrl || null,
         friendIds: Array.isArray(friendIds)
           ? (friendIds.filter((fid: string) => typeof fid === 'string') as string[])
           : undefined,

@@ -1,7 +1,7 @@
 'use client';
 
 import { Card } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { FriendAvatar } from '@/components/friend-avatar';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 
@@ -11,27 +11,19 @@ interface Friend {
   birthday?: Date | null;
   lastContact?: Date | null;
   notes?: string | null;
+  profileImage?: string | null;
 }
 
 export function FriendCard({ friend }: { friend: Friend }) {
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   return (
     <Link href={`/friends/${friend.id}`}>
       <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer border-[#A8C5A8]/20">
         <div className="flex items-start gap-3">
-          <Avatar className="bg-[#A8C5A8] text-white">
-            <AvatarFallback className="bg-[#A8C5A8] text-white">
-              {getInitials(friend.name)}
-            </AvatarFallback>
-          </Avatar>
+          <FriendAvatar
+            name={friend.name}
+            profileImage={friend.profileImage}
+            size="sm"
+          />
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-gray-900 truncate">{friend.name}</h3>
             {friend.lastContact && (

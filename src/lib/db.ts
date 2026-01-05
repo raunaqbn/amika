@@ -25,6 +25,7 @@ type DiaryNote = {
   id: string;
   title: string | null;
   content: string;
+  imageUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -103,6 +104,7 @@ async function ensureTablesExist() {
         id TEXT PRIMARY KEY,
         title TEXT,
         content TEXT NOT NULL,
+        imageUrl TEXT,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL
       )
@@ -151,6 +153,12 @@ async function ensureTablesExist() {
 
     try {
       await client.execute(`ALTER TABLE memories ADD COLUMN imageUrl TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
+
+    try {
+      await client.execute(`ALTER TABLE diary_notes ADD COLUMN imageUrl TEXT`);
     } catch (e) {
       // Column might already exist
     }
@@ -391,6 +399,7 @@ export const prisma = {
         id: row.id as string,
         title: (row.title as string | null) ?? null,
         content: row.content as string,
+        imageUrl: row.imageUrl as string | null,
         createdAt: new Date(row.createdAt as string),
         updatedAt: new Date(row.updatedAt as string),
       }));
@@ -406,7 +415,7 @@ export const prisma = {
     create: async ({
       data,
     }: {
-      data: { title?: string | null; content: string; friendIds?: string[] };
+      data: { title?: string | null; content: string; imageUrl?: string | null; friendIds?: string[] };
     }) => {
       await ensureTablesExist();
       const client = getClient();
@@ -416,16 +425,18 @@ export const prisma = {
         id: randomUUID(),
         title: data.title ?? null,
         content: data.content,
+        imageUrl: data.imageUrl ?? null,
         createdAt: now,
         updatedAt: now,
       };
 
       await client.execute({
-        sql: 'INSERT INTO diary_notes (id, title, content, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)',
+        sql: 'INSERT INTO diary_notes (id, title, content, imageUrl, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)',
         args: [
           note.id,
           note.title,
           note.content,
+          note.imageUrl,
           note.createdAt.toISOString(),
           note.updatedAt.toISOString(),
         ],
@@ -449,7 +460,7 @@ export const prisma = {
       data,
     }: {
       where: { id: string };
-      data: { title?: string | null; content?: string; friendIds?: string[] };
+      data: { title?: string | null; content?: string; imageUrl?: string | null; friendIds?: string[] };
     }) => {
       await ensureTablesExist();
       const client = getClient();
@@ -470,13 +481,14 @@ export const prisma = {
         title:
           data.title !== undefined ? data.title : ((existing.title as string | null) ?? null),
         content: (data.content ?? existing.content) as string,
+        imageUrl: data.imageUrl !== undefined ? data.imageUrl : (existing.imageUrl as string | null),
         createdAt: new Date(existing.createdAt as string),
         updatedAt: now,
       };
 
       await client.execute({
-        sql: 'UPDATE diary_notes SET title = ?, content = ?, updatedAt = ? WHERE id = ?',
-        args: [updated.title, updated.content, updated.updatedAt.toISOString(), where.id],
+        sql: 'UPDATE diary_notes SET title = ?, content = ?, imageUrl = ?, updatedAt = ? WHERE id = ?',
+        args: [updated.title, updated.content, updated.imageUrl, updated.updatedAt.toISOString(), where.id],
       });
 
       if (data.friendIds) {

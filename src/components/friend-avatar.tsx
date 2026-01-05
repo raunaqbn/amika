@@ -34,9 +34,9 @@ export function FriendAvatar({
   };
 
   const sizeClasses = {
-    sm: 'w-10 h-10 text-sm',
-    md: 'w-16 h-16 text-xl',
-    lg: 'w-24 h-24 text-3xl',
+    sm: 'w-12 h-12 text-sm',
+    md: 'w-24 h-24 text-2xl',
+    lg: 'w-32 h-32 text-4xl',
   };
 
   const compressImage = async (file: File): Promise<File> => {
