@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { FriendAvatar } from '@/components/friend-avatar';
 import { MemoryList } from '@/components/memory-list';
 import { ArrowLeft, Edit, Trash2, Check, X } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -18,12 +18,14 @@ interface Friend {
   howWeMet?: string | null;
   notes?: string | null;
   lastContact?: Date | null;
+  profileImage?: string | null;
   memories: Memory[];
 }
 
 interface Memory {
   id: string;
   content: string;
+  imageUrl?: string | null;
   createdAt: Date;
 }
 
@@ -34,6 +36,12 @@ interface DiaryNote {
   createdAt: string;
   updatedAt: string;
   friends: { id: string; name: string }[];
+}
+
+interface Event {
+  id: string;
+  friendId: string;
+  eventDate: Date;
 }
 
 export default function FriendProfilePage() {
@@ -51,9 +59,12 @@ export default function FriendProfilePage() {
   });
   const [taggedNotes, setTaggedNotes] = useState<DiaryNote[]>([]);
   const [notesLoading, setNotesLoading] = useState(false);
+  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     fetchFriend();
+    fetchEvents();
   }, [params.id]);
 
   useEffect(() => {
@@ -109,6 +120,19 @@ export default function FriendProfilePage() {
     }
   };
 
+  const fetchEvents = async () => {
+    try {
+      const response = await fetch(`/api/events?friendId=${params.id}`);
+      const data = await response.json();
+      const upcoming = data.filter(
+        (event: Event) => new Date(event.eventDate) >= new Date()
+      );
+      setUpcomingEvents(upcoming);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+    }
+  };
+
   const handleUpdate = async () => {
     try {
       const response = await fetch('/api/friends', {
@@ -142,13 +166,41 @@ export default function FriendProfilePage() {
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+  const handleImageUpload = async (file: File) => {
+    if (!friend) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const uploadRes = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadRes.ok) throw new Error('Upload failed');
+
+      const { url } = await uploadRes.json();
+
+      const updateRes = await fetch('/api/friends', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: friend.id,
+          profileImage: url,
+        }),
+      });
+
+      if (updateRes.ok) {
+        await fetchFriend();
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('Failed to upload image. Please try again.');
+    } finally {
+      setUploading(false);
+    }
   };
 
   if (loading) {
@@ -184,11 +236,21 @@ export default function FriendProfilePage() {
 
         <Card className="p-6 mb-6 border-[#A8C5A8]/20">
           <div className="flex items-start gap-4 mb-6">
-            <Avatar className="w-16 h-16 bg-[#A8C5A8] text-white text-xl">
-              <AvatarFallback className="bg-[#A8C5A8] text-white text-xl">
-                {getInitials(friend.name)}
-              </AvatarFallback>
-            </Avatar>
+            <div className="relative">
+              <FriendAvatar
+                name={friend.name}
+                profileImage={friend.profileImage}
+                hasUpcomingEvent={upcomingEvents.length > 0}
+                size="md"
+                editable={!editing}
+                onImageUpload={handleImageUpload}
+              />
+              {uploading && (
+                <div className="absolute -bottom-6 left-0 text-xs text-gray-500">
+                  Uploading...
+                </div>
+              )}
+            </div>
             <div className="flex-1">
               {editing ? (
                 <Input
