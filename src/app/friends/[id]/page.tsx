@@ -6,10 +6,16 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { MemoryList } from '@/components/memory-list';
 import { ArrowLeft, Edit, Trash2, Check, X } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
 interface Friend {
   id: string;
@@ -18,6 +24,7 @@ interface Friend {
   howWeMet?: string | null;
   notes?: string | null;
   lastContact?: Date | null;
+  avatarUrl?: string | null;
   memories: Memory[];
 }
 
@@ -25,6 +32,15 @@ interface Memory {
   id: string;
   content: string;
   createdAt: Date;
+}
+
+interface DiaryNote {
+  id: string;
+  title: string | null;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  friends: { id: string; name: string }[];
 }
 
 export default function FriendProfilePage() {
@@ -39,11 +55,41 @@ export default function FriendProfilePage() {
     howWeMet: '',
     notes: '',
     lastContact: '',
+    avatarUrl: '',
   });
+  const [taggedNotes, setTaggedNotes] = useState<DiaryNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<DiaryNote | null>(null);
 
   useEffect(() => {
     fetchFriend();
   }, [params.id]);
+
+  useEffect(() => {
+    if (!friend) return;
+
+    const loadNotes = async () => {
+      setNotesLoading(true);
+      try {
+        const response = await fetch('/api/diary');
+        if (!response.ok) return;
+        const data = await response.json();
+        setTaggedNotes(
+          data.filter((note: DiaryNote) =>
+            Array.isArray(note.friends)
+              ? note.friends.some((f) => f.id === friend.id)
+              : false
+          )
+        );
+      } catch (error) {
+        console.error('Error fetching diary notes', error);
+      } finally {
+        setNotesLoading(false);
+      }
+    };
+
+    loadNotes();
+  }, [friend]);
 
   const fetchFriend = async () => {
     try {
@@ -63,6 +109,7 @@ export default function FriendProfilePage() {
           lastContact: foundFriend.lastContact
             ? format(new Date(foundFriend.lastContact), 'yyyy-MM-dd')
             : '',
+          avatarUrl: foundFriend.avatarUrl || '',
         });
       }
     } catch (error) {
@@ -148,6 +195,9 @@ export default function FriendProfilePage() {
         <Card className="p-6 mb-6 border-[#A8C5A8]/20">
           <div className="flex items-start gap-4 mb-6">
             <Avatar className="w-16 h-16 bg-[#A8C5A8] text-white text-xl">
+              {friend.avatarUrl && (
+                <AvatarImage src={friend.avatarUrl} alt={friend.name} />
+              )}
               <AvatarFallback className="bg-[#A8C5A8] text-white text-xl">
                 {getInitials(friend.name)}
               </AvatarFallback>
@@ -163,6 +213,17 @@ export default function FriendProfilePage() {
                 />
               ) : (
                 <h1 className="text-2xl font-bold text-gray-900">{friend.name}</h1>
+              )}
+              {editing && (
+                <Input
+                  type="url"
+                  value={formData.avatarUrl}
+                  onChange={(e) =>
+                    setFormData({ ...formData, avatarUrl: e.target.value })
+                  }
+                  placeholder="Profile picture URL"
+                  className="mt-2"
+                />
               )}
             </div>
             <div className="flex gap-2">
@@ -292,7 +353,66 @@ export default function FriendProfilePage() {
             onUpdate={fetchFriend}
           />
         </Card>
+
+        <Card className="p-6 border-[#A8C5A8]/20 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-semibold">Diary</h2>
+              <p className="text-sm text-gray-600">
+                Notes where {friend.name} was tagged
+              </p>
+            </div>
+          </div>
+
+          {notesLoading ? (
+            <div className="text-sm text-gray-500">Loading notes...</div>
+          ) : taggedNotes.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              No diary entries yet for this friend.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {taggedNotes.map((note) => (
+                <button
+                  type="button"
+                  key={note.id}
+                  onClick={() => setSelectedNote(note)}
+                  className="w-full text-left p-3 rounded-xl border border-[#A8C5A8]/30 bg-white/60 hover:border-[#A8C5A8]/60 focus:outline-none focus:ring-2 focus:ring-[#A8C5A8]"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-medium text-gray-900">
+                      {note.title?.trim() || 'Untitled note'}
+                    </h3>
+                    <span className="text-xs text-gray-500 whitespace-nowrap">
+                      {formatDistanceToNow(new Date(note.updatedAt), {
+                        addSuffix: true,
+                      })}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </Card>
       </div>
+
+      <Dialog open={!!selectedNote} onOpenChange={(open) => !open && setSelectedNote(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{selectedNote?.title?.trim() || 'Untitled note'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {selectedNote && (
+              <p className="text-xs text-gray-500">
+                Updated {formatDistanceToNow(new Date(selectedNote.updatedAt), { addSuffix: true })}
+              </p>
+            )}
+            <p className="text-sm text-gray-800 whitespace-pre-wrap">
+              {selectedNote?.content}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -23,6 +23,7 @@ export function AddFriendDialog({ onAdd }: { onAdd: () => void }) {
     howWeMet: '',
     notes: '',
     lastContact: '',
+    avatarUrl: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,6 +45,7 @@ export function AddFriendDialog({ onAdd }: { onAdd: () => void }) {
           howWeMet: '',
           notes: '',
           lastContact: '',
+          avatarUrl: '',
         });
         onAdd();
       }
@@ -77,6 +79,15 @@ export function AddFriendDialog({ onAdd }: { onAdd: () => void }) {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="John Doe"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Profile picture</label>
+            <Input
+              type="url"
+              value={formData.avatarUrl}
+              onChange={(e) => setFormData({ ...formData, avatarUrl: e.target.value })}
+              placeholder="Image URL (optional)"
             />
           </div>
           <div>

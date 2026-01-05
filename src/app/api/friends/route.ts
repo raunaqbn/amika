@@ -21,15 +21,16 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, birthday, howWeMet, notes, lastContact } = body;
+    const { name, birthday, howWeMet, notes, lastContact, avatarUrl } = body;
 
     const friend = await prisma.friend.create({
       data: {
         name,
-        birthday: birthday ? new Date(birthday) : null,
+        birthday: birthday ? new Date(`${birthday}T12:00:00Z`) : null,
         howWeMet: howWeMet || null,
         notes: notes || null,
-        lastContact: lastContact ? new Date(lastContact) : null,
+        lastContact: lastContact ? new Date(`${lastContact}T12:00:00Z`) : null,
+        avatarUrl: avatarUrl || null,
       },
     });
 
@@ -43,16 +44,17 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, name, birthday, howWeMet, notes, lastContact } = body;
+    const { id, name, birthday, howWeMet, notes, lastContact, avatarUrl } = body;
 
     const friend = await prisma.friend.update({
       where: { id },
       data: {
         name,
-        birthday: birthday ? new Date(birthday) : null,
+        birthday: birthday ? new Date(`${birthday}T12:00:00Z`) : null,
         howWeMet: howWeMet || null,
         notes: notes || null,
-        lastContact: lastContact ? new Date(lastContact) : null,
+        lastContact: lastContact ? new Date(`${lastContact}T12:00:00Z`) : null,
+        avatarUrl: avatarUrl || null,
       },
     });
 
