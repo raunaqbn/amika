@@ -5,6 +5,9 @@ import { randomUUID } from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
+// Configure body size limit to 4MB (Vercel's max is 4.5MB)
+export const runtime = 'nodejs';
+
 // POST /api/upload - Upload an image
 export async function POST(request: NextRequest) {
   try {
@@ -27,38 +30,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    // Validate file size (max 4MB to stay within Vercel limits)
+    const maxSize = 4 * 1024 * 1024; // 4MB
     if (file.size > maxSize) {
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 5MB.' },
+        { error: 'File too large. Maximum size is 4MB.' },
         { status: 400 }
       );
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-    try {
-      await mkdir(uploadsDir, { recursive: true });
-    } catch (error) {
-      // Directory might already exist
-    }
-
-    // Generate unique filename
-    const fileExtension = file.name.split('.').pop();
-    const uniqueFilename = `${randomUUID()}.${fileExtension}`;
-    const filePath = path.join(uploadsDir, uniqueFilename);
-
-    // Convert file to buffer and save
+    // For Vercel deployment, we need to use /tmp directory as it's the only writable location
+    // Then we'll need to serve these files differently
+    // For now, let's convert the image to base64 and return it
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
 
-    // Return the public URL
-    const publicUrl = `/uploads/${uniqueFilename}`;
+    // Convert to base64 data URL
+    const base64 = buffer.toString('base64');
+    const mimeType = file.type;
+    const dataUrl = `data:${mimeType};base64,${base64}`;
 
     return NextResponse.json(
-      { url: publicUrl, filename: uniqueFilename },
+      { url: dataUrl },
       { status: 201 }
     );
   } catch (error) {
