@@ -4,7 +4,7 @@ import { useChat } from 'ai/react';
 import type { Message } from 'ai';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Plus, MessageSquare } from 'lucide-react';
+import { Send, Plus, MessageSquare, Sparkles, ChevronDown } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dialog,
@@ -53,6 +53,18 @@ export function ChatInterface() {
   const [mentionPosition, setMentionPosition] = useState(0);
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Writing assistant state
+  const [showWritingAssistant, setShowWritingAssistant] = useState(false);
+  const [writingAssistantLoading, setWritingAssistantLoading] = useState(false);
+  const writingAssistantRef = useRef<HTMLDivElement>(null);
+  const writingAssistantCues = [
+    { id: 'suggest-ideas', label: 'Suggest ideas', icon: '💡' },
+    { id: 'challenge-thinking', label: 'Challenge thinking', icon: '🔍' },
+    { id: 'alternative-perspective', label: 'Give alternative perspective', icon: '🔄' },
+    { id: 'thinking-traps', label: 'Scan for thinking traps', icon: '🪤' },
+    { id: 'positive-reframe', label: 'Suggest positive reframe', icon: '✨' },
+  ];
 
   const {
     messages,
@@ -269,6 +281,106 @@ export function ChatInterface() {
       setSaveFeedback('Unable to save note. Please try again.');
     } finally {
       setSavingNote(false);
+    }
+  };
+
+  // Close writing assistant dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (writingAssistantRef.current && !writingAssistantRef.current.contains(event.target as Node)) {
+        setShowWritingAssistant(false);
+      }
+    };
+
+    if (showWritingAssistant) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showWritingAssistant]);
+
+  const handleWritingAssistantCue = async (cueId: string) => {
+    setShowWritingAssistant(false);
+
+    // Build conversation context from recent messages
+    const recentMessages = messages.slice(-10); // Last 10 messages for context
+    const conversationContext = recentMessages.length > 0
+      ? recentMessages
+          .map((msg) => `${msg.role === 'user' ? 'User' : 'Mirror'}: ${msg.content}`)
+          .join('\n\n')
+      : input.trim() || 'No content yet.';
+
+    if (conversationContext === 'No content yet.' && !input.trim()) {
+      setErrorMessage('Start writing or have a conversation first to use the writing assistant.');
+      return;
+    }
+
+    setWritingAssistantLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch('/api/writing-assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cueId,
+          conversationContext: input.trim() || conversationContext,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to get writing assistant response');
+      }
+
+      // Read the streamed response
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      const decoder = new TextDecoder();
+      let assistantResponse = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        // Parse the SSE data format from Vercel AI SDK
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('0:')) {
+            // Text chunk - parse the JSON string
+            try {
+              const textContent = JSON.parse(line.slice(2));
+              assistantResponse += textContent;
+            } catch {
+              // Skip unparseable lines
+            }
+          }
+        }
+      }
+
+      // Add the assistant's response as a new message
+      if (assistantResponse) {
+        const cue = writingAssistantCues.find((c) => c.id === cueId);
+        const cueLabel = cue?.label || 'Writing Assistant';
+        const icon = cue?.icon || '✨';
+
+        // Create a new message from Mirror with the writing assistant response
+        const newMessage: Message = {
+          id: generateId(),
+          role: 'assistant',
+          content: `${icon} **${cueLabel}**\n\n${assistantResponse}`,
+        };
+
+        setMessages([...messages, newMessage]);
+      }
+    } catch (error) {
+      console.error('Writing assistant error:', error);
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Something went wrong with the writing assistant.'
+      );
+    } finally {
+      setWritingAssistantLoading(false);
     }
   };
 
@@ -517,6 +629,52 @@ export function ChatInterface() {
                 </div>
               )}
             </div>
+            {/* Writing Assistant Button */}
+            <div className="relative self-end" ref={writingAssistantRef}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowWritingAssistant(!showWritingAssistant)}
+                disabled={writingAssistantLoading || (messages.length === 0 && !input.trim())}
+                className="border-[#D4A5A5]/60 text-[#D4A5A5] hover:bg-[#D4A5A5]/10"
+              >
+                {writingAssistantLoading ? (
+                  <div className="flex space-x-1">
+                    <div className="w-1.5 h-1.5 bg-[#D4A5A5] rounded-full animate-bounce" />
+                    <div className="w-1.5 h-1.5 bg-[#D4A5A5] rounded-full animate-bounce [animation-delay:0.2s]" />
+                    <div className="w-1.5 h-1.5 bg-[#D4A5A5] rounded-full animate-bounce [animation-delay:0.4s]" />
+                  </div>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <ChevronDown className="w-3 h-3 ml-1" />
+                  </>
+                )}
+              </Button>
+
+              {/* Writing Assistant Dropdown */}
+              {showWritingAssistant && (
+                <div className="absolute bottom-full right-0 mb-2 w-64 bg-white border border-[#D4A5A5]/30 rounded-xl shadow-lg z-50 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-[#D4A5A5]/20 bg-[#D4A5A5]/5">
+                    <p className="text-xs font-medium text-[#D4A5A5]">Writing Assistant</p>
+                    <p className="text-xs text-gray-500">Choose a conversation cue</p>
+                  </div>
+                  <div className="py-1">
+                    {writingAssistantCues.map((cue) => (
+                      <button
+                        key={cue.id}
+                        type="button"
+                        onClick={() => handleWritingAssistantCue(cue.id)}
+                        className="w-full text-left px-3 py-2 hover:bg-[#D4A5A5]/10 transition-colors flex items-center gap-2"
+                      >
+                        <span className="text-base">{cue.icon}</span>
+                        <span className="text-sm text-gray-700">{cue.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             <Button
               type="submit"
               disabled={isLoading || !input.trim()}
@@ -526,7 +684,7 @@ export function ChatInterface() {
             </Button>
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            Press Enter to send, Shift+Enter for new line. Use @ to mention friends.
+            Press Enter to send, Shift+Enter for new line. Use @ to mention friends, ✨ for writing help.
           </p>
         </form>
 
