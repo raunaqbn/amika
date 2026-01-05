@@ -430,7 +430,8 @@ export default function FriendProfilePage() {
                 return (
                   <div
                     key={note.id}
-                    className="p-3 rounded-xl border border-[#A8C5A8]/30 bg-white/60"
+                    className="p-3 rounded-xl border border-[#A8C5A8]/30 bg-white/60 cursor-pointer hover:shadow-md hover:border-[#A8C5A8]/50 transition-all"
+                    onClick={() => router.push(`/diary?id=${note.id}`)}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-1">
