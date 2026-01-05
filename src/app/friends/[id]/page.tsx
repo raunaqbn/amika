@@ -179,7 +179,10 @@ export default function FriendProfilePage() {
         body: formData,
       });
 
-      if (!uploadRes.ok) throw new Error('Upload failed');
+      if (!uploadRes.ok) {
+        const errorData = await uploadRes.json();
+        throw new Error(errorData.error || 'Upload failed');
+      }
 
       const { url } = await uploadRes.json();
 
@@ -194,10 +197,13 @@ export default function FriendProfilePage() {
 
       if (updateRes.ok) {
         await fetchFriend();
+      } else {
+        throw new Error('Failed to update profile');
       }
     } catch (error) {
       console.error('Error uploading image:', error);
-      alert('Failed to upload image. Please try again.');
+      const message = error instanceof Error ? error.message : 'Failed to upload image. Please try again.';
+      alert(message);
     } finally {
       setUploading(false);
     }

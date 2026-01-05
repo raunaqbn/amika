@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
-import { randomUUID } from 'crypto';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-// POST /api/upload - Upload an image
+// POST /api/upload - Upload an image (converts to base64 for Vercel compatibility)
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -27,44 +25,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    // Validate file size (max 4MB to stay within Vercel limits)
+    const maxSize = 4 * 1024 * 1024; // 4MB
     if (file.size > maxSize) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 5MB.' },
-        { status: 400 }
+        { error: `Image is too large (${sizeMB}MB). Please use an image smaller than 4MB.` },
+        { status: 413 }
       );
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-    try {
-      await mkdir(uploadsDir, { recursive: true });
-    } catch (error) {
-      // Directory might already exist
-    }
-
-    // Generate unique filename
-    const fileExtension = file.name.split('.').pop();
-    const uniqueFilename = `${randomUUID()}.${fileExtension}`;
-    const filePath = path.join(uploadsDir, uniqueFilename);
-
-    // Convert file to buffer and save
+    // Convert image to base64 data URL for storage
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
-
-    // Return the public URL
-    const publicUrl = `/uploads/${uniqueFilename}`;
+    const base64 = buffer.toString('base64');
+    const mimeType = file.type;
+    const dataUrl = `data:${mimeType};base64,${base64}`;
 
     return NextResponse.json(
-      { url: publicUrl, filename: uniqueFilename },
+      { url: dataUrl },
       { status: 201 }
     );
   } catch (error) {
     console.error('Error uploading file:', error);
     return NextResponse.json(
-      { error: 'Failed to upload file' },
+      { error: 'Failed to upload file. Please try again.' },
       { status: 500 }
     );
   }
