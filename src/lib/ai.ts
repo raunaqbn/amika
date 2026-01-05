@@ -1,5 +1,11 @@
-import { google } from '@ai-sdk/google';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 
+// Use the stable v1 API endpoint for Gemini access
+const google = createGoogleGenerativeAI({
+  baseURL: 'https://generativelanguage.googleapis.com/v1',
+});
+
+// The v1 API exposes the stable model ID without the "-latest" alias
 export const model = google('gemini-1.5-flash');
 
 export const systemPrompt = `You are Mirror, a warm relationship coach helping users be better friends.
