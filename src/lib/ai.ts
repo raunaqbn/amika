@@ -9,7 +9,7 @@ export function getModel() {
   switch (provider.toLowerCase()) {
     case 'anthropic':
     case 'claude':
-      return anthropic(process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20240620');
+      return anthropic(process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-latest');
 
     case 'openai':
       return openai(process.env.OPENAI_MODEL || 'gpt-4o');
