@@ -1,4 +1,4 @@
-import { google } from '@ai-sdk/google';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 
 // Use a supported Gemini model variant for the v1beta API
 export const model = google('gemini-1.5-flash-latest');
