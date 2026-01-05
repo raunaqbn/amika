@@ -4,7 +4,7 @@ import { useChat } from 'ai/react';
 import type { Message } from 'ai';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Plus, MessageSquare, Calendar, MapPin, Clock } from 'lucide-react';
+import { Send, Plus, MessageSquare, Calendar, MapPin, Clock, Trash2, Sparkles, ChevronDown } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Card } from './ui/card';
@@ -204,6 +204,18 @@ export function ChatInterface() {
   const [quickEventLocation, setQuickEventLocation] = useState('');
   const [creatingEvent, setCreatingEvent] = useState(false);
 
+  // Writing assistant state
+  const [showWritingAssistant, setShowWritingAssistant] = useState(false);
+  const [writingAssistantLoading, setWritingAssistantLoading] = useState(false);
+  const writingAssistantRef = useRef<HTMLDivElement>(null);
+  const writingAssistantCues = [
+    { id: 'suggest-ideas', label: 'Suggest ideas', icon: '💡' },
+    { id: 'challenge-thinking', label: 'Challenge thinking', icon: '🔍' },
+    { id: 'alternative-perspective', label: 'Give alternative perspective', icon: '🔄' },
+    { id: 'thinking-traps', label: 'Scan for thinking traps', icon: '🪤' },
+    { id: 'positive-reframe', label: 'Suggest positive reframe', icon: '✨' },
+  ];
+
   const {
     messages,
     input,
@@ -351,6 +363,17 @@ export function ChatInterface() {
     setMessages(session.messages);
   };
 
+  const deleteSession = (sessionId: string) => {
+    setChatHistory((prev) => prev.filter((entry) => entry.id !== sessionId));
+
+    // If deleting the active session, clear the current chat
+    if (activeSessionId === sessionId || activeSessionIdRef.current === sessionId) {
+      activeSessionIdRef.current = null;
+      setActiveSessionId(null);
+      setMessages([]);
+    }
+  };
+
   useEffect(() => {
     // Use ref for consistent ID access
     const sessionId = activeSessionIdRef.current;
@@ -461,6 +484,106 @@ export function ChatInterface() {
     }
   };
 
+  // Close writing assistant dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (writingAssistantRef.current && !writingAssistantRef.current.contains(event.target as Node)) {
+        setShowWritingAssistant(false);
+      }
+    };
+
+    if (showWritingAssistant) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showWritingAssistant]);
+
+  const handleWritingAssistantCue = async (cueId: string) => {
+    setShowWritingAssistant(false);
+
+    // Build conversation context from recent messages
+    const recentMessages = messages.slice(-10); // Last 10 messages for context
+    const conversationContext = recentMessages.length > 0
+      ? recentMessages
+          .map((msg) => `${msg.role === 'user' ? 'User' : 'Mirror'}: ${msg.content}`)
+          .join('\n\n')
+      : input.trim() || 'No content yet.';
+
+    if (conversationContext === 'No content yet.' && !input.trim()) {
+      setErrorMessage('Start writing or have a conversation first to use the writing assistant.');
+      return;
+    }
+
+    setWritingAssistantLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch('/api/writing-assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cueId,
+          conversationContext: input.trim() || conversationContext,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to get writing assistant response');
+      }
+
+      // Read the streamed response
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      const decoder = new TextDecoder();
+      let assistantResponse = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        // Parse the SSE data format from Vercel AI SDK
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('0:')) {
+            // Text chunk - parse the JSON string
+            try {
+              const textContent = JSON.parse(line.slice(2));
+              assistantResponse += textContent;
+            } catch {
+              // Skip unparseable lines
+            }
+          }
+        }
+      }
+
+      // Add the assistant's response as a new message
+      if (assistantResponse) {
+        const cue = writingAssistantCues.find((c) => c.id === cueId);
+        const cueLabel = cue?.label || 'Writing Assistant';
+        const icon = cue?.icon || '✨';
+
+        // Create a new message from Mirror with the writing assistant response
+        const newMessage: Message = {
+          id: generateId(),
+          role: 'assistant',
+          content: `${icon} **${cueLabel}**\n\n${assistantResponse}`,
+        };
+
+        setMessages([...messages, newMessage]);
+      }
+    } catch (error) {
+      console.error('Writing assistant error:', error);
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Something went wrong with the writing assistant.'
+      );
+    } finally {
+      setWritingAssistantLoading(false);
+    }
+  };
+
   const filteredFriends = useMemo(() => {
     if (!mentionSearch) return friends;
     const search = mentionSearch.toLowerCase();
@@ -566,26 +689,41 @@ export function ChatInterface() {
         ) : (
           <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
             {sortedHistory.map((session) => (
-              <button
+              <div
                 key={session.id}
-                type="button"
-                onClick={() => loadSession(session.id)}
-                className={`w-full text-left px-3 py-2 rounded-xl border transition-colors flex items-start gap-2 ${
+                className={`group w-full text-left px-3 py-2 rounded-xl border transition-colors flex items-start gap-2 ${
                   activeSessionId === session.id
                     ? 'border-[#A8C5A8]/60 bg-[#A8C5A8]/10'
                     : 'border-transparent hover:border-[#A8C5A8]/40 hover:bg-[#A8C5A8]/5'
                 }`}
               >
-                <MessageSquare className="w-4 h-4 mt-0.5 text-[#A8C5A8]" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900 line-clamp-1">
-                    {session.title || 'Conversation'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(session.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => loadSession(session.id)}
+                  className="flex items-start gap-2 flex-1 min-w-0"
+                >
+                  <MessageSquare className="w-4 h-4 mt-0.5 text-[#A8C5A8] flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 line-clamp-1">
+                      {session.title || 'Conversation'}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(session.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteSession(session.id);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded text-gray-400 hover:text-red-500 flex-shrink-0"
+                  title="Delete chat"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             ))}
           </div>
         )}
@@ -725,6 +863,52 @@ export function ChatInterface() {
                 </div>
               )}
             </div>
+            {/* Writing Assistant Button */}
+            <div className="relative self-end" ref={writingAssistantRef}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowWritingAssistant(!showWritingAssistant)}
+                disabled={writingAssistantLoading || (messages.length === 0 && !input.trim())}
+                className="border-[#D4A5A5]/60 text-[#D4A5A5] hover:bg-[#D4A5A5]/10"
+              >
+                {writingAssistantLoading ? (
+                  <div className="flex space-x-1">
+                    <div className="w-1.5 h-1.5 bg-[#D4A5A5] rounded-full animate-bounce" />
+                    <div className="w-1.5 h-1.5 bg-[#D4A5A5] rounded-full animate-bounce [animation-delay:0.2s]" />
+                    <div className="w-1.5 h-1.5 bg-[#D4A5A5] rounded-full animate-bounce [animation-delay:0.4s]" />
+                  </div>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <ChevronDown className="w-3 h-3 ml-1" />
+                  </>
+                )}
+              </Button>
+
+              {/* Writing Assistant Dropdown */}
+              {showWritingAssistant && (
+                <div className="absolute bottom-full right-0 mb-2 w-64 bg-white border border-[#D4A5A5]/30 rounded-xl shadow-lg z-50 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-[#D4A5A5]/20 bg-[#D4A5A5]/5">
+                    <p className="text-xs font-medium text-[#D4A5A5]">Writing Assistant</p>
+                    <p className="text-xs text-gray-500">Choose a conversation cue</p>
+                  </div>
+                  <div className="py-1">
+                    {writingAssistantCues.map((cue) => (
+                      <button
+                        key={cue.id}
+                        type="button"
+                        onClick={() => handleWritingAssistantCue(cue.id)}
+                        className="w-full text-left px-3 py-2 hover:bg-[#D4A5A5]/10 transition-colors flex items-center gap-2"
+                      >
+                        <span className="text-base">{cue.icon}</span>
+                        <span className="text-sm text-gray-700">{cue.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             <Button
               type="submit"
               disabled={isLoading || !input.trim()}
@@ -734,7 +918,7 @@ export function ChatInterface() {
             </Button>
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            Press Enter to send, Shift+Enter for new line. Use @ to mention friends.
+            Press Enter to send, Shift+Enter for new line. Use @ to mention friends, ✨ for writing help.
           </p>
         </form>
 
