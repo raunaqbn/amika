@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, isThisWeek, isToday, startOfWeek, endOfWeek } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -14,7 +14,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Pencil, Plus, Trash2, Image as ImageIcon, X } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Heart, Search, Plus, X, MoreVertical, Share2, Image as ImageIcon } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -38,9 +39,12 @@ export default function DiaryPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingNote, setEditingNote] = useState<DiaryNote | null>(null);
+  const [selectedNote, setSelectedNote] = useState<DiaryNote | null>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('entry');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -61,6 +65,14 @@ export default function DiaryPage() {
 
       setNotes(notesData);
       setFriends(friendsData.map((friend: any) => ({ id: friend.id, name: friend.name })));
+
+      // Set first note as selected if none selected
+      if (notesData.length > 0 && !selectedNote) {
+        const sorted = [...notesData].sort(
+          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+        setSelectedNote(sorted[0]);
+      }
     } catch (error) {
       console.error('Error fetching diary data:', error);
     } finally {
@@ -230,7 +242,21 @@ export default function DiaryPage() {
         throw new Error('Failed to save note');
       }
 
-      await fetchData();
+      const updatedNotes = await fetch('/api/diary').then(res => res.json());
+      setNotes(updatedNotes);
+
+      // Update selected note if it was edited
+      if (editingNote) {
+        const updated = updatedNotes.find((n: DiaryNote) => n.id === editingNote.id);
+        if (updated) setSelectedNote(updated);
+      } else {
+        // Select the newly created note
+        const sorted = [...updatedNotes].sort(
+          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+        setSelectedNote(sorted[0]);
+      }
+
       setDialogOpen(false);
     } catch (error) {
       console.error('Error saving note:', error);
@@ -251,6 +277,11 @@ export default function DiaryPage() {
       }
 
       setNotes((prev) => prev.filter((note) => note.id !== id));
+
+      // Clear selected note if it was deleted
+      if (selectedNote?.id === id) {
+        setSelectedNote(null);
+      }
     } catch (error) {
       console.error('Error deleting note:', error);
     }
@@ -265,6 +296,52 @@ export default function DiaryPage() {
     [notes]
   );
 
+  // Filter notes based on search query
+  const filteredNotes = useMemo(() => {
+    if (!searchQuery.trim()) return sortedNotes;
+
+    const query = searchQuery.toLowerCase();
+    return sortedNotes.filter(
+      (note) =>
+        note.title?.toLowerCase().includes(query) ||
+        note.content.toLowerCase().includes(query) ||
+        note.friends.some((friend) => friend.name.toLowerCase().includes(query))
+    );
+  }, [sortedNotes, searchQuery]);
+
+  // Group notes by date ranges
+  const groupedNotes = useMemo(() => {
+    const groups: { [key: string]: DiaryNote[] } = {
+      Drafts: [],
+      'Last week': [],
+    };
+
+    const now = new Date();
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
+    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+
+    filteredNotes.forEach((note) => {
+      const noteDate = new Date(note.updatedAt);
+
+      if (isThisWeek(noteDate, { weekStartsOn: 1 })) {
+        groups['Last week'].push(note);
+      } else {
+        const weekKey = `${format(startOfWeek(noteDate, { weekStartsOn: 1 }), 'MMM do')} - ${format(endOfWeek(noteDate, { weekStartsOn: 1 }), 'MMM do, yyyy')}`;
+        if (!groups[weekKey]) {
+          groups[weekKey] = [];
+        }
+        groups[weekKey].push(note);
+      }
+    });
+
+    // Remove empty Drafts section for now
+    if (groups.Drafts.length === 0) {
+      delete groups.Drafts;
+    }
+
+    return groups;
+  }, [filteredNotes]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -274,94 +351,222 @@ export default function DiaryPage() {
   }
 
   return (
-    <div className="pb-20 px-4 max-w-2xl mx-auto">
-      <div className="py-8 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Diary</h1>
-          <p className="text-gray-600 mt-1">
-            Save reflections from Mirror and tag the friends involved.
-          </p>
-        </div>
-        <Button
-          onClick={openCreateDialog}
-          className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          New note
-        </Button>
-      </div>
+    <div className="h-screen flex flex-col bg-gray-50">
+      {/* Main container with two-column layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar */}
+        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+          {/* Search bar */}
+          <div className="p-4 border-b border-gray-200">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search"
+                className="pl-9 bg-gray-50 border-gray-200"
+              />
+            </div>
+          </div>
 
-      {sortedNotes.length === 0 ? (
-        <Card className="p-8 text-center border-dashed border-[#A8C5A8]/40">
-          <p className="text-gray-600 mb-4">
-            You haven't saved any notes yet. Capture your first reflection!
-          </p>
-          <Button onClick={openCreateDialog} variant="outline">
-            Start writing
-          </Button>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {sortedNotes.map((note) => (
-            <Card key={note.id} className="p-4 border-[#A8C5A8]/30">
-              <div className="flex justify-between items-start gap-3">
-                <div className="space-y-2 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-gray-900">
-                      {note.title?.trim() || 'Untitled note'}
-                    </h3>
-                    <span className="text-xs text-gray-500">
-                      Updated {formatDistanceToNow(new Date(note.updatedAt), { addSuffix: true })}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                    {note.content}
-                  </p>
-                  {note.imageUrl && (
-                    <img
-                      src={note.imageUrl}
-                      alt="Note"
-                      className="w-full max-w-md h-48 object-cover rounded-lg mt-2"
-                    />
-                  )}
-                  {note.friends.length > 0 && (
-                    <div className="flex gap-2 flex-wrap">
-                      {note.friends.map((friend) => (
-                        <Badge
-                          key={friend.id}
-                          variant="secondary"
-                          className="bg-[#D4A5A5]/20 text-[#D4A5A5] border-[#D4A5A5]/40"
+          {/* Entries list */}
+          <div className="flex-1 overflow-y-auto">
+            {sortedNotes.length === 0 ? (
+              <div className="p-4 text-center">
+                <p className="text-sm text-gray-500 mb-4">No diary notes yet</p>
+                <Button
+                  onClick={openCreateDialog}
+                  size="sm"
+                  className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  New note
+                </Button>
+              </div>
+            ) : (
+              <>
+                {Object.entries(groupedNotes).map(([groupName, groupNotes]) => (
+                  <div key={groupName} className="mb-6">
+                    <div className="px-4 py-2">
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        {groupName}
+                      </h3>
+                    </div>
+                    <div className="space-y-1">
+                      {groupNotes.map((note) => (
+                        <button
+                          key={note.id}
+                          onClick={() => setSelectedNote(note)}
+                          className={`w-full text-left px-4 py-3 transition-colors ${
+                            selectedNote?.id === note.id
+                              ? 'bg-[#F0F5F0] border-r-2 border-[#A8C5A8]'
+                              : 'hover:bg-gray-50'
+                          }`}
                         >
-                          {friend.name}
-                        </Badge>
+                          <div className="flex items-start gap-2">
+                            <Heart className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-medium text-gray-900 truncate">
+                                {note.title?.trim() || 'Untitled'}
+                              </h4>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                {format(new Date(note.updatedAt), 'MMM do')} @ {format(new Date(note.updatedAt), 'h:mm a')}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
                       ))}
                     </div>
-                  )}
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Right main content area */}
+        <div className="flex-1 flex flex-col bg-white overflow-hidden">
+          {selectedNote ? (
+            <>
+              {/* Header */}
+              <div className="border-b border-gray-200 px-8 py-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    <Heart className="w-6 h-6 text-red-400 mt-1" />
+                    <div>
+                      <h1 className="text-xl font-semibold text-gray-900">
+                        {selectedNote.title?.trim() || 'Untitled'}
+                      </h1>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {format(new Date(selectedNote.updatedAt), 'EEEE, MMMM do')} @ {format(new Date(selectedNote.updatedAt), 'h:mm a')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openEditDialog(selectedNote)}
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openEditDialog(note)}
-                    className="text-gray-500 hover:text-[#A8C5A8]"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(note.id)}
-                    className="text-gray-500 hover:text-red-500"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+
+                {/* Tabs */}
+                <div className="mt-6">
+                  <Tabs value={activeTab} onValueChange={setActiveTab}>
+                    <TabsList>
+                      <TabsTrigger value="entry">Entry</TabsTrigger>
+                      <TabsTrigger value="analysis">Analysis</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                 </div>
               </div>
-            </Card>
-          ))}
-        </div>
-      )}
 
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto px-8 py-6">
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <TabsContent value="entry" className="space-y-6">
+                    {/* Entry reflection */}
+                    <div>
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                        Entry Reflection
+                      </h3>
+                      <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                        {selectedNote.content}
+                      </p>
+                    </div>
+
+                    {/* Image */}
+                    {selectedNote.imageUrl && (
+                      <div>
+                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                          Image
+                        </h3>
+                        <img
+                          src={selectedNote.imageUrl}
+                          alt="Note"
+                          className="w-full max-w-2xl h-auto object-cover rounded-lg border border-gray-200"
+                        />
+                      </div>
+                    )}
+
+                    {/* People */}
+                    {selectedNote.friends.length > 0 && (
+                      <div>
+                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                          People
+                        </h3>
+                        <div className="flex gap-2 flex-wrap">
+                          {selectedNote.friends.map((friend) => (
+                            <Badge
+                              key={friend.id}
+                              variant="secondary"
+                              className="bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1"
+                            >
+                              <span className="mr-2">👤</span>
+                              {friend.name}
+                              <button className="ml-2 hover:text-gray-900">
+                                <X className="w-3 h-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="analysis" className="space-y-6">
+                    <div>
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                        Analysis
+                      </h3>
+                      <p className="text-gray-700 leading-relaxed">
+                        Analysis feature coming soon. This will provide insights about your diary entry.
+                      </p>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">Diary</h2>
+                <p className="text-gray-600 mb-6">
+                  Save reflections from Mirror and tag the friends involved.
+                </p>
+                <Button
+                  onClick={openCreateDialog}
+                  className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  New note
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Floating action button for mobile */}
+      <Button
+        onClick={openCreateDialog}
+        className="fixed bottom-24 right-6 h-14 w-14 rounded-full bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white shadow-lg md:hidden"
+      >
+        <Plus className="w-6 h-6" />
+      </Button>
+
+      {/* Edit/Create Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg max-w-[95vw] max-h-[85vh] flex flex-col">
           <DialogHeader>
@@ -400,9 +605,9 @@ export default function DiaryPage() {
                   <Button
                     type="button"
                     size="sm"
-                    variant="destructive"
+                    variant="ghost"
                     onClick={handleRemoveImage}
-                    className="absolute top-2 right-2"
+                    className="absolute top-2 right-2 bg-white/90 hover:bg-white text-gray-700"
                   >
                     <X className="w-4 h-4" />
                   </Button>
