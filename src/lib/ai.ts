@@ -1,6 +1,7 @@
 import { google } from '@ai-sdk/google';
 
-export const model = google('gemini-1.5-flash');
+// Use a supported Gemini model variant for the v1beta API
+export const model = google('gemini-1.5-flash-latest');
 
 export const systemPrompt = `You are Mirror, a warm relationship coach helping users be better friends.
 
