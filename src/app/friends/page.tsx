@@ -12,6 +12,7 @@ interface Friend {
   birthday?: Date | null;
   lastContact?: Date | null;
   notes?: string | null;
+  avatarUrl?: string | null;
 }
 
 export default function FriendsPage() {
