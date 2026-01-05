@@ -1,5 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { generateText } from 'ai';
+import { getModel } from '@/lib/ai';
+
+async function generateAnalysis(content: string): Promise<string | null> {
+  try {
+    const { text } = await generateText({
+      model: getModel() as any,
+      prompt: `You are a compassionate therapist providing reflective analysis on a diary entry.
+
+Analyze the following diary entry and provide a thoughtful, empathetic reflection that:
+- Acknowledges the emotions and experiences shared
+- Offers insights into patterns, thoughts, or feelings
+- Suggests positive perspectives or areas for growth
+- Validates their feelings while being supportive
+
+Keep your reflection concise (2-3 paragraphs) and warm in tone, as if speaking directly to the person.
+
+Diary Entry:
+${content}
+
+Provide your therapeutic reflection:`,
+      temperature: 0.7,
+    });
+
+    return text;
+  } catch (error) {
+    console.error('Error generating analysis:', error);
+    return null;
+  }
+}
 
 export async function GET() {
   try {
@@ -20,10 +50,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Content is required' }, { status: 400 });
     }
 
+    // Generate AI analysis
+    const analysis = await generateAnalysis(content);
+
     const note = await prisma.diaryNote.create({
       data: {
         title: title?.trim() || null,
         content,
+        analysis,
         imageUrl: imageUrl || null,
         friendIds: Array.isArray(friendIds)
           ? (friendIds.filter((id: string) => typeof id === 'string') as string[])
@@ -47,11 +81,23 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Note ID is required' }, { status: 400 });
     }
 
+    // Get existing note to check if content changed
+    const existingNotes = await prisma.diaryNote.findMany();
+    const existingNote = existingNotes.find(n => n.id === id);
+
+    let analysis = undefined;
+
+    // Only regenerate analysis if content has changed
+    if (content && existingNote && content !== existingNote.content) {
+      analysis = await generateAnalysis(content);
+    }
+
     const note = await prisma.diaryNote.update({
       where: { id },
       data: {
         title: title === undefined ? undefined : title?.trim() || null,
         content,
+        analysis,
         imageUrl: imageUrl === undefined ? undefined : imageUrl || null,
         friendIds: Array.isArray(friendIds)
           ? (friendIds.filter((fid: string) => typeof fid === 'string') as string[])

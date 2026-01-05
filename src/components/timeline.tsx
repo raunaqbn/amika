@@ -33,41 +33,33 @@ export function Timeline() {
 
         const diaryNotes = await diaryRes.json();
 
-        // Generate summaries for each diary note
-        const entriesWithSummaries = await Promise.all(
-          diaryNotes.slice(0, 10).map(async (note: any) => {
-            let summary = note.content.substring(0, 50);
+        // Use analysis or fallback to truncated content for summary
+        const entriesWithSummaries = diaryNotes.slice(0, 10).map((note: any) => {
+          // Use first line of analysis as summary, or truncate content
+          let summary = note.content.substring(0, 150) + '...';
 
-            try {
-              const summaryRes = await fetch('/api/summarize', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: note.content }),
-              });
+          if (note.analysis) {
+            // Extract first sentence or first 150 chars of analysis
+            const firstSentence = note.analysis.split(/[.!?]\s/)[0];
+            summary = firstSentence.length > 150
+              ? firstSentence.substring(0, 150) + '...'
+              : firstSentence + '.';
+          }
 
-              if (summaryRes.ok) {
-                const data = await summaryRes.json();
-                summary = data.summary || summary;
-              }
-            } catch (err) {
-              console.error('Error generating summary:', err);
-            }
-
-            return {
-              id: note.id,
-              type: 'diary' as const,
-              title: note.title,
-              content: note.content,
-              summary,
-              createdAt: new Date(note.createdAt),
-              friends: note.friends || [],
-            };
-          })
-        );
+          return {
+            id: note.id,
+            type: 'diary' as const,
+            title: note.title,
+            content: note.content,
+            summary,
+            createdAt: new Date(note.createdAt),
+            friends: note.friends || [],
+          };
+        });
 
         // Sort by date descending
         entriesWithSummaries.sort(
-          (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+          (a: TimelineEntry, b: TimelineEntry) => b.createdAt.getTime() - a.createdAt.getTime()
         );
 
         setEntries(entriesWithSummaries);
@@ -122,7 +114,7 @@ export function Timeline() {
 
             <Card
               className="p-4 border border-[#A8C5A8]/30 bg-white/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => router.push('/diary')}
+              onClick={() => router.push(`/diary?id=${entry.id}`)}
             >
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex-1">

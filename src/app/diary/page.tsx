@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { format, formatDistanceToNow, isThisWeek, isToday, startOfWeek, endOfWeek } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,13 +27,15 @@ interface DiaryNote {
   id: string;
   title: string | null;
   content: string;
+  analysis: string | null;
   imageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
   friends: Friend[];
 }
 
-export default function DiaryPage() {
+function DiaryPageContent() {
+  const searchParams = useSearchParams();
   const [notes, setNotes] = useState<DiaryNote[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +47,7 @@ export default function DiaryPage() {
   const [content, setContent] = useState('');
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('entry');
+  const [activeTab, setActiveTab] = useState('analysis');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -66,7 +69,19 @@ export default function DiaryPage() {
       setNotes(notesData);
       setFriends(friendsData.map((friend: any) => ({ id: friend.id, name: friend.name })));
 
-      // Set first note as selected if none selected
+      // Check if there's an ID in the query params
+      const noteId = searchParams.get('id');
+
+      if (noteId) {
+        // Select the note from the query param
+        const noteToSelect = notesData.find((n: DiaryNote) => n.id === noteId);
+        if (noteToSelect) {
+          setSelectedNote(noteToSelect);
+          return;
+        }
+      }
+
+      // Otherwise, set first note as selected if none selected
       if (notesData.length > 0 && !selectedNote) {
         const sorted = [...notesData].sort(
           (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
@@ -356,8 +371,15 @@ export default function DiaryPage() {
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar */}
         <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-          {/* Search bar */}
-          <div className="p-4 border-b border-gray-200">
+          {/* Search bar and New Note button */}
+          <div className="p-4 border-b border-gray-200 space-y-3">
+            <Button
+              onClick={openCreateDialog}
+              className="w-full bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New note
+            </Button>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
@@ -473,69 +495,93 @@ export default function DiaryPage() {
               </div>
 
               {/* Content */}
-              <div className="flex-1 overflow-y-auto px-8 py-6">
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsContent value="entry" className="space-y-6">
-                    {/* Entry reflection */}
-                    <div>
-                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                        Entry Reflection
-                      </h3>
-                      <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                        {selectedNote.content}
-                      </p>
-                    </div>
-
-                    {/* Image */}
-                    {selectedNote.imageUrl && (
+              <div className="flex-1 overflow-y-auto px-8 py-6 bg-gray-50">
+                {/* Page-like container */}
+                <div className="max-w-3xl mx-auto bg-white shadow-sm rounded-lg p-8 mb-8">
+                  <Tabs value={activeTab} onValueChange={setActiveTab}>
+                    <TabsContent value="analysis" className="space-y-6">
+                      {/* Analysis */}
                       <div>
                         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                          Image
+                          Entry Reflection
                         </h3>
-                        <img
-                          src={selectedNote.imageUrl}
-                          alt="Note"
-                          className="w-full max-w-2xl h-auto object-cover rounded-lg border border-gray-200"
-                        />
+                        {selectedNote.analysis ? (
+                          <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                            {selectedNote.analysis}
+                          </p>
+                        ) : (
+                          <p className="text-gray-500 italic">
+                            No analysis available for this entry yet.
+                          </p>
+                        )}
                       </div>
-                    )}
 
-                    {/* People */}
-                    {selectedNote.friends.length > 0 && (
+                      {/* Feelings - Placeholder for future implementation */}
                       <div>
                         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                          People
+                          Feelings
                         </h3>
-                        <div className="flex gap-2 flex-wrap">
-                          {selectedNote.friends.map((friend) => (
-                            <Badge
-                              key={friend.id}
-                              variant="secondary"
-                              className="bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1"
-                            >
-                              <span className="mr-2">👤</span>
-                              {friend.name}
-                              <button className="ml-2 hover:text-gray-900">
-                                <X className="w-3 h-3" />
-                              </button>
-                            </Badge>
-                          ))}
+                        <p className="text-gray-500 text-sm italic">
+                          Emotion tagging coming soon
+                        </p>
+                      </div>
+
+                      {/* People */}
+                      {selectedNote.friends.length > 0 && (
+                        <div>
+                          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                            People
+                          </h3>
+                          <div className="flex gap-2 flex-wrap">
+                            {selectedNote.friends.map((friend) => (
+                              <Badge
+                                key={friend.id}
+                                variant="secondary"
+                                className="bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1"
+                              >
+                                <span className="mr-2">👤</span>
+                                {friend.name}
+                              </Badge>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </TabsContent>
+                      )}
 
-                  <TabsContent value="analysis" className="space-y-6">
-                    <div>
-                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                        Analysis
-                      </h3>
-                      <p className="text-gray-700 leading-relaxed">
-                        Analysis feature coming soon. This will provide insights about your diary entry.
-                      </p>
-                    </div>
-                  </TabsContent>
-                </Tabs>
+                      {/* Topics - Placeholder for future implementation */}
+                      <div>
+                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                          Topics
+                        </h3>
+                        <p className="text-gray-500 text-sm italic">
+                          Topic tagging coming soon
+                        </p>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="entry" className="space-y-6">
+                      {/* Entry content */}
+                      <div>
+                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                          What's on your mind?
+                        </h3>
+                        <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                          {selectedNote.content}
+                        </p>
+                      </div>
+
+                      {/* Image */}
+                      {selectedNote.imageUrl && (
+                        <div>
+                          <img
+                            src={selectedNote.imageUrl}
+                            alt="Note"
+                            className="w-full h-auto object-cover rounded-lg border border-gray-200"
+                          />
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                </div>
               </div>
             </>
           ) : (
@@ -670,5 +716,17 @@ export default function DiaryPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function DiaryPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A8C5A8]" />
+      </div>
+    }>
+      <DiaryPageContent />
+    </Suspense>
   );
 }
