@@ -366,9 +366,9 @@ function DiaryPageContent() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      {/* Main container with two-column layout */}
-      <div className="flex-1 flex overflow-hidden">
+    <div className="h-screen md:h-[calc(100vh-4rem)] flex flex-col bg-gray-50">
+      {/* Main container with two-column layout - centered on desktop */}
+      <div className="flex-1 flex overflow-hidden md:max-w-6xl md:mx-auto md:w-full md:border-x md:border-gray-200">
         {/* Left Sidebar */}
         <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
           {/* Search bar and New Note button */}

@@ -230,7 +230,7 @@ export default function FriendProfilePage() {
   }
 
   return (
-    <div className="pb-20 px-4 max-w-2xl mx-auto">
+    <div className="px-4 max-w-2xl mx-auto">
       <div className="py-8">
         <Button
           variant="ghost"
