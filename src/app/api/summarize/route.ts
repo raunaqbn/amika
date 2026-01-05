@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
     const model = getModel();
 
     const { text } = await generateText({
+      // @ts-expect-error - AI SDK providers return different model types (V1/V3) but all work with generateText
       model,
       prompt: `Summarize the following text into a brief, concise phrase of no more than 10 words. Focus on the main topic or activity. Do not include any preamble or extra text, just the summary:
 
