@@ -27,6 +27,13 @@ export async function POST(req: Request) {
   try {
     const { messages } = await req.json();
 
+    if (!Array.isArray(messages)) {
+      return new Response(JSON.stringify({ error: 'Invalid request body: messages must be an array' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     ensureApiKeyConfigured();
 
     const result = await streamText({
@@ -36,7 +43,12 @@ export async function POST(req: Request) {
       messages,
     });
 
-    return result.toDataStreamResponse();
+    return result.toDataStreamResponse({
+      getErrorMessage: (error) => {
+        console.error('Chat streaming error:', error);
+        return error instanceof Error ? error.message : 'Unknown streaming error';
+      },
+    });
   } catch (error) {
     console.error('Chat API error:', error);
 

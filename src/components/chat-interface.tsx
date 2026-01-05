@@ -26,8 +26,17 @@ export function ChatInterface() {
       try {
         const parsed = JSON.parse(error.message);
         setErrorMessage(parsed.error || error.message);
+        return;
       } catch {
+        // not JSON, continue
+      }
+
+      if (error.message) {
         setErrorMessage(error.message);
+      } else if (error.cause instanceof Error && error.cause.message) {
+        setErrorMessage(error.cause.message);
+      } else {
+        setErrorMessage('Something went wrong while talking to Mirror. Please try again.');
       }
     },
   });
