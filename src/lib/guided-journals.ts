@@ -7,6 +7,7 @@ export interface GuidedJournal {
   category: JournalCategory;
   icon: string;
   author: string;
+  techniqueIntro: string;
   prompts: string[];
   systemPrompt: string;
 }
@@ -20,6 +21,7 @@ export const guidedJournals: GuidedJournal[] = [
     category: 'situational',
     icon: '🎀',
     author: 'Amika',
+    techniqueIntro: "Welcome to Knowing Your Needs. This journal helps you identify what you truly need from your relationships - whether that's more support, understanding, space, or connection. Many of us struggle to recognize our needs, let alone communicate them. Through this reflection, you'll explore a recent situation, uncover the emotions beneath it, and discover how to better advocate for yourself. Feel free to use @ to mention any friends involved.",
     prompts: [
       "What's a recent situation where you felt your needs weren't being met in a relationship?",
       "When you think about that situation, what emotions come up for you?",
@@ -36,6 +38,7 @@ export const guidedJournals: GuidedJournal[] = [
     category: 'situational',
     icon: '🦋',
     author: 'Amika',
+    techniqueIntro: "Welcome to Nervous System Rebalancing. When we're stressed or overwhelmed, our nervous system can get stuck in 'fight or flight' mode. This gentle practice helps you tune into your body, notice where you're holding tension, and find ways to return to a calmer state. There's no right or wrong way to do this - just honest observation and self-compassion.",
     prompts: [
       "How is your body feeling right now? Notice any tension, tightness, or discomfort.",
       "What's been weighing on your mind lately that might be affecting how you feel physically?",
@@ -52,6 +55,7 @@ export const guidedJournals: GuidedJournal[] = [
     category: 'situational',
     icon: '💬',
     author: 'Amika',
+    techniqueIntro: "Welcome to Communication Breakdown. We've all had conversations that didn't go as planned - moments where we felt misunderstood or said things we regret. This journal helps you process those difficult interactions, understand what happened from multiple perspectives, and find insights for better communication in the future. Use @ to mention the person involved if you'd like.",
     prompts: [
       "Tell me about a recent communication breakdown you experienced. What happened?",
       "How did you feel during and after this interaction?",
@@ -68,6 +72,7 @@ export const guidedJournals: GuidedJournal[] = [
     category: 'situational',
     icon: '💭',
     author: 'Amika',
+    techniqueIntro: "Welcome to Conversation Prep. Important conversations - whether about boundaries, feelings, or difficult topics - often go better when we've prepared. This journal helps you clarify what you want to say, anticipate how the other person might respond, and approach the conversation with both confidence and compassion. Use @ to mention who you'll be talking to.",
     prompts: [
       "What conversation are you preparing for? Who is it with and what's it about?",
       "What outcome are you hoping for from this conversation?",
@@ -86,6 +91,7 @@ export const guidedJournals: GuidedJournal[] = [
     category: 'daily',
     icon: '🧡',
     author: 'Amika',
+    techniqueIntro: "Welcome to your Gratitude Journal. Research shows that regularly practicing gratitude can improve mood, relationships, and overall well-being. This isn't about ignoring problems - it's about noticing the good that exists alongside the challenges. Take a moment to slow down and appreciate what's going well, big or small. Use @ to mention friends you're grateful for.",
     prompts: [
       "What are three things you're grateful for today?",
       "Tell me more about one of those. Why does it mean so much to you?",
@@ -102,6 +108,7 @@ export const guidedJournals: GuidedJournal[] = [
     category: 'daily',
     icon: '💕',
     author: 'Amika',
+    techniqueIntro: "Welcome to your Weekly Relationship Check-in. Taking time each week to reflect on your connections helps you stay intentional about the relationships that matter most. This practice helps you celebrate wins, process challenges, and set intentions for deeper connection. Use @ to mention specific friends as you reflect.",
     prompts: [
       "How have your relationships felt this week overall?",
       "What was a highlight in your connections with others?",
@@ -118,6 +125,7 @@ export const guidedJournals: GuidedJournal[] = [
     category: 'daily',
     icon: '🌅',
     author: 'Amika',
+    techniqueIntro: "Welcome to Morning Intention. How we start our day shapes how we experience it. This quick practice helps you check in with yourself, identify what matters today, and set a clear intention. Rather than letting the day happen to you, you're choosing how you want to show up. This only takes a few minutes but can transform your whole day.",
     prompts: [
       "How are you feeling as you start this day?",
       "What's one thing you're looking forward to today?",
@@ -134,6 +142,7 @@ export const guidedJournals: GuidedJournal[] = [
     category: 'daily',
     icon: '🌙',
     author: 'Amika',
+    techniqueIntro: "Welcome to your Dream Journal. Dreams can offer fascinating windows into our subconscious - surfacing emotions, desires, and concerns we might not notice during waking hours. This practice helps you capture dreams before they fade and explore what they might mean for you. There's no 'correct' interpretation - trust your own intuition about what resonates.",
     prompts: [
       "Do you remember any dreams from last night? Describe what you recall.",
       "What emotions did you experience in the dream?",
@@ -152,6 +161,7 @@ export const guidedJournals: GuidedJournal[] = [
     category: 'frameworks',
     icon: '⚠️',
     author: 'Amika',
+    techniqueIntro: "Welcome to Reframing Negative Thoughts. This practice uses principles from Cognitive Behavioral Therapy (CBT) to help you examine and shift unhelpful thinking patterns. Our thoughts powerfully influence our emotions and behaviors - but thoughts aren't facts. By questioning negative thoughts and finding more balanced perspectives, we can reduce anxiety and improve our mood.",
     prompts: [
       "What negative thought has been on your mind lately?",
       "When this thought comes up, how does it make you feel?",
@@ -168,6 +178,7 @@ export const guidedJournals: GuidedJournal[] = [
     category: 'frameworks',
     icon: '🧠',
     author: 'Amika',
+    techniqueIntro: "Welcome to Internal Family Systems (IFS). This therapeutic approach views our psyche as made up of different 'parts' - like an inner critic, a people-pleaser, or a protective part. Rather than fighting these parts, IFS helps us understand their positive intentions and heal through self-compassion. In this journal, you'll get curious about a part that's active right now.",
     prompts: [
       "What part of you is most present right now? How does it feel?",
       "What is this part trying to protect you from or help you with?",
@@ -184,6 +195,7 @@ export const guidedJournals: GuidedJournal[] = [
     category: 'frameworks',
     icon: '🌱',
     author: 'Amika',
+    techniqueIntro: "Welcome to Positive Psychology. While traditional therapy focuses on fixing problems, positive psychology asks: what helps people thrive? This practice helps you identify your character strengths, find more flow in your life, and build on what's already working. It's not about ignoring challenges - it's about leveraging your natural gifts to face them.",
     prompts: [
       "What's something you did recently that you felt proud of?",
       "What personal strengths did you use in that situation?",
@@ -200,6 +212,7 @@ export const guidedJournals: GuidedJournal[] = [
     category: 'frameworks',
     icon: '🪷',
     author: 'Amika',
+    techniqueIntro: "Welcome to Acceptance & Commitment Therapy (ACT). This approach teaches that struggling against difficult emotions often makes them stronger. Instead of trying to control or eliminate uncomfortable feelings, ACT helps us make room for them while taking action aligned with our values. The goal isn't to feel better - it's to get better at feeling.",
     prompts: [
       "What difficult thought or feeling have you been struggling with lately?",
       "What have you tried to do to get rid of or control this feeling?",
