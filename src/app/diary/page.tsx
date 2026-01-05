@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { format, formatDistanceToNow, isThisWeek, isToday, startOfWeek, endOfWeek } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, Search, Plus, X, MoreVertical, Share2, Menu } from 'lucide-react';
+import { Heart, Search, Plus, X, MoreVertical, Share2, Image as ImageIcon } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -26,6 +26,7 @@ interface DiaryNote {
   id: string;
   title: string | null;
   content: string;
+  imageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
   friends: Friend[];
@@ -44,6 +45,9 @@ export default function DiaryPage() {
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('entry');
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchData();
@@ -76,11 +80,105 @@ export default function DiaryPage() {
     }
   };
 
+  const compressImage = async (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          const maxSize = 1920;
+          if (width > height && width > maxSize) {
+            height = (height / width) * maxSize;
+            width = maxSize;
+          } else if (height > maxSize) {
+            width = (width / height) * maxSize;
+            height = maxSize;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                });
+                resolve(compressedFile);
+              } else {
+                reject(new Error('Compression failed'));
+              }
+            },
+            'image/jpeg',
+            0.85
+          );
+        };
+
+        img.onerror = () => reject(new Error('Failed to load image'));
+      };
+
+      reader.onerror = () => reject(new Error('Failed to read file'));
+    });
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+
+      const compressedFile = await compressImage(file);
+
+      if (compressedFile.size > 4 * 1024 * 1024) {
+        alert('Image is still too large after compression. Please use a smaller image.');
+        return;
+      }
+
+      setSelectedImage(compressedFile);
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(compressedFile);
+    } catch (error) {
+      console.error('Error processing image:', error);
+      alert('Failed to process image. Please try again.');
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+  };
+
   const openCreateDialog = () => {
     setEditingNote(null);
     setTitle('');
     setContent('');
     setSelectedFriends([]);
+    setSelectedImage(null);
+    setImagePreview(null);
     setDialogOpen(true);
   };
 
@@ -89,6 +187,8 @@ export default function DiaryPage() {
     setTitle(note.title ?? '');
     setContent(note.content);
     setSelectedFriends(note.friends.map((friend) => friend.id));
+    setSelectedImage(null);
+    setImagePreview(note.imageUrl || null);
     setDialogOpen(true);
   };
 
@@ -105,9 +205,28 @@ export default function DiaryPage() {
 
     setSaving(true);
     try {
+      let imageUrl = editingNote?.imageUrl || null;
+
+      // Upload new image if one was selected
+      if (selectedImage) {
+        const formData = new FormData();
+        formData.append('file', selectedImage);
+
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (uploadRes.ok) {
+          const data = await uploadRes.json();
+          imageUrl = data.url;
+        }
+      }
+
       const payload = {
         title: title.trim() || null,
         content,
+        imageUrl,
         friendIds: selectedFriends,
       };
 
@@ -130,11 +249,18 @@ export default function DiaryPage() {
       if (editingNote) {
         const updated = updatedNotes.find((n: DiaryNote) => n.id === editingNote.id);
         if (updated) setSelectedNote(updated);
+      } else {
+        // Select the newly created note
+        const sorted = [...updatedNotes].sort(
+          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+        setSelectedNote(sorted[0]);
       }
 
       setDialogOpen(false);
     } catch (error) {
       console.error('Error saving note:', error);
+      alert('Failed to save note. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -151,6 +277,11 @@ export default function DiaryPage() {
       }
 
       setNotes((prev) => prev.filter((note) => note.id !== id));
+
+      // Clear selected note if it was deleted
+      if (selectedNote?.id === id) {
+        setSelectedNote(null);
+      }
     } catch (error) {
       console.error('Error deleting note:', error);
     }
@@ -355,6 +486,20 @@ export default function DiaryPage() {
                       </p>
                     </div>
 
+                    {/* Image */}
+                    {selectedNote.imageUrl && (
+                      <div>
+                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                          Image
+                        </h3>
+                        <img
+                          src={selectedNote.imageUrl}
+                          alt="Note"
+                          className="w-full max-w-2xl h-auto object-cover rounded-lg border border-gray-200"
+                        />
+                      </div>
+                    )}
+
                     {/* People */}
                     {selectedNote.friends.length > 0 && (
                       <div>
@@ -445,6 +590,44 @@ export default function DiaryPage() {
                 onChange={(e) => setContent(e.target.value)}
                 rows={6}
                 placeholder="What did you and Mirror talk about?"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Image (optional)</label>
+              {imagePreview && (
+                <div className="relative inline-block">
+                  <img
+                    src={imagePreview}
+                    alt="Note preview"
+                    className="w-full max-w-md h-48 object-cover rounded-lg border border-gray-200"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleRemoveImage}
+                    className="absolute top-2 right-2 bg-white/90 hover:bg-white text-gray-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="border-[#A8C5A8]/60 text-[#A8C5A8]"
+              >
+                <ImageIcon className="w-4 h-4 mr-2" />
+                {imagePreview ? 'Change Image' : 'Add Image'}
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
               />
             </div>
 
