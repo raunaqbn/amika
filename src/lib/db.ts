@@ -315,6 +315,29 @@ export const prisma = {
     },
   },
   memory: {
+    findMany: async () => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const memoriesResult = await client.execute('SELECT * FROM memories ORDER BY createdAt DESC');
+      const friendsResult = await client.execute('SELECT id, name FROM friends');
+
+      const friendMap = new Map<string, { id: string; name: string }>(
+        friendsResult.rows.map((row: any) => [
+          row.id as string,
+          { id: row.id as string, name: row.name as string },
+        ])
+      );
+
+      return memoriesResult.rows.map((row: any) => ({
+        id: row.id as string,
+        friendId: row.friendId as string,
+        content: row.content as string,
+        imageUrl: row.imageUrl as string | null,
+        createdAt: new Date(row.createdAt as string),
+        friend: friendMap.get(row.friendId as string) || null,
+      }));
+    },
     create: async ({ data }: { data: { friendId: string; content: string; imageUrl?: string | null } }) => {
       await ensureTablesExist();
       const client = getClient();
