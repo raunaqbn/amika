@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, title, description, eventDate, location } = body;
+    const { id, title, description, eventDate, location, completed } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -76,6 +76,7 @@ export async function PUT(request: NextRequest) {
         ...(description !== undefined && { description }),
         ...(eventDate !== undefined && { eventDate: new Date(eventDate) }),
         ...(location !== undefined && { location }),
+        ...(completed !== undefined && { completed }),
       },
     });
 
