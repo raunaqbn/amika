@@ -1,10 +1,6 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 
-// Use the stable v1 API endpoint for Gemini access
-const google = createGoogleGenerativeAI({
-  baseURL: 'https://generativelanguage.googleapis.com/v1',
-});
-
+// Use a supported Gemini model variant for the v1beta API
 export const model = google('gemini-1.5-flash-latest');
 
 export const systemPrompt = `You are Mirror, a warm relationship coach helping users be better friends.
