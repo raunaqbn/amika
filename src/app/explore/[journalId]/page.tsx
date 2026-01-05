@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,12 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ArrowLeft, Send, Save, X } from 'lucide-react';
+import { ArrowLeft, Send, Save } from 'lucide-react';
 import { getJournalById, type GuidedJournal } from '@/lib/guided-journals';
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'intro';
   content: string;
 }
 
@@ -38,6 +38,12 @@ export default function GuidedJournalPage() {
   const [friends, setFriends] = useState<{ id: string; name: string }[]>([]);
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
 
+  // @ mention state
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState('');
+  const [mentionPosition, setMentionPosition] = useState(0);
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -51,13 +57,18 @@ export default function GuidedJournalPage() {
     setJournal(foundJournal);
     setNoteTitle(foundJournal.title);
 
-    // Add first prompt as initial assistant message
-    const initialMessage: Message = {
+    // Add technique intro as first message, then first prompt
+    const introMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'intro',
+      content: foundJournal.techniqueIntro,
+    };
+    const firstPromptMessage: Message = {
       id: crypto.randomUUID(),
       role: 'assistant',
       content: foundJournal.prompts[0],
     };
-    setMessages([initialMessage]);
+    setMessages([introMessage, firstPromptMessage]);
 
     // Load friends
     fetch('/api/friends')
@@ -71,6 +82,57 @@ export default function GuidedJournalPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Filtered friends for @ mentions
+  const filteredFriends = useMemo(() => {
+    if (!mentionSearch) return friends;
+    const search = mentionSearch.toLowerCase();
+    return friends.filter((friend) => friend.name.toLowerCase().includes(search));
+  }, [friends, mentionSearch]);
+
+  const handleMentionSelect = (friendName: string) => {
+    const beforeMention = input.slice(0, mentionPosition);
+    const afterMention = input.slice(mentionPosition + mentionSearch.length);
+    const newValue = beforeMention + friendName + ' ' + afterMention;
+
+    setInput(newValue);
+    setShowMentions(false);
+    setMentionSearch('');
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart || 0;
+
+    setInput(value);
+
+    // Check for @ mentions
+    const textBeforeCursor = value.slice(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtIndex !== -1 && lastAtIndex === cursorPosition - 1) {
+      // @ just typed
+      setShowMentions(true);
+      setMentionPosition(lastAtIndex + 1);
+      setMentionSearch('');
+      setSelectedMentionIndex(0);
+    } else if (lastAtIndex !== -1) {
+      // Check if we're still in a mention
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+      if (!/\s/.test(textAfterAt)) {
+        // No space after @, still in mention
+        setShowMentions(true);
+        setMentionPosition(lastAtIndex + 1);
+        setMentionSearch(textAfterAt);
+        setSelectedMentionIndex(0);
+      } else {
+        setShowMentions(false);
+      }
+    } else {
+      setShowMentions(false);
+    }
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim() || !journal || isLoading) return;
@@ -83,15 +145,21 @@ export default function GuidedJournalPage() {
 
     setMessages(prev => [...prev, userMessage]);
     setInput('');
+    setShowMentions(false);
     setIsLoading(true);
 
     try {
+      // Filter out intro messages for API call
+      const apiMessages = [...messages, userMessage]
+        .filter(m => m.role !== 'intro')
+        .map(m => ({ role: m.role, content: m.content }));
+
       // Send to AI for response
       const response = await fetch('/api/guided-journal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: [...messages, userMessage],
+          messages: apiMessages,
           systemPrompt: journal.systemPrompt,
           currentPromptIndex,
           prompts: journal.prompts,
@@ -146,9 +214,31 @@ export default function GuidedJournalPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (!showMentions || filteredFriends.length === 0) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSubmit();
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
       e.preventDefault();
-      handleSubmit();
+      setSelectedMentionIndex((prev) =>
+        prev < filteredFriends.length - 1 ? prev + 1 : prev
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedMentionIndex((prev) => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      const selectedFriend = filteredFriends[selectedMentionIndex];
+      if (selectedFriend) {
+        handleMentionSelect(selectedFriend.name);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setShowMentions(false);
     }
   };
 
@@ -162,6 +252,7 @@ export default function GuidedJournalPage() {
 
   const formatTranscript = () => {
     return messages
+      .filter(m => m.role !== 'intro')
       .map(msg => `${msg.role === 'user' ? 'You' : 'Guide'}: ${msg.content}`)
       .join('\n\n');
   };
@@ -228,7 +319,7 @@ export default function GuidedJournalPage() {
               variant="outline"
               size="sm"
               onClick={() => setSaveDialogOpen(true)}
-              disabled={messages.length < 2}
+              disabled={messages.length < 3}
               className="border-[#A8C5A8]/60 text-[#A8C5A8]"
             >
               <Save className="w-4 h-4 mr-2" />
@@ -264,9 +355,17 @@ export default function GuidedJournalPage() {
                 className={`max-w-[85%] rounded-2xl px-4 py-3 ${
                   message.role === 'user'
                     ? 'bg-[#A8C5A8] text-white'
+                    : message.role === 'intro'
+                    ? 'bg-gradient-to-br from-[#A8C5A8]/10 to-[#D4A5A5]/10 border border-[#A8C5A8]/20 text-gray-700'
                     : 'bg-white border border-gray-200 text-gray-900'
                 }`}
               >
+                {message.role === 'intro' && (
+                  <div className="flex items-center gap-2 mb-2 text-[#A8C5A8] font-medium text-sm">
+                    <span>{journal.icon}</span>
+                    <span>About this practice</span>
+                  </div>
+                )}
                 <p className="text-sm whitespace-pre-wrap">{message.content}</p>
               </div>
             </div>
@@ -305,16 +404,34 @@ export default function GuidedJournalPage() {
         <div className="border-t bg-white">
           <div className="max-w-3xl mx-auto px-4 py-4">
             <form onSubmit={handleSubmit} className="flex gap-2">
-              <Textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Share your thoughts..."
-                rows={2}
-                className="flex-1 resize-none"
-                disabled={isLoading}
-              />
+              <div className="flex-1 relative">
+                <Textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={handleInputChange}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Share your thoughts... (use @ to mention friends)"
+                  rows={2}
+                  className="resize-none w-full"
+                  disabled={isLoading}
+                />
+                {showMentions && filteredFriends.length > 0 && (
+                  <div className="absolute bottom-full left-0 mb-2 w-full max-w-xs bg-white border border-[#A8C5A8]/30 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                    {filteredFriends.map((friend, index) => (
+                      <button
+                        key={friend.id}
+                        type="button"
+                        onClick={() => handleMentionSelect(friend.name)}
+                        className={`w-full text-left px-4 py-2 hover:bg-[#A8C5A8]/10 transition-colors ${
+                          index === selectedMentionIndex ? 'bg-[#A8C5A8]/20' : ''
+                        }`}
+                      >
+                        <span className="font-medium text-gray-900">{friend.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <Button
                 type="submit"
                 disabled={isLoading || !input.trim()}
@@ -324,7 +441,7 @@ export default function GuidedJournalPage() {
               </Button>
             </form>
             <p className="text-xs text-gray-500 mt-2">
-              Press Enter to send, Shift+Enter for new line
+              Press Enter to send, Shift+Enter for new line. Use @ to mention friends.
             </p>
           </div>
         </div>
