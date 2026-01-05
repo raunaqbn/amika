@@ -3,7 +3,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { openai } from '@ai-sdk/openai';
 
 // Determine which AI provider to use based on environment variables
-function getModel() {
+export function getModel() {
   const provider = process.env.AI_PROVIDER || 'google';
 
   switch (provider.toLowerCase()) {
@@ -21,8 +21,6 @@ function getModel() {
       return google(process.env.GOOGLE_MODEL || 'gemini-1.5-flash');
   }
 }
-
-export const model = getModel();
 
 export const systemPrompt = `You are Mirror, a warm relationship coach helping users be better friends.
 
