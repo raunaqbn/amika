@@ -1,4 +1,5 @@
 import { createClient } from '@libsql/client';
+import type { Client } from '@libsql/client';
 import { randomUUID } from "crypto";
 
 type Friend = {
@@ -18,14 +19,26 @@ type Memory = {
   createdAt: Date;
 };
 
-// Initialize Turso client
-const client = createClient({
-  url: process.env.TURSO_DATABASE_URL || '',
-  authToken: process.env.TURSO_AUTH_TOKEN || ''
-});
+let clientInstance: Client | null = null;
+let tablesInitialized = false;
 
-// Initialize database tables
-async function initTables() {
+// Lazy initialize Turso client
+function getClient(): Client {
+  if (!clientInstance) {
+    clientInstance = createClient({
+      url: process.env.TURSO_DATABASE_URL || '',
+      authToken: process.env.TURSO_AUTH_TOKEN || ''
+    });
+  }
+  return clientInstance;
+}
+
+// Initialize database tables on first use
+async function ensureTablesExist() {
+  if (tablesInitialized) return;
+
+  const client = getClient();
+
   try {
     await client.execute(`
       CREATE TABLE IF NOT EXISTS friends (
@@ -48,17 +61,19 @@ async function initTables() {
         FOREIGN KEY (friendId) REFERENCES friends(id) ON DELETE CASCADE
       )
     `);
+
+    tablesInitialized = true;
   } catch (error) {
     console.error('Error initializing tables:', error);
   }
 }
 
-// Initialize tables on module load
-initTables();
-
 export const prisma = {
   friend: {
     findMany: async (args?: { include?: { memories?: { orderBy?: { createdAt: string } } }; orderBy?: { createdAt: string } }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
       const friendsResult = await client.execute('SELECT * FROM friends ORDER BY createdAt DESC');
       const friends: Friend[] = friendsResult.rows.map((row: any) => ({
         id: row.id as string,
@@ -90,6 +105,9 @@ export const prisma = {
       return friends;
     },
     create: async ({ data }: { data: Partial<Friend> }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
       const newFriend: Friend = {
         id: randomUUID(),
         name: data.name ?? "",
@@ -116,6 +134,9 @@ export const prisma = {
       return newFriend;
     },
     update: async ({ where, data }: { where: { id: string }; data: Partial<Friend> }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
       const existingResult = await client.execute({
         sql: 'SELECT * FROM friends WHERE id = ?',
         args: [where.id],
@@ -151,6 +172,9 @@ export const prisma = {
       return updated;
     },
     delete: async ({ where }: { where: { id: string } }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
       const existingResult = await client.execute({
         sql: 'SELECT * FROM friends WHERE id = ?',
         args: [where.id],
@@ -177,6 +201,9 @@ export const prisma = {
   },
   memory: {
     create: async ({ data }: { data: { friendId: string; content: string } }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
       const friendResult = await client.execute({
         sql: 'SELECT * FROM friends WHERE id = ?',
         args: [data.friendId],
@@ -206,6 +233,9 @@ export const prisma = {
       return memory;
     },
     delete: async ({ where }: { where: { id: string } }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
       const existingResult = await client.execute({
         sql: 'SELECT * FROM memories WHERE id = ?',
         args: [where.id],
