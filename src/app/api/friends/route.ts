@@ -5,9 +5,10 @@ import { prisma } from '@/lib/db';
 // Ensures dates are treated as local dates, not UTC
 function parseLocalDate(dateString: string | null | undefined): Date | null {
   if (!dateString) return null;
-  // Parse the date string and create a Date object at local midnight
+  // Parse the date string and create a Date object at noon to avoid timezone shifts
+  // Using noon (12:00) ensures the date doesn't roll back when converted to UTC
   const [year, month, day] = dateString.split('-').map(Number);
-  return new Date(year, month - 1, day);
+  return new Date(year, month - 1, day, 12, 0, 0);
 }
 
 export async function GET() {

@@ -33,6 +33,7 @@ interface DiaryNote {
   id: string;
   title: string | null;
   content: string;
+  analysis: string | null;
   createdAt: string;
   updatedAt: string;
   friends: { id: string; name: string }[];
@@ -416,28 +417,39 @@ export default function FriendProfilePage() {
             </p>
           ) : (
             <div className="space-y-3">
-              {taggedNotes.map((note) => (
-                <div
-                  key={note.id}
-                  className="p-3 rounded-xl border border-[#A8C5A8]/30 bg-white/60"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      <h3 className="font-medium text-gray-900">
-                        {note.title?.trim() || 'Untitled note'}
-                      </h3>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                        {note.content}
-                      </p>
+              {taggedNotes.map((note) => {
+                // Generate summary: use analysis first sentence or truncated content
+                let summary = note.content.substring(0, 150) + (note.content.length > 150 ? '...' : '');
+                if (note.analysis) {
+                  const firstSentence = note.analysis.split(/[.!?]\s/)[0];
+                  summary = firstSentence.length > 150
+                    ? firstSentence.substring(0, 150) + '...'
+                    : firstSentence + '.';
+                }
+
+                return (
+                  <div
+                    key={note.id}
+                    className="p-3 rounded-xl border border-[#A8C5A8]/30 bg-white/60"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <h3 className="font-medium text-gray-900">
+                          {note.title?.trim() || 'Untitled note'}
+                        </h3>
+                        <p className="text-sm text-[#D4A5A5] font-medium">
+                          {summary}
+                        </p>
+                      </div>
+                      <span className="text-xs text-gray-500 whitespace-nowrap">
+                        {formatDistanceToNow(new Date(note.updatedAt), {
+                          addSuffix: true,
+                        })}
+                      </span>
                     </div>
-                    <span className="text-xs text-gray-500 whitespace-nowrap">
-                      {formatDistanceToNow(new Date(note.updatedAt), {
-                        addSuffix: true,
-                      })}
-                    </span>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Card>

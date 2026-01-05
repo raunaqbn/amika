@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { friendId, content } = body;
+    const { friendId, content, imageUrl } = body;
 
     if (!friendId || !content) {
       return NextResponse.json(
@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
       data: {
         friendId,
         content,
+        imageUrl: imageUrl || null,
       },
     });
 

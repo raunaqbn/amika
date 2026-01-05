@@ -47,6 +47,7 @@ export function ChatInterface() {
     }
   });
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const activeSessionIdRef = useRef<string | null>(null);
   const [showMentions, setShowMentions] = useState(false);
   const [mentionSearch, setMentionSearch] = useState('');
   const [mentionPosition, setMentionPosition] = useState(0);
@@ -153,7 +154,13 @@ export function ChatInterface() {
   const persistActiveSession = () => {
     if (messages.length === 0) return null;
 
-    const sessionId = activeSessionId ?? generateId();
+    // Use ref for immediate access, avoiding race conditions with state updates
+    let sessionId = activeSessionIdRef.current;
+    if (!sessionId) {
+      sessionId = generateId();
+      activeSessionIdRef.current = sessionId;
+    }
+
     const session = {
       id: sessionId,
       title: deriveTitle(messages),
@@ -178,6 +185,7 @@ export function ChatInterface() {
 
   const startNewChat = () => {
     persistActiveSession();
+    activeSessionIdRef.current = null;
     setActiveSessionId(null);
     setMessages([]);
     setErrorMessage(null);
@@ -188,15 +196,18 @@ export function ChatInterface() {
     if (!session) return;
 
     persistActiveSession();
+    activeSessionIdRef.current = session.id;
     setActiveSessionId(session.id);
     setMessages(session.messages);
   };
 
   useEffect(() => {
-    if (!activeSessionId || messages.length === 0) return;
+    // Use ref for consistent ID access
+    const sessionId = activeSessionIdRef.current;
+    if (!sessionId || messages.length === 0) return;
 
     setChatHistory((prev) => {
-      const index = prev.findIndex((entry) => entry.id === activeSessionId);
+      const index = prev.findIndex((entry) => entry.id === sessionId);
       if (index === -1) return prev;
 
       const title = deriveTitle(messages);
@@ -208,7 +219,7 @@ export function ChatInterface() {
       };
       return updated;
     });
-  }, [messages, activeSessionId]);
+  }, [messages]);
 
   const sortedHistory = useMemo(
     () => [...chatHistory].sort((a, b) => b.createdAt - a.createdAt),
