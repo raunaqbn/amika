@@ -236,12 +236,12 @@ export default function DiaryPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg max-w-[95vw] max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{editingNote ? 'Edit note' : 'New note'}</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto pr-1 flex-1">
             <div className="space-y-2">
               <label className="text-sm font-medium">Title</label>
               <Input
