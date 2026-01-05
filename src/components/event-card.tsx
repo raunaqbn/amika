@@ -1,27 +1,30 @@
 'use client';
 
-import { Calendar, MapPin, Trash2, Check, Circle } from 'lucide-react';
+import { Calendar, MapPin, Trash2, Check, Edit2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 
+interface Event {
+  id: string;
+  title: string;
+  description: string | null;
+  eventDate: Date;
+  location: string | null;
+  friendId: string;
+  completed?: boolean;
+}
+
 interface EventCardProps {
-  event: {
-    id: string;
-    title: string;
-    description: string | null;
-    eventDate: Date;
-    location: string | null;
-    friendId: string;
-    completed?: boolean;
-  };
+  event: Event;
   friendName?: string;
   onDelete?: (id: string) => void;
   onToggleComplete?: (id: string, completed: boolean) => void;
+  onEdit?: (event: Event) => void;
 }
 
-export function EventCard({ event, friendName, onDelete, onToggleComplete }: EventCardProps) {
+export function EventCard({ event, friendName, onDelete, onToggleComplete, onEdit }: EventCardProps) {
   const [isCompleting, setIsCompleting] = useState(false);
 
   const handleDelete = () => {
@@ -109,16 +112,28 @@ export function EventCard({ event, friendName, onDelete, onToggleComplete }: Eve
           </div>
         </div>
 
-        {onDelete && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDelete}
-            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        )}
+        <div className="flex gap-1">
+          {onEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onEdit(event)}
+              className="text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+            >
+              <Edit2 className="w-4 h-4" />
+            </Button>
+          )}
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDelete}
+              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
       </div>
     </Card>
   );

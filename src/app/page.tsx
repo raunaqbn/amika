@@ -36,6 +36,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
   const [findEventsDialogOpen, setFindEventsDialogOpen] = useState(false);
+  const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
 
   useEffect(() => {
     fetchFriends();
@@ -94,6 +95,11 @@ export default function Home() {
     } catch (error) {
       console.error('Error updating event:', error);
     }
+  };
+
+  const handleEditEvent = (event: Event) => {
+    setEventToEdit(event);
+    setAddEventDialogOpen(true);
   };
 
   const getUpcomingBirthdays = () => {
@@ -201,6 +207,7 @@ export default function Home() {
                   friendName={friend?.name}
                   onDelete={handleDeleteEvent}
                   onToggleComplete={handleToggleComplete}
+                  onEdit={handleEditEvent}
                 />
               );
             })}
@@ -289,18 +296,6 @@ export default function Home() {
         </Card>
       )}
 
-      {friends.length > 0 &&
-        upcomingBirthdays.length === 0 &&
-        friendsToContact.length === 0 && (
-          <Card className="p-8 text-center bg-gradient-to-br from-[#A8C5A8]/10 to-[#D4A5A5]/10 border-[#A8C5A8]/20">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              You're all caught up!
-            </h3>
-            <p className="text-gray-600">
-              No upcoming birthdays and you've been staying in touch. Great job! 🎉
-            </p>
-          </Card>
-        )}
 
       {/* Timeline Section */}
       {friends.length > 0 && (
@@ -315,10 +310,18 @@ export default function Home() {
 
       <AddEventDialog
         open={addEventDialogOpen}
-        onOpenChange={setAddEventDialogOpen}
+        onOpenChange={(open) => {
+          setAddEventDialogOpen(open);
+          if (!open) setEventToEdit(null);
+        }}
         friends={friends.map((f) => ({ id: f.id, name: f.name }))}
         onEventAdded={() => {
           fetchEvents();
+        }}
+        eventToEdit={eventToEdit}
+        onEventUpdated={() => {
+          fetchEvents();
+          setEventToEdit(null);
         }}
       />
 
