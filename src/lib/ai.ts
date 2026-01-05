@@ -9,16 +9,18 @@ export function getModel() {
   switch (provider.toLowerCase()) {
     case 'anthropic':
     case 'claude':
-      return anthropic(process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-latest');
+      // Claude 3.5 was retired - use Claude Sonnet 4.5 (current as of 2025)
+      return anthropic(process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929');
 
     case 'openai':
+      // GPT-4o is still valid, GPT-4.1 is newer but gpt-4o works
       return openai(process.env.OPENAI_MODEL || 'gpt-4o');
 
     case 'google':
     case 'gemini':
     default:
-      // Use the correct model name for Gemini (without -latest suffix)
-      return google(process.env.GOOGLE_MODEL || 'gemini-1.5-flash');
+      // Gemini 1.5 was retired in April 2025 - use Gemini 2.0 Flash
+      return google(process.env.GOOGLE_MODEL || 'gemini-2.0-flash-exp');
   }
 }
 
