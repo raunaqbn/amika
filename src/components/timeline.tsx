@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Calendar, FileText } from 'lucide-react';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -17,6 +18,7 @@ interface TimelineEntry {
 }
 
 export function Timeline() {
+  const router = useRouter();
   const [entries, setEntries] = useState<TimelineEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -118,7 +120,10 @@ export function Timeline() {
             {/* Timeline dot */}
             <div className="absolute left-2.5 top-2 w-3 h-3 rounded-full bg-[#A8C5A8] border-2 border-white" />
 
-            <Card className="p-4 border border-[#A8C5A8]/30 bg-white/60 shadow-sm hover:shadow-md transition-shadow">
+            <Card
+              className="p-4 border border-[#A8C5A8]/30 bg-white/60 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => router.push('/diary')}
+            >
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
