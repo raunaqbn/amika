@@ -1,7 +1,26 @@
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { google } from '@ai-sdk/google';
+import { anthropic } from '@ai-sdk/anthropic';
+import { openai } from '@ai-sdk/openai';
 
-// Use a supported Gemini model variant for the v1beta API
-export const model = google('gemini-1.5-flash-latest');
+// Determine which AI provider to use based on environment variables
+export function getModel() {
+  const provider = process.env.AI_PROVIDER || 'google';
+
+  switch (provider.toLowerCase()) {
+    case 'anthropic':
+    case 'claude':
+      return anthropic(process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022');
+
+    case 'openai':
+      return openai(process.env.OPENAI_MODEL || 'gpt-4o');
+
+    case 'google':
+    case 'gemini':
+    default:
+      // Use the correct model name for Gemini (without -latest suffix)
+      return google(process.env.GOOGLE_MODEL || 'gemini-1.5-flash');
+  }
+}
 
 export const systemPrompt = `You are Mirror, a warm relationship coach helping users be better friends.
 
