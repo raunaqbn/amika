@@ -204,7 +204,7 @@ export default function GuidedJournalPage() {
   const progress = ((currentPromptIndex + 1) / journal.prompts.length) * 100;
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 pb-20">
+    <div className="flex flex-col h-screen md:h-[calc(100vh-4rem)] bg-gray-50">
       {/* Header */}
       <div className="border-b bg-white sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-4">

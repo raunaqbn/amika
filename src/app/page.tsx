@@ -132,7 +132,7 @@ export default function Home() {
   }
 
   return (
-    <div className="pb-20 px-4 max-w-2xl mx-auto">
+    <div className="px-4 max-w-2xl mx-auto">
       <div className="py-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Amika</h1>
         <p className="text-gray-600">Nurture your friendships</p>
