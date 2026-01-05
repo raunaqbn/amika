@@ -52,16 +52,17 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, name, birthday, howWeMet, notes, lastContact } = body;
+    const { id, name, birthday, howWeMet, notes, lastContact, profileImage } = body;
 
     const friend = await prisma.friend.update({
       where: { id },
       data: {
-        name,
-        birthday: parseLocalDate(birthday),
-        howWeMet: howWeMet || null,
-        notes: notes || null,
-        lastContact: parseLocalDate(lastContact),
+        ...(name !== undefined && { name }),
+        ...(birthday !== undefined && { birthday: parseLocalDate(birthday) }),
+        ...(howWeMet !== undefined && { howWeMet: howWeMet || null }),
+        ...(notes !== undefined && { notes: notes || null }),
+        ...(lastContact !== undefined && { lastContact: parseLocalDate(lastContact) }),
+        ...(profileImage !== undefined && { profileImage }),
       },
     });
 
