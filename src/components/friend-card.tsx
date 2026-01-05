@@ -1,7 +1,7 @@
 'use client';
 
 import { Card } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 
@@ -11,6 +11,7 @@ interface Friend {
   birthday?: Date | null;
   lastContact?: Date | null;
   notes?: string | null;
+  avatarUrl?: string | null;
 }
 
 export function FriendCard({ friend }: { friend: Friend }) {
@@ -28,6 +29,9 @@ export function FriendCard({ friend }: { friend: Friend }) {
       <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer border-[#A8C5A8]/20">
         <div className="flex items-start gap-3">
           <Avatar className="bg-[#A8C5A8] text-white">
+            {friend.avatarUrl && (
+              <AvatarImage src={friend.avatarUrl} alt={friend.name} />
+            )}
             <AvatarFallback className="bg-[#A8C5A8] text-white">
               {getInitials(friend.name)}
             </AvatarFallback>
