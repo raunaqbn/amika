@@ -19,6 +19,20 @@ type Memory = {
   createdAt: Date;
 };
 
+type DiaryNote = {
+  id: string;
+  title: string | null;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type DiaryNoteTag = {
+  noteId: string;
+  friendId: string;
+  createdAt: Date;
+};
+
 let clientInstance: Client | null = null;
 let tablesInitialized = false;
 
@@ -58,6 +72,27 @@ async function ensureTablesExist() {
         friendId TEXT NOT NULL,
         content TEXT NOT NULL,
         createdAt TEXT NOT NULL,
+        FOREIGN KEY (friendId) REFERENCES friends(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS diary_notes (
+        id TEXT PRIMARY KEY,
+        title TEXT,
+        content TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS diary_note_tags (
+        noteId TEXT NOT NULL,
+        friendId TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        PRIMARY KEY (noteId, friendId),
+        FOREIGN KEY (noteId) REFERENCES diary_notes(id) ON DELETE CASCADE,
         FOREIGN KEY (friendId) REFERENCES friends(id) ON DELETE CASCADE
       )
     `);
@@ -247,6 +282,169 @@ export const prisma = {
 
       await client.execute({
         sql: 'DELETE FROM memories WHERE id = ?',
+        args: [where.id],
+      });
+
+      return { success: true };
+    },
+  },
+  diaryNote: {
+    findMany: async () => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const notesResult = await client.execute(
+        'SELECT * FROM diary_notes ORDER BY createdAt DESC'
+      );
+      const tagsResult = await client.execute('SELECT * FROM diary_note_tags');
+      const friendsResult = await client.execute('SELECT id, name FROM friends');
+
+      const friendMap = new Map<string, Friend>(
+        friendsResult.rows.map((row: any) => [
+          row.id as string,
+          {
+            id: row.id as string,
+            name: row.name as string,
+            birthday: null,
+            howWeMet: null,
+            notes: null,
+            lastContact: null,
+            createdAt: new Date(),
+          },
+        ])
+      );
+
+      const tags: DiaryNoteTag[] = tagsResult.rows.map((row: any) => ({
+        noteId: row.noteId as string,
+        friendId: row.friendId as string,
+        createdAt: new Date(row.createdAt as string),
+      }));
+
+      const notes: DiaryNote[] = notesResult.rows.map((row: any) => ({
+        id: row.id as string,
+        title: (row.title as string | null) ?? null,
+        content: row.content as string,
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: new Date(row.updatedAt as string),
+      }));
+
+      return notes.map((note) => ({
+        ...note,
+        friends: tags
+          .filter((tag) => tag.noteId === note.id)
+          .map((tag) => friendMap.get(tag.friendId))
+          .filter(Boolean) as Friend[],
+      }));
+    },
+    create: async ({
+      data,
+    }: {
+      data: { title?: string | null; content: string; friendIds?: string[] };
+    }) => {
+      await ensureTablesExist();
+      const client = getClient();
+      const now = new Date();
+
+      const note: DiaryNote = {
+        id: randomUUID(),
+        title: data.title ?? null,
+        content: data.content,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await client.execute({
+        sql: 'INSERT INTO diary_notes (id, title, content, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)',
+        args: [
+          note.id,
+          note.title,
+          note.content,
+          note.createdAt.toISOString(),
+          note.updatedAt.toISOString(),
+        ],
+      });
+
+      const friendIds = data.friendIds || [];
+      if (friendIds.length > 0) {
+        const insertValues = friendIds.map(() => '(?, ?, ?)').join(', ');
+        await client.execute({
+          sql: `INSERT INTO diary_note_tags (noteId, friendId, createdAt) VALUES ${insertValues}`,
+          args: friendIds.flatMap((friendId) => [note.id, friendId, now.toISOString()]),
+        });
+      }
+
+      return prisma.diaryNote.findMany().then((notes) =>
+        notes.find((entry) => entry.id === note.id) || { ...note, friends: [] }
+      );
+    },
+    update: async ({
+      where,
+      data,
+    }: {
+      where: { id: string };
+      data: { title?: string | null; content?: string; friendIds?: string[] };
+    }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existingResult = await client.execute({
+        sql: 'SELECT * FROM diary_notes WHERE id = ?',
+        args: [where.id],
+      });
+
+      if (existingResult.rows.length === 0) {
+        throw new Error('Note not found');
+      }
+
+      const existing = existingResult.rows[0];
+      const now = new Date();
+      const updated: DiaryNote = {
+        id: existing.id as string,
+        title:
+          data.title !== undefined ? data.title : ((existing.title as string | null) ?? null),
+        content: (data.content ?? existing.content) as string,
+        createdAt: new Date(existing.createdAt as string),
+        updatedAt: now,
+      };
+
+      await client.execute({
+        sql: 'UPDATE diary_notes SET title = ?, content = ?, updatedAt = ? WHERE id = ?',
+        args: [updated.title, updated.content, updated.updatedAt.toISOString(), where.id],
+      });
+
+      if (data.friendIds) {
+        await client.execute({
+          sql: 'DELETE FROM diary_note_tags WHERE noteId = ?',
+          args: [where.id],
+        });
+
+        if (data.friendIds.length > 0) {
+          const insertValues = data.friendIds.map(() => '(?, ?, ?)').join(', ');
+          await client.execute({
+            sql: `INSERT INTO diary_note_tags (noteId, friendId, createdAt) VALUES ${insertValues}`,
+            args: data.friendIds.flatMap((friendId) => [where.id, friendId, now.toISOString()]),
+          });
+        }
+      }
+
+      return prisma.diaryNote.findMany().then((notes) =>
+        notes.find((note) => note.id === where.id) || {
+          ...updated,
+          friends: [],
+        }
+      );
+    },
+    delete: async ({ where }: { where: { id: string } }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      await client.execute({
+        sql: 'DELETE FROM diary_note_tags WHERE noteId = ?',
+        args: [where.id],
+      });
+
+      await client.execute({
+        sql: 'DELETE FROM diary_notes WHERE id = ?',
         args: [where.id],
       });
 
