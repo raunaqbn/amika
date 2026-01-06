@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, content, imageUrl, friendIds } = body;
+    const { title, content, imageUrl, friendIds, friendTags } = body;
 
     if (!content || typeof content !== 'string' || !content.trim()) {
       return NextResponse.json({ error: 'Content is required' }, { status: 400 });
@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
     // Generate AI analysis
     const analysis = await generateAnalysis(content);
 
+    // Support both legacy friendIds and new friendTags with sharing
     const note = await prisma.diaryNote.create({
       data: {
         userId,
@@ -74,8 +75,40 @@ export async function POST(request: NextRequest) {
         friendIds: Array.isArray(friendIds)
           ? (friendIds.filter((id: string) => typeof id === 'string') as string[])
           : [],
+        friendTags: Array.isArray(friendTags) ? friendTags : undefined,
       },
     });
+
+    // Auto-share with Amika friends if any have sharedWithFriend enabled
+    if (Array.isArray(friendTags) && friendTags.length > 0) {
+      try {
+        // Get all user's friends to find Amika friends
+        const friends = await prisma.friend.findMany({ userId });
+
+        // Share with Amika friends who have sharedWithFriend enabled
+        for (const tag of friendTags) {
+          if (tag.sharedWithFriend) {
+            const friend = friends.find((f: { id: string }) => f.id === tag.friendId);
+            if (friend && friend.linkedUserId) {
+              try {
+                await prisma.sharedItem.create({
+                  sharedByUserId: userId,
+                  sharedWithUserId: friend.linkedUserId,
+                  itemType: 'note',
+                  itemId: note.id,
+                  message: undefined,
+                });
+              } catch (shareError) {
+                // Ignore duplicate share errors
+                console.error('Error sharing note with friend:', shareError);
+              }
+            }
+          }
+        }
+      } catch (shareError) {
+        console.error('Error auto-sharing note:', shareError);
+      }
+    }
 
     return NextResponse.json(note);
   } catch (error) {
