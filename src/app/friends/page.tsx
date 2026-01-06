@@ -48,7 +48,7 @@ export default function FriendsPage() {
   }
 
   return (
-    <div className="px-4 max-w-2xl mx-auto">
+    <div className="px-4 max-w-2xl mx-auto md:pt-16">
       <div className="py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
