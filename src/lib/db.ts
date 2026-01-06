@@ -67,7 +67,7 @@ type Event = {
   description: string | null;
   eventDate: Date;
   location: string | null;
-  category: string | null; // experiences, restaurants, places
+  category: string | null; // experiences, restaurants, places, fitness
   friendId: string; // Primary friend (for backward compatibility)
   completed: boolean;
   createdAt: Date;

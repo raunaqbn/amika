@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FriendAvatar } from '@/components/friend-avatar';
 import { MemoryList } from '@/components/memory-list';
-import { ArrowLeft, Edit, Trash2, Check, X, Plus, Calendar, BarChart3, Clock, BookOpen, Heart, Sparkles, Utensils, MapPin } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Check, X, Plus, Calendar, BarChart3, Clock, BookOpen, Heart, Sparkles, Utensils, MapPin, Dumbbell } from 'lucide-react';
 import { EventCard } from '@/components/event-card';
 import { AddEventDialog } from '@/components/add-event-dialog';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -61,6 +61,7 @@ const eventCategories = [
   { value: 'experiences', label: 'Experiences', icon: Sparkles },
   { value: 'restaurants', label: 'Restaurants', icon: Utensils },
   { value: 'places', label: 'Places', icon: MapPin },
+  { value: 'fitness', label: 'Fitness', icon: Dumbbell },
 ];
 
 interface FriendStats {

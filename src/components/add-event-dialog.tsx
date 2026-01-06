@@ -11,7 +11,7 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { Phone, MessageSquare, Calendar, Coffee, Utensils, MapPin, Sparkles } from 'lucide-react';
+import { Phone, MessageSquare, Calendar, Coffee, Utensils, MapPin, Sparkles, Dumbbell } from 'lucide-react';
 import { LocationAutocomplete } from './location-autocomplete';
 import { format } from 'date-fns';
 
@@ -36,6 +36,7 @@ const eventCategories = [
   { value: 'experiences', label: 'Experiences', icon: Sparkles },
   { value: 'restaurants', label: 'Restaurants', icon: Utensils },
   { value: 'places', label: 'Places', icon: MapPin },
+  { value: 'fitness', label: 'Fitness', icon: Dumbbell },
 ];
 
 interface EventToEdit {

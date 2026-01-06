@@ -695,6 +695,7 @@ export function FindEventsDialog({
                       { value: 'experiences', label: 'Experiences' },
                       { value: 'restaurants', label: 'Restaurants' },
                       { value: 'places', label: 'Places' },
+                      { value: 'fitness', label: 'Fitness' },
                     ].map((cat) => (
                       <button
                         key={cat.label}

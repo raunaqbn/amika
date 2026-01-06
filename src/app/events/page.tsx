@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { EventCard } from '@/components/event-card';
 import { AddEventDialog } from '@/components/add-event-dialog';
 import { FindEventsDialog } from '@/components/find-events-dialog';
-import { Calendar, Plus, Sparkles, Clock, CheckCircle2, Utensils, MapPin } from 'lucide-react';
+import { Calendar, Plus, Sparkles, Clock, CheckCircle2, Utensils, MapPin, Dumbbell } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -33,6 +33,7 @@ const categories = [
   { value: 'experiences', label: 'Experiences', icon: Sparkles },
   { value: 'restaurants', label: 'Restaurants', icon: Utensils },
   { value: 'places', label: 'Places', icon: MapPin },
+  { value: 'fitness', label: 'Fitness', icon: Dumbbell },
 ];
 
 export default function EventsPage() {
