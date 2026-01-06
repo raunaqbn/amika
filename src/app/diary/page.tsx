@@ -16,6 +16,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Heart, Search, Plus, X, MoreVertical, Share2, Image as ImageIcon, ArrowLeft, Compass } from 'lucide-react';
 import { NewNoteDialog } from '@/components/new-note-dialog';
 import { ShareItemDialog } from '@/components/share-item-dialog';
@@ -23,6 +25,7 @@ import { ShareItemDialog } from '@/components/share-item-dialog';
 interface Friend {
   id: string;
   name: string;
+  linkedUserId?: string | null;
 }
 
 interface DiaryNote {
@@ -54,6 +57,7 @@ function DiaryPageContent() {
   const [activeTab, setActiveTab] = useState('analysis');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [shareWithFriendIds, setShareWithFriendIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -71,7 +75,7 @@ function DiaryPageContent() {
       const friendsData = await friendsRes.json();
 
       setNotes(notesData);
-      setFriends(friendsData.map((friend: any) => ({ id: friend.id, name: friend.name })));
+      setFriends(friendsData.map((friend: any) => ({ id: friend.id, name: friend.name, linkedUserId: friend.linkedUserId })));
 
       // Check if there's an ID in the query params
       const noteId = searchParams.get('id');
@@ -202,6 +206,7 @@ function DiaryPageContent() {
     setSelectedFriends(note.friends.map((friend) => friend.id));
     setSelectedImage(null);
     setImagePreview(note.imageUrl || null);
+    setShareWithFriendIds([]);
     setEditDialogOpen(true);
   };
 
@@ -251,11 +256,18 @@ function DiaryPageContent() {
         }
       }
 
+      // Build friendTags with sharing info for API
+      const friendTags = selectedFriends.map(friendId => ({
+        friendId,
+        sharedWithFriend: shareWithFriendIds.includes(friendId),
+      }));
+
       const payload = {
         title: title.trim() || null,
         content,
         imageUrl,
         friendIds: selectedFriends,
+        friendTags,
       };
 
       const response = await fetch('/api/diary', {
@@ -821,11 +833,57 @@ function DiaryPageContent() {
                         className="h-4 w-4 rounded border-gray-300 text-[#A8C5A8] focus:ring-[#A8C5A8]"
                       />
                       {friend.name}
+                      {friend.linkedUserId && (
+                        <span className="text-xs px-1.5 py-0.5 bg-[#A8C5A8]/20 text-[#A8C5A8] rounded-full">
+                          Amika
+                        </span>
+                      )}
                     </label>
                   ))}
                 </div>
               )}
             </div>
+
+            {/* Share with Amika friends option */}
+            {(() => {
+              const selectedAmikaFriends = selectedFriends
+                .map(id => friends.find(f => f.id === id))
+                .filter(f => f?.linkedUserId) as Friend[];
+
+              if (selectedAmikaFriends.length === 0) return null;
+
+              return (
+                <div className="space-y-2 p-3 bg-[#A8C5A8]/10 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Share2 className="w-4 h-4 text-[#A8C5A8]" />
+                    <span className="text-sm font-medium">Share with Amika friends</span>
+                  </div>
+                  <div className="space-y-2">
+                    {selectedAmikaFriends.map(friend => (
+                      <div key={friend.id} className="flex items-center gap-2">
+                        <Switch
+                          id={`share-note-${friend.id}`}
+                          checked={shareWithFriendIds.includes(friend.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setShareWithFriendIds([...shareWithFriendIds, friend.id]);
+                            } else {
+                              setShareWithFriendIds(shareWithFriendIds.filter(id => id !== friend.id));
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`share-note-${friend.id}`} className="text-sm text-gray-600">
+                          Share with {friend.name}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    The note will appear in their Amika app
+                  </p>
+                </div>
+              );
+            })()}
           </div>
 
           <DialogFooter>

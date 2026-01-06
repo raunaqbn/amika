@@ -113,7 +113,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, title, description, eventDate, location, category, completed, friendId, friendIds } = body;
+    const { id, title, description, eventDate, location, category, completed, friendId, friendIds, sharedWithFriend } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -132,11 +132,41 @@ export async function PUT(request: NextRequest) {
     if (completed !== undefined) updateData.completed = completed;
     if (friendId !== undefined) updateData.friendId = friendId;
     if (friendIds !== undefined) updateData.friendIds = friendIds;
+    if (sharedWithFriend !== undefined) updateData.sharedWithFriend = sharedWithFriend;
 
     const updatedEvent = await prisma.event.update({
       where: { id, userId },
       data: updateData,
     });
+
+    // Handle sharing with Amika friends
+    if (sharedWithFriend && friendIds) {
+      try {
+        // Get all friends involved in this event
+        const friends = await prisma.friend.findMany({ userId });
+
+        // Find Amika friends and share the event with them
+        for (const fId of friendIds) {
+          const friend = friends.find((f: { id: string }) => f.id === fId);
+          if (friend && friend.linkedUserId) {
+            try {
+              await prisma.sharedItem.create({
+                sharedByUserId: userId,
+                sharedWithUserId: friend.linkedUserId,
+                itemType: 'event',
+                itemId: updatedEvent.id,
+                message: undefined,
+              });
+            } catch (shareError) {
+              // Ignore duplicate share errors (already shared)
+              console.error('Error sharing event with friend:', shareError);
+            }
+          }
+        }
+      } catch (shareError) {
+        console.error('Error auto-sharing event:', shareError);
+      }
+    }
 
     return NextResponse.json(updatedEvent);
   } catch (error: any) {

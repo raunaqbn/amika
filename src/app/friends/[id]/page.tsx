@@ -144,7 +144,7 @@ export default function FriendProfilePage() {
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
   const [stats, setStats] = useState<FriendStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
-  const [allFriends, setAllFriends] = useState<{ id: string; name: string; interests?: string | null; notes?: string | null }[]>([]);
+  const [allFriends, setAllFriends] = useState<{ id: string; name: string; interests?: string | null; notes?: string | null; linkedUserId?: string | null }[]>([]);
   const [sharedByFriend, setSharedByFriend] = useState<SharedItem[]>([]);
 
   useEffect(() => {
@@ -206,12 +206,13 @@ export default function FriendProfilePage() {
       const foundFriend = data.find((f: Friend) => f.id === params.id);
 
       // Set all friends for the event dialog (with current friend first)
-      // Include interests and notes for personalized event suggestions
+      // Include interests, notes, and linkedUserId for personalized event suggestions and sharing
       const friendsList = data.map((f: Friend) => ({
         id: f.id,
         name: f.name,
         interests: f.interests,
-        notes: f.notes
+        notes: f.notes,
+        linkedUserId: f.linkedUserId,
       }));
       // Move current friend to the top of the list
       const currentFriendIndex = friendsList.findIndex((f: { id: string }) => f.id === params.id);
@@ -502,7 +503,7 @@ export default function FriendProfilePage() {
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-gray-600">Birthday</label>
-              {editing ? (
+              {editing && !friend.linkedUserId ? (
                 <Input
                   type="date"
                   value={formData.birthday}
@@ -512,11 +513,18 @@ export default function FriendProfilePage() {
                   className="mt-1"
                 />
               ) : (
-                <p className="mt-1">
-                  {friend.birthday
-                    ? format(new Date(friend.birthday), 'MMMM d, yyyy')
-                    : 'Not set'}
-                </p>
+                <div className="mt-1">
+                  <p>
+                    {friend.birthday
+                      ? format(new Date(friend.birthday), 'MMMM d, yyyy')
+                      : 'Not set'}
+                  </p>
+                  {editing && friend.linkedUserId && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Managed by {friend.name}&apos;s profile
+                    </p>
+                  )}
+                </div>
               )}
             </div>
 
@@ -924,7 +932,7 @@ export default function FriendProfilePage() {
             setAddEventDialogOpen(open);
             if (!open) setEventToEdit(null);
           }}
-          friends={allFriends.length > 0 ? allFriends : [{ id: friend.id, name: friend.name, interests: friend.interests, notes: friend.notes }]}
+          friends={allFriends.length > 0 ? allFriends : [{ id: friend.id, name: friend.name, interests: friend.interests, notes: friend.notes, linkedUserId: friend.linkedUserId }]}
           onEventAdded={() => {
             fetchEvents();
             fetchStats();
@@ -962,6 +970,7 @@ export default function FriendProfilePage() {
             linkedUserId={friend.linkedUserId}
             memories={friend.memories}
             onUpdate={fetchFriend}
+            allFriends={allFriends}
           />
         </Card>
 

@@ -6,15 +6,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ShareItemDialog } from '@/components/share-item-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useState, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Trash2, Image as ImageIcon, X, Share2, Eye, EyeOff } from 'lucide-react';
+import { Trash2, Image as ImageIcon, X, Share2, Eye, EyeOff, Edit, Check } from 'lucide-react';
 
 interface Memory {
   id: string;
   content: string;
   imageUrl?: string | null;
   sharedWithFriend?: boolean;
+  friendIds?: string[];
   createdAt: Date;
 }
 
@@ -24,15 +32,27 @@ interface MemoryListProps {
   linkedUserId?: string | null; // If set, this friend is an Amika user
   memories: Memory[];
   onUpdate: () => void;
+  allFriends?: { id: string; name: string; linkedUserId?: string | null }[];
 }
 
-export function MemoryList({ friendId, friendName, linkedUserId, memories, onUpdate }: MemoryListProps) {
+export function MemoryList({ friendId, friendName, linkedUserId, memories, onUpdate, allFriends = [] }: MemoryListProps) {
   const [newMemory, setNewMemory] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [shareWithFriend, setShareWithFriend] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Edit state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+  const [editSelectedImage, setEditSelectedImage] = useState<File | null>(null);
+  const [editSelectedFriends, setEditSelectedFriends] = useState<string[]>([]);
+  const [editShareWithFriend, setEditShareWithFriend] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   const isAmikaFriend = Boolean(linkedUserId);
 
@@ -211,6 +231,116 @@ export function MemoryList({ friendId, friendName, linkedUserId, memories, onUpd
     }
   };
 
+  const openEditDialog = (memory: Memory) => {
+    setEditingMemory(memory);
+    setEditContent(memory.content);
+    setEditImagePreview(memory.imageUrl || null);
+    setEditSelectedImage(null);
+    // Set selected friends - use friendIds if available, otherwise use friendId
+    setEditSelectedFriends(memory.friendIds || [friendId]);
+    setEditShareWithFriend(false);
+    setEditDialogOpen(true);
+  };
+
+  const handleEditImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+
+      const compressedFile = await compressImage(file);
+
+      if (compressedFile.size > 4 * 1024 * 1024) {
+        alert('Image is still too large after compression. Please use a smaller image.');
+        return;
+      }
+
+      setEditSelectedImage(compressedFile);
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(compressedFile);
+    } catch (error) {
+      console.error('Error processing image:', error);
+      alert('Failed to process image. Please try again.');
+    }
+
+    if (editFileInputRef.current) {
+      editFileInputRef.current.value = '';
+    }
+  };
+
+  const handleEditRemoveImage = () => {
+    setEditSelectedImage(null);
+    setEditImagePreview(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingMemory || !editContent.trim()) return;
+
+    setSaving(true);
+    try {
+      let imageUrl = editingMemory.imageUrl;
+
+      // Upload new image if one was selected
+      if (editSelectedImage) {
+        const formData = new FormData();
+        formData.append('file', editSelectedImage);
+
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (uploadRes.ok) {
+          const data = await uploadRes.json();
+          imageUrl = data.url;
+        }
+      } else if (editImagePreview === null) {
+        // Image was removed
+        imageUrl = null;
+      }
+
+      const response = await fetch('/api/memories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingMemory.id,
+          content: editContent.trim(),
+          imageUrl,
+          friendIds: editSelectedFriends,
+          sharedWithFriend: editShareWithFriend,
+        }),
+      });
+
+      if (response.ok) {
+        setEditDialogOpen(false);
+        setEditingMemory(null);
+        onUpdate();
+      } else {
+        throw new Error('Failed to update memory');
+      }
+    } catch (error) {
+      console.error('Error updating memory:', error);
+      alert('Failed to update memory. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Get Amika friends from selected friends for sharing option
+  const getSelectedAmikaFriends = () => {
+    return editSelectedFriends
+      .map(id => allFriends.find(f => f.id === id))
+      .filter(f => f?.linkedUserId) as typeof allFriends;
+  };
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -302,6 +432,15 @@ export function MemoryList({ friendId, friendName, linkedUserId, memories, onUpd
                   </p>
                 </div>
                 <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openEditDialog(memory)}
+                    className="text-gray-400 hover:text-[#A8C5A8]"
+                    title="Edit memory"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </Button>
                   {isAmikaFriend && (
                     <Button
                       variant="ghost"
@@ -343,6 +482,137 @@ export function MemoryList({ friendId, friendName, linkedUserId, memories, onUpd
           ))
         )}
       </div>
+
+      {/* Edit Memory Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-w-[95vw] max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Edit Memory</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 overflow-y-auto pr-1 flex-1">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Memory</label>
+              <Textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                rows={4}
+                placeholder="What happened?"
+              />
+            </div>
+
+            <div className="space-y-2">
+              {editImagePreview && (
+                <div className="relative inline-block">
+                  <img
+                    src={editImagePreview}
+                    alt="Memory preview"
+                    className="w-full max-w-md h-48 object-cover rounded-lg border border-gray-200"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleEditRemoveImage}
+                    className="absolute top-2 right-2 bg-white/90 hover:bg-white text-gray-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => editFileInputRef.current?.click()}
+                className="border-[#A8C5A8]/60 text-[#A8C5A8]"
+              >
+                <ImageIcon className="w-4 h-4 mr-2" />
+                {editImagePreview ? 'Change Image' : 'Add Image'}
+              </Button>
+              <input
+                ref={editFileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleEditImageSelect}
+                className="hidden"
+              />
+            </div>
+
+            {/* Multi-friend tagging - only show if we have multiple friends */}
+            {allFriends.length > 1 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Tag friends</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                  {allFriends.map((friend) => (
+                    <label
+                      key={friend.id}
+                      className="flex items-center gap-2 text-sm text-gray-700"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={editSelectedFriends.includes(friend.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setEditSelectedFriends([...editSelectedFriends, friend.id]);
+                          } else {
+                            setEditSelectedFriends(editSelectedFriends.filter(id => id !== friend.id));
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-[#A8C5A8] focus:ring-[#A8C5A8]"
+                      />
+                      {friend.name}
+                      {friend.linkedUserId && (
+                        <span className="text-xs px-1.5 py-0.5 bg-[#A8C5A8]/20 text-[#A8C5A8] rounded-full">
+                          Amika
+                        </span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Share with Amika friends option */}
+            {getSelectedAmikaFriends().length > 0 && (
+              <div className="space-y-2 p-3 bg-[#A8C5A8]/10 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Share2 className="w-4 h-4 text-[#A8C5A8]" />
+                  <span className="text-sm font-medium">Share with Amika friends</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="edit-share-memory"
+                    checked={editShareWithFriend}
+                    onCheckedChange={setEditShareWithFriend}
+                  />
+                  <Label htmlFor="edit-share-memory" className="text-sm text-gray-600">
+                    Share with {getSelectedAmikaFriends().map(f => f.name).join(', ')}
+                  </Label>
+                </div>
+                <p className="text-xs text-gray-500">
+                  The memory will appear in their Amika app
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={saving || !editContent.trim() || editSelectedFriends.length === 0}
+              className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

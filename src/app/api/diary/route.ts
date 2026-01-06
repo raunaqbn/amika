@@ -125,7 +125,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, title, content, imageUrl, friendIds } = body;
+    const { id, title, content, imageUrl, friendIds, friendTags } = body;
 
     if (!id || typeof id !== 'string') {
       return NextResponse.json({ error: 'Note ID is required' }, { status: 400 });
@@ -158,6 +158,37 @@ export async function PUT(request: NextRequest) {
           : undefined,
       },
     });
+
+    // Handle sharing with Amika friends
+    if (Array.isArray(friendTags) && friendTags.length > 0) {
+      try {
+        // Get all user's friends to find Amika friends
+        const friends = await prisma.friend.findMany({ userId });
+
+        // Share with Amika friends who have sharedWithFriend enabled
+        for (const tag of friendTags) {
+          if (tag.sharedWithFriend) {
+            const friend = friends.find((f: { id: string }) => f.id === tag.friendId);
+            if (friend && friend.linkedUserId) {
+              try {
+                await prisma.sharedItem.create({
+                  sharedByUserId: userId,
+                  sharedWithUserId: friend.linkedUserId,
+                  itemType: 'note',
+                  itemId: note.id,
+                  message: undefined,
+                });
+              } catch (shareError) {
+                // Ignore duplicate share errors (already shared)
+                console.error('Error sharing note with friend:', shareError);
+              }
+            }
+          }
+        }
+      } catch (shareError) {
+        console.error('Error auto-sharing note:', shareError);
+      }
+    }
 
     return NextResponse.json(note);
   } catch (error) {
