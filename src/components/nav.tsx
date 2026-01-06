@@ -9,8 +9,8 @@ export function Nav() {
   const pathname = usePathname();
   const { user, loading } = useAuth();
 
-  // Don't show nav on auth pages
-  if (pathname === '/signin' || pathname === '/signup') {
+  // Don't show nav on auth pages or when not authenticated (landing page)
+  if (pathname === '/signin' || pathname === '/signup' || (!loading && !user)) {
     return null;
   }
 
