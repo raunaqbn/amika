@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "node scripts/patch-google-usage.js",
+    "postinstall": "prisma generate && node scripts/patch-google-usage.js",
     "predev": "node scripts/patch-google-usage.js",
     "prebuild": "node scripts/patch-google-usage.js",
     "prestart": "node scripts/patch-google-usage.js"
