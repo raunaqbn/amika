@@ -15,10 +15,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased bg-[#FFFBF5]">
+      <body className="antialiased">
         <AuthProvider>
           <Nav />
-          <main className="md:pt-16 pb-20 md:pb-0">
+          <main>
             {children}
           </main>
         </AuthProvider>
