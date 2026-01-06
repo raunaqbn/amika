@@ -75,7 +75,10 @@ async function searchMovies(query: string, location: string): Promise<{
   location: string;
   source: string;
 }> {
+  console.log('[searchMovies] Starting search:', { query, location, hasApiKey: !!SERPAPI_KEY });
+
   if (!SERPAPI_KEY) {
+    console.log('[searchMovies] No API key configured');
     return {
       searchQuery: query,
       location,
@@ -93,10 +96,15 @@ async function searchMovies(query: string, location: string): Promise<{
       hl: 'en',
     });
 
-    const response = await fetch(`https://serpapi.com/search?${params.toString()}`);
+    const url = `https://serpapi.com/search?${params.toString()}`;
+    console.log('[searchMovies] Fetching:', url.replace(SERPAPI_KEY, 'REDACTED'));
+
+    const response = await fetch(url);
+    console.log('[searchMovies] Response status:', response.status);
 
     if (!response.ok) {
-      console.error('SerpAPI showtimes error:', response.status);
+      const errorText = await response.text();
+      console.error('[searchMovies] SerpAPI error:', response.status, errorText);
       return {
         searchQuery: query,
         location,
@@ -106,9 +114,11 @@ async function searchMovies(query: string, location: string): Promise<{
     }
 
     const data: SerpAPIShowtimesResponse = await response.json();
+    console.log('[searchMovies] Response data keys:', Object.keys(data));
+    console.log('[searchMovies] Showtimes count:', data.showtimes?.length || 0);
 
     if (data.error) {
-      console.error('SerpAPI showtimes returned error:', data.error);
+      console.error('[searchMovies] SerpAPI returned error:', data.error);
       return {
         searchQuery: query,
         location,
@@ -130,6 +140,7 @@ async function searchMovies(query: string, location: string): Promise<{
       })),
     }));
 
+    console.log('[searchMovies] Processed movies count:', movies.length);
     return {
       searchQuery: query,
       location,
@@ -137,7 +148,7 @@ async function searchMovies(query: string, location: string): Promise<{
       movies,
     };
   } catch (error) {
-    console.error('Error fetching movies from SerpAPI:', error);
+    console.error('[searchMovies] Error:', error);
     return {
       searchQuery: query,
       location,
@@ -263,7 +274,10 @@ async function searchLocalPlaces(query: string, location: string): Promise<{
   location: string;
   source: string;
 }> {
+  console.log('[searchLocalPlaces] Starting search:', { query, location, hasApiKey: !!SERPAPI_KEY });
+
   if (!SERPAPI_KEY) {
+    console.log('[searchLocalPlaces] No API key configured');
     return {
       searchQuery: query,
       location,
@@ -281,10 +295,15 @@ async function searchLocalPlaces(query: string, location: string): Promise<{
       hl: 'en',
     });
 
-    const response = await fetch(`https://serpapi.com/search?${params.toString()}`);
+    const url = `https://serpapi.com/search?${params.toString()}`;
+    console.log('[searchLocalPlaces] Fetching:', url.replace(SERPAPI_KEY, 'REDACTED'));
+
+    const response = await fetch(url);
+    console.log('[searchLocalPlaces] Response status:', response.status);
 
     if (!response.ok) {
-      console.error('SerpAPI local error:', response.status);
+      const errorText = await response.text();
+      console.error('[searchLocalPlaces] SerpAPI error:', response.status, errorText);
       return {
         searchQuery: query,
         location,
@@ -294,9 +313,11 @@ async function searchLocalPlaces(query: string, location: string): Promise<{
     }
 
     const data: SerpAPILocalResponse = await response.json();
+    console.log('[searchLocalPlaces] Response data keys:', Object.keys(data));
+    console.log('[searchLocalPlaces] Local results count:', data.local_results?.length || 0);
 
     if (data.error) {
-      console.error('SerpAPI local returned error:', data.error);
+      console.error('[searchLocalPlaces] SerpAPI returned error:', data.error);
       return {
         searchQuery: query,
         location,
@@ -317,6 +338,7 @@ async function searchLocalPlaces(query: string, location: string): Promise<{
       hours: place.hours || '',
     }));
 
+    console.log('[searchLocalPlaces] Processed places count:', places.length);
     return {
       searchQuery: query,
       location,
@@ -324,7 +346,7 @@ async function searchLocalPlaces(query: string, location: string): Promise<{
       places,
     };
   } catch (error) {
-    console.error('Error fetching local places from SerpAPI:', error);
+    console.error('[searchLocalPlaces] Error:', error);
     return {
       searchQuery: query,
       location,
