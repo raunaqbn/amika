@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
@@ -65,12 +65,25 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // @ mention state
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState('');
+  const [mentionPosition, setMentionPosition] = useState(0);
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
 
   // Mirror chat state
   const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages, setInput } = useChat({
     api: '/api/chat',
+    onFinish: () => {
+      // Restore focus to chat input after AI finishes responding
+      setTimeout(() => chatInputRef.current?.focus(), 0);
+    },
     onError: (error) => {
       console.error('Chat error:', error);
+      // Restore focus even on error
+      setTimeout(() => chatInputRef.current?.focus(), 0);
     },
   });
 
@@ -85,8 +98,95 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
       setImagePreview(null);
       setMessages([]);
       setInput('');
+      setShowMentions(false);
+      setMentionSearch('');
     }
   }, [open, setMessages, setInput]);
+
+  // Filtered friends for @ mentions
+  const filteredFriends = useMemo(() => {
+    if (!mentionSearch) return friends;
+    const search = mentionSearch.toLowerCase();
+    return friends.filter((friend) => friend.name.toLowerCase().includes(search));
+  }, [friends, mentionSearch]);
+
+  // Handle @ mention selection
+  const handleMentionSelect = (friendName: string) => {
+    const beforeMention = input.slice(0, mentionPosition);
+    const afterMention = input.slice(mentionPosition + mentionSearch.length);
+    const newValue = beforeMention + friendName + ' ' + afterMention;
+
+    handleInputChange({ target: { value: newValue } } as any);
+    setShowMentions(false);
+    setMentionSearch('');
+    setTimeout(() => chatInputRef.current?.focus(), 0);
+  };
+
+  // Custom input change handler for @ mentions
+  const handleCustomChatInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart || 0;
+
+    handleInputChange(e);
+
+    // Check for @ mentions
+    const textBeforeCursor = value.slice(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtIndex !== -1 && lastAtIndex === cursorPosition - 1) {
+      // @ just typed
+      setShowMentions(true);
+      setMentionPosition(lastAtIndex + 1);
+      setMentionSearch('');
+      setSelectedMentionIndex(0);
+    } else if (lastAtIndex !== -1) {
+      // Check if we're still in a mention
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+      if (!/\s/.test(textAfterAt)) {
+        // No space after @, still in mention
+        setShowMentions(true);
+        setMentionPosition(lastAtIndex + 1);
+        setMentionSearch(textAfterAt);
+        setSelectedMentionIndex(0);
+      } else {
+        setShowMentions(false);
+      }
+    } else {
+      setShowMentions(false);
+    }
+  };
+
+  // Handle keyboard navigation for mentions
+  const handleMentionKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Handle escape to close mentions dropdown
+    if (showMentions && e.key === 'Escape') {
+      e.preventDefault();
+      setShowMentions(false);
+      return;
+    }
+
+    // Handle navigation and selection when mentions are shown with friends
+    if (showMentions && filteredFriends.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedMentionIndex((prev) =>
+          prev < filteredFriends.length - 1 ? prev + 1 : prev
+        );
+        return;
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedMentionIndex((prev) => (prev > 0 ? prev - 1 : 0));
+        return;
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        const selectedFriend = filteredFriends[selectedMentionIndex];
+        if (selectedFriend) {
+          handleMentionSelect(selectedFriend.name);
+        }
+        return;
+      }
+    }
+  };
 
   // Image compression helper
   const compressImage = async (file: File): Promise<File> => {
@@ -187,6 +287,13 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Focus chat input when entering chat mode
+  useEffect(() => {
+    if (mode === 'amika-chat') {
+      setTimeout(() => chatInputRef.current?.focus(), 100);
+    }
+  }, [mode]);
 
   const handleSaveFreeformNote = async () => {
     if (!content.trim()) return;
@@ -318,7 +425,7 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] flex flex-col p-0 gap-0 bg-white">
+      <DialogContent className={`sm:max-w-4xl max-w-[95vw] flex flex-col p-0 gap-0 bg-white ${mode === 'amika-chat' ? 'h-[85vh]' : 'max-h-[90vh]'}`}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
           <div className="flex items-center gap-2">
@@ -519,14 +626,59 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
 
             {/* Chat input */}
             <div className="p-4 border-t border-gray-200">
-              <form onSubmit={handleSubmit} className="flex gap-2">
-                <Input
-                  value={input}
-                  onChange={handleInputChange}
-                  placeholder="Type a message..."
-                  disabled={isLoading}
-                  className="flex-1"
-                />
+              <form onSubmit={handleSubmit} className="flex gap-2 items-end">
+                <div className="flex-1 relative">
+                  <Textarea
+                    ref={chatInputRef}
+                    value={input}
+                    onChange={handleCustomChatInputChange}
+                    onKeyDown={(e) => {
+                      handleMentionKeyDown(e);
+                      // Send on Enter (without shift)
+                      if (e.key === 'Enter' && !e.shiftKey && !showMentions) {
+                        e.preventDefault();
+                        handleSubmit(e as any);
+                      }
+                    }}
+                    placeholder="Type a message... (use @ to mention friends)"
+                    disabled={isLoading}
+                    autoFocus
+                    rows={1}
+                    className="min-h-[40px] max-h-[120px] resize-none py-2"
+                    style={{ height: 'auto', overflow: 'hidden' }}
+                    onInput={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      target.style.height = 'auto';
+                      target.style.height = Math.min(target.scrollHeight, 120) + 'px';
+                    }}
+                  />
+                  {/* @ Mentions dropdown */}
+                  {showMentions && (
+                    <div className="absolute bottom-full left-0 mb-2 w-full max-w-sm bg-white border border-[#A8C5A8]/30 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                      {filteredFriends.length > 0 ? (
+                        filteredFriends.map((friend, index) => (
+                          <button
+                            key={friend.id}
+                            type="button"
+                            onClick={() => handleMentionSelect(friend.name)}
+                            className={`w-full text-left px-4 py-2 hover:bg-[#A8C5A8]/10 transition-colors ${
+                              index === selectedMentionIndex ? 'bg-[#A8C5A8]/20' : ''
+                            }`}
+                          >
+                            <span className="font-medium text-gray-900">{friend.name}</span>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-sm text-gray-500">
+                          {friends.length === 0
+                            ? 'No friends added yet. Add friends to mention them!'
+                            : `No friends matching "${mentionSearch}"`
+                          }
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <Button
                   type="submit"
                   disabled={isLoading || !input.trim()}
@@ -535,6 +687,10 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
                   Send
                 </Button>
               </form>
+
+              <p className="text-xs text-gray-500 mt-2">
+                Press Enter to send, Shift+Enter for new line. Use @ to mention friends.
+              </p>
 
               {/* Save chat button */}
               {messages.length > 0 && (
