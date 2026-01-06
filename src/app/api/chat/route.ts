@@ -29,6 +29,123 @@ interface SerpAPIResponse {
   error?: string;
 }
 
+interface SerpAPIShowtime {
+  time: string[];
+  type?: string;
+}
+
+interface SerpAPITheater {
+  name: string;
+  link?: string;
+  address?: string;
+  showing?: SerpAPIShowtime[];
+  distance?: string;
+}
+
+interface SerpAPIMovie {
+  name: string;
+  link?: string;
+  description?: string;
+  duration?: string;
+  genre?: string[];
+  rating?: string;
+  theaters?: SerpAPITheater[];
+}
+
+interface SerpAPIShowtimesResponse {
+  showtimes?: SerpAPIMovie[];
+  error?: string;
+}
+
+async function searchMovies(query: string, location: string): Promise<{
+  movies: Array<{
+    name: string;
+    description: string;
+    duration: string;
+    genre: string;
+    rating: string;
+    theaters: Array<{
+      name: string;
+      address: string;
+      showtimes: string[];
+    }>;
+  }>;
+  searchQuery: string;
+  location: string;
+  source: string;
+}> {
+  if (!SERPAPI_KEY) {
+    return {
+      searchQuery: query,
+      location,
+      source: 'suggestions',
+      movies: [],
+    };
+  }
+
+  try {
+    const params = new URLSearchParams({
+      engine: 'google_showtimes',
+      q: query || 'movies',
+      location,
+      api_key: SERPAPI_KEY,
+      hl: 'en',
+    });
+
+    const response = await fetch(`https://serpapi.com/search?${params.toString()}`);
+
+    if (!response.ok) {
+      console.error('SerpAPI showtimes error:', response.status);
+      return {
+        searchQuery: query,
+        location,
+        source: 'error',
+        movies: [],
+      };
+    }
+
+    const data: SerpAPIShowtimesResponse = await response.json();
+
+    if (data.error) {
+      console.error('SerpAPI showtimes returned error:', data.error);
+      return {
+        searchQuery: query,
+        location,
+        source: 'error',
+        movies: [],
+      };
+    }
+
+    const movies = (data.showtimes || []).slice(0, 8).map((movie) => ({
+      name: movie.name,
+      description: movie.description || '',
+      duration: movie.duration || '',
+      genre: movie.genre?.join(', ') || '',
+      rating: movie.rating || '',
+      theaters: (movie.theaters || []).slice(0, 3).map((theater) => ({
+        name: theater.name,
+        address: theater.address || '',
+        showtimes: theater.showing?.flatMap((s) => s.time) || [],
+      })),
+    }));
+
+    return {
+      searchQuery: query,
+      location,
+      source: 'google_showtimes',
+      movies,
+    };
+  } catch (error) {
+    console.error('Error fetching movies from SerpAPI:', error);
+    return {
+      searchQuery: query,
+      location,
+      source: 'error',
+      movies: [],
+    };
+  }
+}
+
 async function searchGoogleEvents(query: string, location?: string): Promise<{
   events: Array<{
     title: string;
@@ -262,6 +379,41 @@ export async function POST(req: Request) {
                 'Look at Meetup.com for group activities',
                 'Search Facebook Events for community gatherings',
                 'Visit local venue websites for concerts and shows',
+              ],
+            };
+          },
+        }),
+        searchMovies: tool({
+          description: 'Search for movies playing in theaters near a location. Use this when the user asks about movies, films, showtimes, or wants to go to the cinema/theater. This returns currently playing movies with showtimes at nearby theaters.',
+          parameters: z.object({
+            query: z.string().optional().describe('Optional search query for specific movies or genres (e.g., "A24 movies", "horror", "comedy"). Leave empty to see all movies playing.'),
+            location: z.string().describe('The location to search for movie theaters (e.g., "Campbell, CA", "San Francisco", "Los Angeles")'),
+          }),
+          execute: async ({ query, location }) => {
+            const result = await searchMovies(query || '', location);
+
+            if (result.source === 'google_showtimes' && result.movies.length > 0) {
+              return {
+                searchQuery: result.searchQuery,
+                location: result.location,
+                source: 'Google Showtimes',
+                movies: result.movies,
+                note: 'Here are movies currently playing near you with showtimes!',
+              };
+            }
+
+            // Fallback when no API key or no results
+            return {
+              searchQuery: result.searchQuery,
+              location: result.location,
+              source: 'suggestions',
+              movies: [],
+              note: 'I couldn\'t find specific showtimes, but here are some suggestions for finding movies:',
+              suggestions: [
+                'Check Fandango for local showtimes',
+                'Visit AMC, Regal, or Cinemark websites',
+                'Look for independent theaters like Landmark or Alamo Drafthouse',
+                'Check Google for "movies near me"',
               ],
             };
           },
