@@ -11,7 +11,7 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { Phone, MessageSquare, Calendar, Coffee } from 'lucide-react';
+import { Phone, MessageSquare, Calendar, Coffee, Utensils, MapPin, Sparkles, Dumbbell } from 'lucide-react';
 import { LocationAutocomplete } from './location-autocomplete';
 import { format } from 'date-fns';
 
@@ -30,12 +30,22 @@ const timeOfDayOptions = [
   { label: 'Evening', hours: 18, minutes: 0 },
 ];
 
+// Event categories
+const eventCategories = [
+  { value: null, label: 'None', icon: Calendar },
+  { value: 'experiences', label: 'Experiences', icon: Sparkles },
+  { value: 'restaurants', label: 'Restaurants', icon: Utensils },
+  { value: 'places', label: 'Places', icon: MapPin },
+  { value: 'fitness', label: 'Fitness', icon: Dumbbell },
+];
+
 interface EventToEdit {
   id: string;
   title: string;
   description: string | null;
   eventDate: Date;
   location: string | null;
+  category?: string | null;
   friendId: string;
   friends?: { id: string; name: string }[];
 }
@@ -61,6 +71,7 @@ export function AddEventDialog({
   const [description, setDescription] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [location, setLocation] = useState('');
+  const [category, setCategory] = useState<string | null>(null);
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +90,7 @@ export function AddEventDialog({
       setTitle(eventToEdit.title);
       setDescription(eventToEdit.description || '');
       setLocation(eventToEdit.location || '');
+      setCategory(eventToEdit.category || null);
       // Set selected friend IDs from event's friends array or fallback to friendId
       const friendIdsFromEvent = eventToEdit.friends?.map(f => f.id) || [eventToEdit.friendId];
       setSelectedFriendIds(friendIdsFromEvent);
@@ -152,6 +164,7 @@ export function AddEventDialog({
     setDescription('');
     setEventDate('');
     setLocation('');
+    setCategory(null);
     setSelectedFriendIds([]);
     setQuickMode(false);
     setQuickEventType(null);
@@ -183,6 +196,7 @@ export function AddEventDialog({
             description: description.trim() || null,
             eventDate: new Date(eventDate).toISOString(),
             location: location.trim() || null,
+            category: category,
             friendId: selectedFriendIds[0],
             friendIds: selectedFriendIds,
           }),
@@ -205,6 +219,7 @@ export function AddEventDialog({
             description: description.trim() || null,
             eventDate: new Date(eventDate).toISOString(),
             location: location.trim() || null,
+            category: category,
             friendId: selectedFriendIds[0],
             friendIds: selectedFriendIds,
           }),
@@ -407,6 +422,29 @@ export function AddEventDialog({
                 onChange={setLocation}
                 placeholder="Search for a location..."
               />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Category</label>
+              <div className="grid grid-cols-4 gap-2">
+                {eventCategories.map((cat) => (
+                  <button
+                    key={cat.label}
+                    type="button"
+                    onClick={() => setCategory(cat.value)}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors ${
+                      category === cat.value
+                        ? 'border-[#D4A5A5] bg-[#D4A5A5]/10'
+                        : 'border-gray-200 hover:border-[#D4A5A5]/50 hover:bg-[#D4A5A5]/5'
+                    }`}
+                  >
+                    <cat.icon className={`w-4 h-4 ${
+                      category === cat.value ? 'text-[#D4A5A5]' : 'text-gray-500'
+                    }`} />
+                    <span className="text-xs text-gray-700">{cat.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-2">
