@@ -11,13 +11,20 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card } from './ui/card';
-import { Send, MapPin, Calendar, Users, Video, Sparkles, Plus, ExternalLink, Star, Clock, Ticket } from 'lucide-react';
+import { Badge } from './ui/badge';
+import { Send, MapPin, Calendar, Users, Video, Sparkles, Plus, ExternalLink, Star, Clock, Ticket, X, UserPlus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+
+interface Friend {
+  id: string;
+  name: string;
+  notes?: string | null;
+}
 
 interface FindEventsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  friends: { id: string; name: string }[];
+  friends: Friend[];
   onEventCreated?: () => void;
 }
 
@@ -39,37 +46,81 @@ export function FindEventsDialog({
   const [eventTitle, setEventTitle] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [eventLocation, setEventLocation] = useState('');
-  const [selectedFriendId, setSelectedFriendId] = useState('');
+  const [selectedEventFriendIds, setSelectedEventFriendIds] = useState<string[]>([]);
   const [creatingEvent, setCreatingEvent] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Friend selection for event planning
+  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
+  const [showFriendSelector, setShowFriendSelector] = useState(true);
+
+  // Get selected friends' details for context
+  const selectedFriends = friends.filter(f => selectedFriendIds.includes(f.id));
+
+  // Build friend context for the AI
+  const friendContext = selectedFriends.length > 0
+    ? selectedFriends.map(f => {
+        let context = f.name;
+        if (f.notes) {
+          context += `: ${f.notes}`;
+        }
+        return context;
+      }).join('\n')
+    : '';
+
+  const getWelcomeMessage = () => {
+    if (selectedFriends.length === 0) {
+      return "Hi! I'm here to help you find fun activities to do with your friends. Select some friends above to get personalized suggestions based on their interests, or just ask about **local events**, **virtual hangouts**, or anything else!";
+    }
+    const names = selectedFriends.map(f => f.name).join(', ');
+    return `Great! You're planning activities with **${names}**. I'll suggest activities based on their interests. What kind of activities are you looking for? Try **local events**, **restaurants**, **outdoor activities**, or ask me anything!`;
+  };
 
   const {
     messages,
     input,
     handleInputChange,
-    handleSubmit,
+    handleSubmit: originalHandleSubmit,
     isLoading,
     setMessages,
     setInput,
   } = useChat({
     api: '/api/chat',
+    body: {
+      friendContext: friendContext,
+    },
     initialMessages: [
       {
         id: 'welcome',
         role: 'assistant',
-        content: "Hi! I'm here to help you find fun activities to do with your friends. Are you looking for **local events**, **virtual hangouts**, or something else? You can also ask about specific interests like concerts, outdoor activities, or creative experiences!",
+        content: getWelcomeMessage(),
       },
     ],
   });
 
-  // Reset chat when dialog opens
+  // Update welcome message when friends change
   useEffect(() => {
-    if (open) {
+    if (open && messages.length === 1 && messages[0].id === 'welcome') {
       setMessages([
         {
           id: 'welcome',
           role: 'assistant',
-          content: "Hi! I'm here to help you find fun activities to do with your friends. Are you looking for **local events**, **virtual hangouts**, or something else? You can also ask about specific interests like concerts, outdoor activities, or creative experiences!",
+          content: getWelcomeMessage(),
+        },
+      ]);
+    }
+  }, [selectedFriendIds]);
+
+  // Reset chat when dialog opens
+  useEffect(() => {
+    if (open) {
+      setSelectedFriendIds([]);
+      setShowFriendSelector(true);
+      setMessages([
+        {
+          id: 'welcome',
+          role: 'assistant',
+          content: "Hi! I'm here to help you find fun activities to do with your friends. Select some friends above to get personalized suggestions based on their interests, or just ask about **local events**, **virtual hangouts**, or anything else!",
         },
       ]);
       setShowCreateEvent(false);
@@ -81,9 +132,23 @@ export function FindEventsDialog({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const handleFriendToggle = (friendId: string) => {
+    setSelectedFriendIds(prev =>
+      prev.includes(friendId)
+        ? prev.filter(id => id !== friendId)
+        : [...prev, friendId]
+    );
+  };
+
   const handleQuickSuggestion = (query: string) => {
-    setInput(query);
-    // Submit after a small delay to allow input to update
+    // If friends are selected, personalize the query
+    let personalizedQuery = query;
+    if (selectedFriends.length > 0) {
+      const names = selectedFriends.map(f => f.name).join(' and ');
+      personalizedQuery = query.replace('a friend', names).replace('friends', names);
+    }
+
+    setInput(personalizedQuery);
     setTimeout(() => {
       const form = document.getElementById('find-events-form') as HTMLFormElement;
       if (form) {
@@ -92,8 +157,23 @@ export function FindEventsDialog({
     }, 100);
   };
 
+  // Custom submit that includes friend context
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+
+    // Add friend context to the message if friends are selected
+    let messageWithContext = input;
+    if (selectedFriends.length > 0 && !input.toLowerCase().includes('friend')) {
+      const names = selectedFriends.map(f => f.name).join(' and ');
+      // The AI will use the body.friendContext for detailed info
+    }
+
+    originalHandleSubmit(e);
+  };
+
   const handleCreateEvent = async () => {
-    if (!eventTitle.trim() || !eventDate || !selectedFriendId) return;
+    if (!eventTitle.trim() || !eventDate || selectedEventFriendIds.length === 0) return;
 
     setCreatingEvent(true);
     try {
@@ -104,7 +184,8 @@ export function FindEventsDialog({
           title: eventTitle.trim(),
           eventDate: new Date(eventDate).toISOString(),
           location: eventLocation.trim() || null,
-          friendId: selectedFriendId,
+          friendId: selectedEventFriendIds[0],
+          friendIds: selectedEventFriendIds,
         }),
       });
 
@@ -114,16 +195,20 @@ export function FindEventsDialog({
       setEventTitle('');
       setEventDate('');
       setEventLocation('');
-      setSelectedFriendId('');
+      setSelectedEventFriendIds([]);
       onEventCreated?.();
 
-      // Add a confirmation message
+      const friendNames = selectedEventFriendIds
+        .map(id => friends.find(f => f.id === id)?.name)
+        .filter(Boolean)
+        .join(', ');
+
       setMessages([
         ...messages,
         {
           id: `event-created-${Date.now()}`,
           role: 'assistant',
-          content: `Great! I've created the event "${eventTitle}" for you. Would you like to find more activities?`,
+          content: `Great! I've created the event "${eventTitle}" with ${friendNames}. Would you like to find more activities?`,
         },
       ]);
     } catch (err) {
@@ -131,6 +216,14 @@ export function FindEventsDialog({
     } finally {
       setCreatingEvent(false);
     }
+  };
+
+  const handleEventFriendToggle = (friendId: string) => {
+    setSelectedEventFriendIds(prev =>
+      prev.includes(friendId)
+        ? prev.filter(id => id !== friendId)
+        : [...prev, friendId]
+    );
   };
 
   return (
@@ -144,6 +237,50 @@ export function FindEventsDialog({
         </DialogHeader>
 
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {/* Friend Selector */}
+          {showFriendSelector && friends.length > 0 && (
+            <div className="mb-4 p-3 bg-[#A8C5A8]/5 rounded-lg border border-[#A8C5A8]/20">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-[#A8C5A8]" />
+                  <span className="text-sm font-medium text-gray-700">Who are you planning with?</span>
+                </div>
+                {selectedFriends.length > 0 && (
+                  <button
+                    onClick={() => setSelectedFriendIds([])}
+                    className="text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {friends.map((friend) => {
+                  const isSelected = selectedFriendIds.includes(friend.id);
+                  return (
+                    <button
+                      key={friend.id}
+                      onClick={() => handleFriendToggle(friend.id)}
+                      className={`px-3 py-1.5 rounded-full text-sm transition-colors flex items-center gap-1 ${
+                        isSelected
+                          ? 'bg-[#A8C5A8] text-white'
+                          : 'bg-white border border-gray-200 text-gray-700 hover:border-[#A8C5A8]/50'
+                      }`}
+                    >
+                      {friend.name}
+                      {isSelected && <X className="w-3 h-3 ml-1" />}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedFriends.length > 0 && selectedFriends.some(f => f.notes) && (
+                <p className="text-xs text-gray-500 mt-2">
+                  Suggestions will be based on their interests and notes.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Quick suggestions */}
           {messages.length <= 1 && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
@@ -437,18 +574,29 @@ export function FindEventsDialog({
                   onChange={(e) => setEventTitle(e.target.value)}
                   placeholder="Event title"
                 />
-                <select
-                  value={selectedFriendId}
-                  onChange={(e) => setSelectedFriendId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#A8C5A8] focus:border-transparent"
-                >
-                  <option value="">Select a friend...</option>
-                  {friends.map((friend) => (
-                    <option key={friend.id} value={friend.id}>
-                      {friend.name}
-                    </option>
-                  ))}
-                </select>
+                <div>
+                  <label className="text-sm text-gray-600 mb-1 block">Select friends</label>
+                  <div className="flex flex-wrap gap-2 p-2 border border-gray-200 rounded-lg bg-white min-h-[40px]">
+                    {friends.map((friend) => {
+                      const isSelected = selectedEventFriendIds.includes(friend.id);
+                      return (
+                        <button
+                          key={friend.id}
+                          type="button"
+                          onClick={() => handleEventFriendToggle(friend.id)}
+                          className={`px-2 py-1 rounded text-xs transition-colors ${
+                            isSelected
+                              ? 'bg-[#A8C5A8] text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {friend.name}
+                          {isSelected && <span className="ml-1">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
                 <Input
                   type="datetime-local"
                   value={eventDate}
@@ -471,7 +619,7 @@ export function FindEventsDialog({
                   <Button
                     size="sm"
                     onClick={handleCreateEvent}
-                    disabled={creatingEvent || !eventTitle.trim() || !eventDate || !selectedFriendId}
+                    disabled={creatingEvent || !eventTitle.trim() || !eventDate || selectedEventFriendIds.length === 0}
                     className="flex-1 bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
                   >
                     {creatingEvent ? 'Creating...' : 'Create'}
@@ -490,7 +638,10 @@ export function FindEventsDialog({
             <Input
               value={input}
               onChange={handleInputChange}
-              placeholder="Ask about events or activities..."
+              placeholder={selectedFriends.length > 0
+                ? `Find activities for ${selectedFriends.map(f => f.name).join(' & ')}...`
+                : "Ask about events or activities..."
+              }
               className="flex-1"
             />
             <Button

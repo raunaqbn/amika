@@ -347,7 +347,7 @@ export function Dashboard() {
       <FindEventsDialog
         open={findEventsDialogOpen}
         onOpenChange={setFindEventsDialogOpen}
-        friends={friends.map((f) => ({ id: f.id, name: f.name }))}
+        friends={friends.map((f) => ({ id: f.id, name: f.name, notes: f.notes }))}
         onEventCreated={() => {
           fetchEvents();
         }}

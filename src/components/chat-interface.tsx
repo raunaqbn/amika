@@ -4,7 +4,7 @@ import { useChat } from 'ai/react';
 import type { Message } from 'ai';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Plus, MessageSquare, Calendar, MapPin, Clock, Trash2, Sparkles, ChevronDown } from 'lucide-react';
+import { Send, Plus, MessageSquare, Calendar, MapPin, Clock, Trash2, Sparkles, ChevronDown, Star, Ticket, ExternalLink } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Card } from './ui/card';
@@ -791,6 +791,213 @@ export function ChatInterface() {
                           : 'bg-gray-100 text-gray-900'
                       }`}
                     >
+                      {/* Render tool invocations as cards */}
+                      {!isUser && message.toolInvocations && message.toolInvocations.length > 0 && (
+                        <div className="space-y-3 mb-3">
+                          {message.toolInvocations.map((tool: any, idx: number) => {
+                            if (tool.state !== 'result') return null;
+                            const result = tool.result;
+
+                            // Render events
+                            if (tool.toolName === 'searchEvents' && result?.events?.length > 0) {
+                              return (
+                                <div key={idx} className="space-y-2">
+                                  {result.events.slice(0, 5).map((event: any, i: number) => (
+                                    <Card key={i} className="p-3 bg-white border-[#D4A5A5]/30 hover:shadow-md transition-shadow">
+                                      <div className="flex gap-3">
+                                        <div className="flex-1 min-w-0">
+                                          <h4 className="font-semibold text-gray-900 mb-1 text-sm">{event.title}</h4>
+                                          {event.date && (
+                                            <p className="text-xs text-[#D4A5A5] flex items-center gap-1 mb-1">
+                                              <Calendar className="w-3 h-3" />
+                                              {event.date}
+                                            </p>
+                                          )}
+                                          {event.location && (
+                                            <p className="text-xs text-gray-500 flex items-center gap-1 mb-1">
+                                              <MapPin className="w-3 h-3" />
+                                              {event.location}
+                                            </p>
+                                          )}
+                                          {event.venue && (
+                                            <p className="text-xs text-gray-500 flex items-center gap-1 mb-1">
+                                              <Star className="w-3 h-3" />
+                                              {event.venue}
+                                            </p>
+                                          )}
+                                          {event.description && (
+                                            <p className="text-xs text-gray-600 line-clamp-2 mt-1">{event.description}</p>
+                                          )}
+                                          {event.link && (
+                                            <a
+                                              href={event.link}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="inline-flex items-center gap-1 text-xs text-[#A8C5A8] hover:underline mt-2"
+                                            >
+                                              <Ticket className="w-3 h-3" />
+                                              Get Tickets
+                                              <ExternalLink className="w-3 h-3" />
+                                            </a>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </Card>
+                                  ))}
+                                </div>
+                              );
+                            }
+
+                            // Render movies
+                            if (tool.toolName === 'searchMovies' && result?.movies?.length > 0) {
+                              return (
+                                <div key={idx} className="space-y-2">
+                                  {result.movies.slice(0, 5).map((movie: any, i: number) => (
+                                    <Card key={i} className="p-3 bg-white border-[#D4A5A5]/30 hover:shadow-md transition-shadow">
+                                      <h4 className="font-semibold text-gray-900 mb-1 text-sm">{movie.name}</h4>
+                                      <div className="flex flex-wrap gap-2 text-xs text-gray-500 mb-2">
+                                        {movie.duration && <span>{movie.duration}</span>}
+                                        {movie.genre && <span>• {movie.genre}</span>}
+                                        {movie.rating && <span>• {movie.rating}</span>}
+                                      </div>
+                                      {movie.description && (
+                                        <p className="text-xs text-gray-600 mb-2 line-clamp-2">{movie.description}</p>
+                                      )}
+                                      {movie.theaters?.length > 0 && (
+                                        <div className="space-y-1 mt-2">
+                                          {movie.theaters.slice(0, 2).map((theater: any, j: number) => (
+                                            <div key={j} className="text-xs bg-gray-50 p-2 rounded">
+                                              <p className="font-medium text-gray-700">{theater.name}</p>
+                                              {theater.showtimes?.length > 0 && (
+                                                <p className="text-gray-500 flex items-center gap-1 mt-1">
+                                                  <Clock className="w-3 h-3" />
+                                                  {theater.showtimes.slice(0, 4).join(', ')}
+                                                </p>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </Card>
+                                  ))}
+                                </div>
+                              );
+                            }
+
+                            // Render places
+                            if (tool.toolName === 'searchPlaces' && result?.places?.length > 0) {
+                              return (
+                                <div key={idx} className="space-y-2">
+                                  {result.places.slice(0, 5).map((place: any, i: number) => (
+                                    <Card key={i} className="p-3 bg-white border-[#A8C5A8]/30 hover:shadow-md transition-shadow">
+                                      <div className="flex justify-between items-start">
+                                        <h4 className="font-semibold text-gray-900 text-sm">{place.name}</h4>
+                                        {place.rating && (
+                                          <span className="flex items-center gap-1 text-xs bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded">
+                                            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                                            {place.rating}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-xs text-gray-500 mt-1 space-y-1">
+                                        {place.type && <p>{place.type}</p>}
+                                        {place.address && (
+                                          <p className="flex items-center gap-1">
+                                            <MapPin className="w-3 h-3" />
+                                            {place.address}
+                                          </p>
+                                        )}
+                                        {place.price && <p className="text-green-600">{place.price}</p>}
+                                      </div>
+                                      {place.website && (
+                                        <a
+                                          href={place.website}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 text-xs text-[#A8C5A8] hover:underline mt-2"
+                                        >
+                                          Visit Website
+                                          <ExternalLink className="w-3 h-3" />
+                                        </a>
+                                      )}
+                                    </Card>
+                                  ))}
+                                </div>
+                              );
+                            }
+
+                            // Render Yelp businesses
+                            if (tool.toolName === 'searchYelpReviews' && result?.businesses?.length > 0) {
+                              return (
+                                <div key={idx} className="space-y-2">
+                                  {result.businesses.slice(0, 5).map((biz: any, i: number) => (
+                                    <Card key={i} className="p-3 bg-white border-red-100 hover:shadow-md transition-shadow">
+                                      <div className="flex justify-between items-start">
+                                        <h4 className="font-semibold text-gray-900 text-sm">{biz.name}</h4>
+                                        {biz.rating && (
+                                          <span className="flex items-center gap-1 text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded">
+                                            <Star className="w-3 h-3 fill-red-500 text-red-500" />
+                                            {biz.rating} ({biz.reviews})
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-xs text-gray-500 mt-1 space-y-1">
+                                        {biz.categories && <p>{biz.categories}</p>}
+                                        {biz.neighborhood && <p>{biz.neighborhood}</p>}
+                                        {biz.price && <p className="text-green-600">{biz.price}</p>}
+                                        {biz.snippet && <p className="text-gray-600 mt-1 italic">"{biz.snippet}"</p>}
+                                      </div>
+                                      {biz.link && (
+                                        <a
+                                          href={biz.link}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 text-xs text-red-500 hover:underline mt-2"
+                                        >
+                                          View on Yelp
+                                          <ExternalLink className="w-3 h-3" />
+                                        </a>
+                                      )}
+                                    </Card>
+                                  ))}
+                                </div>
+                              );
+                            }
+
+                            // Render weather
+                            if (tool.toolName === 'getWeather' && result?.current) {
+                              return (
+                                <Card key={idx} className="p-3 bg-gradient-to-br from-blue-50 to-sky-50 border-blue-100">
+                                  <h4 className="font-semibold text-gray-900 mb-2 text-sm">Weather in {result.location}</h4>
+                                  <div className="flex items-center gap-4">
+                                    <div className="text-2xl font-light text-blue-600">
+                                      {result.current.temperature}
+                                    </div>
+                                    <div className="text-xs text-gray-600">
+                                      <p className="font-medium">{result.current.condition}</p>
+                                      <p>{result.current.description}</p>
+                                      <p>Feels like {result.current.feelsLike}</p>
+                                    </div>
+                                  </div>
+                                  {result.forecast?.length > 0 && (
+                                    <div className="flex gap-2 mt-3 overflow-x-auto">
+                                      {result.forecast.map((day: any, j: number) => (
+                                        <div key={j} className="text-xs text-center px-2 py-1 bg-white rounded min-w-[60px]">
+                                          <p className="font-medium">{day.date.split(',')[0]}</p>
+                                          <p className="text-blue-600">{day.temperature}</p>
+                                          <p className="text-gray-500 text-[10px]">{day.condition}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </Card>
+                              );
+                            }
+
+                            return null;
+                          })}
+                        </div>
+                      )}
                       <div className="text-sm">
                         <MarkdownMessage content={message.content} isUser={isUser} />
                       </div>
