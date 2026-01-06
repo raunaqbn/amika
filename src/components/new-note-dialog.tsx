@@ -379,7 +379,6 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
 
               {/* Image upload */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Image (optional)</label>
                 {imagePreview && (
                   <div className="relative inline-block w-full">
                     <img
