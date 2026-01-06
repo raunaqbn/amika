@@ -44,6 +44,29 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // If sharing is enabled and friend is an Amika user, auto-create a SharedItem notification
+    if (sharedWithFriend) {
+      try {
+        // Get the friend to check if they have a linkedUserId (are an Amika user)
+        const friends = await prisma.friend.findMany({ userId });
+        const friend = friends.find((f: { id: string }) => f.id === friendId);
+
+        if (friend && friend.linkedUserId) {
+          // Create a SharedItem so the Amika friend gets a notification
+          await prisma.sharedItem.create({
+            sharedByUserId: userId,
+            sharedWithUserId: friend.linkedUserId,
+            itemType: 'memory',
+            itemId: memory.id,
+            message: undefined,
+          });
+        }
+      } catch (shareError) {
+        // Log the error but don't fail the memory creation
+        console.error('Error auto-sharing memory:', shareError);
+      }
+    }
+
     return NextResponse.json(memory);
   } catch (error) {
     console.error('Error creating memory:', error);
