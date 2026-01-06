@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { FriendCard } from '@/components/friend-card';
 import { AddFriendDialog } from '@/components/add-friend-dialog';
-import { AddUserConnectionDialog } from '@/components/add-user-connection-dialog';
 import { FriendRequests } from '@/components/friend-requests';
 import { Input } from '@/components/ui/input';
 import { Search, Users, Share2 } from 'lucide-react';
@@ -74,10 +73,7 @@ export default function FriendsPage() {
               )}
             </p>
           </div>
-          <div className="flex gap-2">
-            <AddUserConnectionDialog onConnectionSent={handleConnectionUpdate} />
-            <AddFriendDialog onAdd={fetchFriends} />
-          </div>
+          <AddFriendDialog onAdd={handleConnectionUpdate} />
         </div>
 
         {/* Friend Requests Section */}
