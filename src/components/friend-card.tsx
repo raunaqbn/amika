@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { FriendAvatar } from '@/components/friend-avatar';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
+import { Share2 } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -12,12 +13,18 @@ interface Friend {
   lastContact?: Date | null;
   notes?: string | null;
   profileImage?: string | null;
+  linkedUserId?: string | null;
 }
 
-export function FriendCard({ friend }: { friend: Friend }) {
+interface FriendCardProps {
+  friend: Friend;
+  isAmikaFriend?: boolean;
+}
+
+export function FriendCard({ friend, isAmikaFriend }: FriendCardProps) {
   return (
     <Link href={`/friends/${friend.id}`}>
-      <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer border-[#A8C5A8]/20">
+      <Card className={`p-4 hover:shadow-md transition-shadow cursor-pointer ${isAmikaFriend ? 'border-[#A8C5A8]/40 bg-[#A8C5A8]/5' : 'border-[#A8C5A8]/20'}`}>
         <div className="flex items-start gap-3">
           <FriendAvatar
             name={friend.name}
@@ -25,7 +32,14 @@ export function FriendCard({ friend }: { friend: Friend }) {
             size="sm"
           />
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 truncate">{friend.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-gray-900 truncate">{friend.name}</h3>
+              {isAmikaFriend && (
+                <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 bg-[#A8C5A8]/20 text-[#A8C5A8] rounded-full">
+                  <Share2 className="w-3 h-3" />
+                </span>
+              )}
+            </div>
             {friend.lastContact && (
               <p className="text-sm text-gray-500">
                 Last contact: {formatDistanceToNow(new Date(friend.lastContact), { addSuffix: true })}

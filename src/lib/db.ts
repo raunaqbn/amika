@@ -32,6 +32,7 @@ type Friend = {
   interests: string | null;
   lastContact: Date | null;
   profileImage: string | null;
+  linkedUserId: string | null; // If set, this friend is an Amika user
   createdAt: Date;
 };
 
@@ -39,10 +40,9 @@ type Memory = {
   id: string;
   userId: string;
   friendId: string | null;
-  amikaFriendUserId: string | null; // For memories with Amika friends
   content: string;
   imageUrl: string | null;
-  sharedWithAmikaFriend: boolean; // Whether to share with the Amika friend
+  sharedWithFriend: boolean; // Whether to share with linked Amika friend
   createdAt: Date;
 };
 
@@ -60,13 +60,7 @@ type DiaryNote = {
 type DiaryNoteTag = {
   noteId: string;
   friendId: string;
-  createdAt: Date;
-};
-
-type DiaryNoteAmikaTag = {
-  noteId: string;
-  amikaFriendUserId: string;
-  sharedWithAmikaFriend: boolean;
+  sharedWithFriend: boolean; // Whether to share with linked Amika friend
   createdAt: Date;
 };
 
@@ -78,9 +72,8 @@ type Event = {
   eventDate: Date;
   location: string | null;
   category: string | null; // experiences, restaurants, places, fitness
-  friendId: string | null; // Primary friend (for backward compatibility)
-  amikaFriendUserId: string | null; // For events with Amika friends
-  sharedWithAmikaFriend: boolean; // Whether to share with the Amika friend
+  friendId: string | null; // Primary friend
+  sharedWithFriend: boolean; // Whether to share with linked Amika friend
   completed: boolean;
   createdAt: Date;
 };
@@ -380,7 +373,35 @@ async function ensureTablesExist() {
       // Column might already exist
     }
 
-    // Amika friends support - add columns for memories
+    // Add linkedUserId to friends table for Amika friend unification
+    try {
+      await client.execute(`ALTER TABLE friends ADD COLUMN linkedUserId TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
+
+    // Add sharedWithFriend to memories table
+    try {
+      await client.execute(`ALTER TABLE memories ADD COLUMN sharedWithFriend INTEGER DEFAULT 0`);
+    } catch (e) {
+      // Column might already exist
+    }
+
+    // Add sharedWithFriend to events table
+    try {
+      await client.execute(`ALTER TABLE events ADD COLUMN sharedWithFriend INTEGER DEFAULT 0`);
+    } catch (e) {
+      // Column might already exist
+    }
+
+    // Add sharedWithFriend to diary_note_tags table
+    try {
+      await client.execute(`ALTER TABLE diary_note_tags ADD COLUMN sharedWithFriend INTEGER DEFAULT 0`);
+    } catch (e) {
+      // Column might already exist
+    }
+
+    // Legacy columns - keep for backward compatibility during migration
     try {
       await client.execute(`ALTER TABLE memories ADD COLUMN amikaFriendUserId TEXT`);
     } catch (e) {
@@ -393,7 +414,6 @@ async function ensureTablesExist() {
       // Column might already exist
     }
 
-    // Amika friends support - add columns for events
     try {
       await client.execute(`ALTER TABLE events ADD COLUMN amikaFriendUserId TEXT`);
     } catch (e) {
@@ -406,7 +426,7 @@ async function ensureTablesExist() {
       // Column might already exist
     }
 
-    // Create diary_note_amika_tags table for tagging Amika friends in diary notes
+    // Create diary_note_amika_tags table (legacy - keep for backward compatibility)
     await client.execute(`
       CREATE TABLE IF NOT EXISTS diary_note_amika_tags (
         noteId TEXT NOT NULL,
@@ -652,6 +672,7 @@ export const prisma = {
         interests: row.interests as string | null,
         lastContact: row.lastContact ? new Date(row.lastContact as string) : null,
         profileImage: row.profileImage as string | null,
+        linkedUserId: row.linkedUserId as string | null,
         createdAt: new Date(row.createdAt as string),
       }));
 
@@ -669,10 +690,9 @@ export const prisma = {
           id: row.id as string,
           userId: row.userId as string,
           friendId: row.friendId as string | null,
-          amikaFriendUserId: row.amikaFriendUserId as string | null,
           content: row.content as string,
           imageUrl: row.imageUrl as string | null,
-          sharedWithAmikaFriend: Boolean(row.sharedWithAmikaFriend),
+          sharedWithFriend: Boolean(row.sharedWithFriend),
           createdAt: new Date(row.createdAt as string),
         }));
 
@@ -700,11 +720,12 @@ export const prisma = {
         interests: data.interests ?? null,
         lastContact: data.lastContact ?? null,
         profileImage: data.profileImage ?? null,
+        linkedUserId: data.linkedUserId ?? null,
         createdAt: new Date(),
       };
 
       await client.execute({
-        sql: 'INSERT INTO friends (id, userId, name, birthday, howWeMet, notes, interests, lastContact, profileImage, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        sql: 'INSERT INTO friends (id, userId, name, birthday, howWeMet, notes, interests, lastContact, profileImage, linkedUserId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         args: [
           newFriend.id,
           newFriend.userId,
@@ -715,6 +736,7 @@ export const prisma = {
           newFriend.interests,
           newFriend.lastContact ? newFriend.lastContact.toISOString() : null,
           newFriend.profileImage,
+          newFriend.linkedUserId,
           newFriend.createdAt.toISOString(),
         ],
       });
@@ -749,6 +771,7 @@ export const prisma = {
         interests: (data.interests !== undefined ? data.interests : existing.interests) as string | null,
         lastContact: data.lastContact !== undefined ? data.lastContact : (existing.lastContact ? new Date(existing.lastContact as string) : null),
         profileImage: (data.profileImage !== undefined ? data.profileImage : existing.profileImage) as string | null,
+        linkedUserId: (data.linkedUserId !== undefined ? data.linkedUserId : existing.linkedUserId) as string | null,
         createdAt: new Date(existing.createdAt as string),
       };
 
@@ -848,10 +871,32 @@ export const prisma = {
         friendId: row.friendId as string,
         content: row.content as string,
         imageUrl: row.imageUrl as string | null,
+        sharedWithFriend: Boolean(row.sharedWithFriend),
         createdAt: new Date(row.createdAt as string),
         friend: friendMap.get(row.friendId as string) || null,
       }));
     },
+    // Find memories for a specific friend
+    findManyByFriend: async (args: { userId: string; friendId: string }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const memoriesResult = await client.execute({
+        sql: 'SELECT * FROM memories WHERE userId = ? AND friendId = ? ORDER BY createdAt DESC',
+        args: [args.userId, args.friendId],
+      });
+
+      return memoriesResult.rows.map((row: any) => ({
+        id: row.id as string,
+        userId: row.userId as string,
+        friendId: row.friendId as string,
+        content: row.content as string,
+        imageUrl: row.imageUrl as string | null,
+        sharedWithFriend: Boolean(row.sharedWithFriend),
+        createdAt: new Date(row.createdAt as string),
+      }));
+    },
+    // Legacy - kept for backward compatibility
     findManyByAmikaFriend: async (args: { userId: string; amikaFriendUserId: string }) => {
       await ensureTablesExist();
       const client = getClient();
@@ -871,7 +916,7 @@ export const prisma = {
         createdAt: new Date(row.createdAt as string),
       }));
     },
-    create: async ({ data }: { data: { userId: string; friendId: string; content: string; imageUrl?: string | null } }) => {
+    create: async ({ data }: { data: { userId: string; friendId: string; content: string; imageUrl?: string | null; sharedWithFriend?: boolean } }) => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -888,21 +933,21 @@ export const prisma = {
         id: randomUUID(),
         userId: data.userId,
         friendId: data.friendId,
-        amikaFriendUserId: null,
         content: data.content,
         imageUrl: data.imageUrl ?? null,
-        sharedWithAmikaFriend: false,
+        sharedWithFriend: data.sharedWithFriend ?? false,
         createdAt: new Date(),
       };
 
       await client.execute({
-        sql: 'INSERT INTO memories (id, userId, friendId, content, imageUrl, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
+        sql: 'INSERT INTO memories (id, userId, friendId, content, imageUrl, sharedWithFriend, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
         args: [
           memory.id,
           memory.userId,
           memory.friendId,
           memory.content,
           memory.imageUrl,
+          memory.sharedWithFriend ? 1 : 0,
           memory.createdAt.toISOString(),
         ],
       });
@@ -946,13 +991,13 @@ export const prisma = {
 
       return memory;
     },
-    updateSharing: async ({ where, sharedWithAmikaFriend }: { where: { id: string; userId: string }; sharedWithAmikaFriend: boolean }) => {
+    updateSharing: async ({ where, sharedWithFriend }: { where: { id: string; userId: string }; sharedWithFriend: boolean }) => {
       await ensureTablesExist();
       const client = getClient();
 
       await client.execute({
-        sql: 'UPDATE memories SET sharedWithAmikaFriend = ? WHERE id = ? AND userId = ?',
-        args: [sharedWithAmikaFriend ? 1 : 0, where.id, where.userId],
+        sql: 'UPDATE memories SET sharedWithFriend = ? WHERE id = ? AND userId = ?',
+        args: [sharedWithFriend ? 1 : 0, where.id, where.userId],
       });
 
       return { success: true };
@@ -998,7 +1043,7 @@ export const prisma = {
       const notesResult = await client.execute({ sql, args: sqlArgs });
       const tagsResult = await client.execute('SELECT * FROM diary_note_tags');
 
-      let friendSql = 'SELECT id, name FROM friends';
+      let friendSql = 'SELECT id, name, linkedUserId FROM friends';
       let friendArgs: any[] = [];
       if (args?.userId) {
         friendSql += ' WHERE userId = ?';
@@ -1019,6 +1064,7 @@ export const prisma = {
             interests: null,
             lastContact: null,
             profileImage: null,
+            linkedUserId: row.linkedUserId as string | null,
             createdAt: new Date(),
           },
         ])
@@ -1027,6 +1073,7 @@ export const prisma = {
       const tags: DiaryNoteTag[] = tagsResult.rows.map((row: any) => ({
         noteId: row.noteId as string,
         friendId: row.friendId as string,
+        sharedWithFriend: Boolean(row.sharedWithFriend),
         createdAt: new Date(row.createdAt as string),
       }));
 
@@ -1041,18 +1088,26 @@ export const prisma = {
         updatedAt: new Date(row.updatedAt as string),
       }));
 
-      return notes.map((note) => ({
-        ...note,
-        friends: tags
-          .filter((tag) => tag.noteId === note.id)
-          .map((tag) => friendMap.get(tag.friendId))
-          .filter(Boolean) as Friend[],
-      }));
+      return notes.map((note) => {
+        const noteTags = tags.filter((tag) => tag.noteId === note.id);
+        return {
+          ...note,
+          friends: noteTags
+            .map((tag) => {
+              const friend = friendMap.get(tag.friendId);
+              if (friend) {
+                return { ...friend, sharedWithFriend: tag.sharedWithFriend };
+              }
+              return null;
+            })
+            .filter(Boolean) as (Friend & { sharedWithFriend: boolean })[],
+        };
+      });
     },
     create: async ({
       data,
     }: {
-      data: { userId: string; title?: string | null; content: string; analysis?: string | null; imageUrl?: string | null; friendIds?: string[] };
+      data: { userId: string; title?: string | null; content: string; analysis?: string | null; imageUrl?: string | null; friendIds?: string[]; friendTags?: { friendId: string; sharedWithFriend: boolean }[] };
     }) => {
       await ensureTablesExist();
       const client = getClient();
@@ -1083,12 +1138,18 @@ export const prisma = {
         ],
       });
 
-      const friendIds = data.friendIds || [];
-      if (friendIds.length > 0) {
-        const insertValues = friendIds.map(() => '(?, ?, ?)').join(', ');
+      // Support both legacy friendIds and new friendTags with sharing
+      if (data.friendTags && data.friendTags.length > 0) {
+        const insertValues = data.friendTags.map(() => '(?, ?, ?, ?)').join(', ');
         await client.execute({
-          sql: `INSERT INTO diary_note_tags (noteId, friendId, createdAt) VALUES ${insertValues}`,
-          args: friendIds.flatMap((friendId) => [note.id, friendId, now.toISOString()]),
+          sql: `INSERT INTO diary_note_tags (noteId, friendId, sharedWithFriend, createdAt) VALUES ${insertValues}`,
+          args: data.friendTags.flatMap((tag) => [note.id, tag.friendId, tag.sharedWithFriend ? 1 : 0, now.toISOString()]),
+        });
+      } else if (data.friendIds && data.friendIds.length > 0) {
+        const insertValues = data.friendIds.map(() => '(?, ?, ?, ?)').join(', ');
+        await client.execute({
+          sql: `INSERT INTO diary_note_tags (noteId, friendId, sharedWithFriend, createdAt) VALUES ${insertValues}`,
+          args: data.friendIds.flatMap((friendId) => [note.id, friendId, 0, now.toISOString()]),
         });
       }
 
@@ -1101,7 +1162,7 @@ export const prisma = {
       data,
     }: {
       where: { id: string; userId?: string };
-      data: { title?: string | null; content?: string; analysis?: string | null; imageUrl?: string | null; friendIds?: string[] };
+      data: { title?: string | null; content?: string; analysis?: string | null; imageUrl?: string | null; friendIds?: string[]; friendTags?: { friendId: string; sharedWithFriend: boolean }[] };
     }) => {
       await ensureTablesExist();
       const client = getClient();
@@ -1138,17 +1199,31 @@ export const prisma = {
         args: [updated.title, updated.content, updated.analysis, updated.imageUrl, updated.updatedAt.toISOString(), where.id],
       });
 
-      if (data.friendIds) {
+      // Support both legacy friendIds and new friendTags with sharing
+      if (data.friendTags) {
+        await client.execute({
+          sql: 'DELETE FROM diary_note_tags WHERE noteId = ?',
+          args: [where.id],
+        });
+
+        if (data.friendTags.length > 0) {
+          const insertValues = data.friendTags.map(() => '(?, ?, ?, ?)').join(', ');
+          await client.execute({
+            sql: `INSERT INTO diary_note_tags (noteId, friendId, sharedWithFriend, createdAt) VALUES ${insertValues}`,
+            args: data.friendTags.flatMap((tag) => [where.id, tag.friendId, tag.sharedWithFriend ? 1 : 0, now.toISOString()]),
+          });
+        }
+      } else if (data.friendIds) {
         await client.execute({
           sql: 'DELETE FROM diary_note_tags WHERE noteId = ?',
           args: [where.id],
         });
 
         if (data.friendIds.length > 0) {
-          const insertValues = data.friendIds.map(() => '(?, ?, ?)').join(', ');
+          const insertValues = data.friendIds.map(() => '(?, ?, ?, ?)').join(', ');
           await client.execute({
-            sql: `INSERT INTO diary_note_tags (noteId, friendId, createdAt) VALUES ${insertValues}`,
-            args: data.friendIds.flatMap((friendId) => [where.id, friendId, now.toISOString()]),
+            sql: `INSERT INTO diary_note_tags (noteId, friendId, sharedWithFriend, createdAt) VALUES ${insertValues}`,
+            args: data.friendIds.flatMap((friendId) => [where.id, friendId, 0, now.toISOString()]),
           });
         }
       }
@@ -1159,6 +1234,28 @@ export const prisma = {
           friends: [],
         }
       );
+    },
+    // Update sharing status for a specific friend tag
+    updateTagSharing: async ({ where, sharedWithFriend }: { where: { noteId: string; friendId: string; userId: string }; sharedWithFriend: boolean }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify the note belongs to this user
+      const noteResult = await client.execute({
+        sql: 'SELECT * FROM diary_notes WHERE id = ? AND userId = ?',
+        args: [where.noteId, where.userId],
+      });
+
+      if (noteResult.rows.length === 0) {
+        throw new Error('Note not found');
+      }
+
+      await client.execute({
+        sql: 'UPDATE diary_note_tags SET sharedWithFriend = ? WHERE noteId = ? AND friendId = ?',
+        args: [sharedWithFriend ? 1 : 0, where.noteId, where.friendId],
+      });
+
+      return { success: true };
     },
     delete: async ({ where }: { where: { id: string; userId?: string } }) => {
       await ensureTablesExist();
@@ -1383,12 +1480,13 @@ export const prisma = {
         location: row.location as string | null,
         category: row.category as string | null,
         friendId: row.friendId as string,
+        sharedWithFriend: Boolean(row.sharedWithFriend),
         completed: Boolean(row.completed),
         createdAt: new Date(row.createdAt as string),
         friends: eventFriendsMap.get(row.id as string) || [],
       }));
     },
-    create: async ({ data }: { data: { userId: string; title: string; description?: string | null; eventDate: Date; location?: string | null; category?: string | null; friendId: string; friendIds?: string[]; completed?: boolean } }) => {
+    create: async ({ data }: { data: { userId: string; title: string; description?: string | null; eventDate: Date; location?: string | null; category?: string | null; friendId: string; friendIds?: string[]; completed?: boolean; sharedWithFriend?: boolean } }) => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -1401,14 +1499,13 @@ export const prisma = {
         location: data.location ?? null,
         category: data.category ?? null,
         friendId: data.friendId,
-        amikaFriendUserId: null,
-        sharedWithAmikaFriend: false,
+        sharedWithFriend: data.sharedWithFriend ?? false,
         completed: data.completed ?? false,
         createdAt: new Date(),
       };
 
       await client.execute({
-        sql: 'INSERT INTO events (id, userId, title, description, eventDate, location, category, friendId, completed, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        sql: 'INSERT INTO events (id, userId, title, description, eventDate, location, category, friendId, sharedWithFriend, completed, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         args: [
           event.id,
           event.userId,
@@ -1418,6 +1515,7 @@ export const prisma = {
           event.location,
           event.category,
           event.friendId,
+          event.sharedWithFriend ? 1 : 0,
           event.completed ? 1 : 0,
           event.createdAt.toISOString(),
         ],
@@ -1463,14 +1561,13 @@ export const prisma = {
         location: (data.location !== undefined ? data.location : existing.location) as string | null,
         category: (data.category !== undefined ? data.category : existing.category) as string | null,
         friendId: (data.friendId ?? existing.friendId) as string | null,
-        amikaFriendUserId: existing.amikaFriendUserId as string | null,
-        sharedWithAmikaFriend: Boolean(existing.sharedWithAmikaFriend),
+        sharedWithFriend: data.sharedWithFriend !== undefined ? data.sharedWithFriend : Boolean(existing.sharedWithFriend),
         completed: data.completed !== undefined ? data.completed : Boolean(existing.completed),
         createdAt: new Date(existing.createdAt as string),
       };
 
       await client.execute({
-        sql: 'UPDATE events SET title = ?, description = ?, eventDate = ?, location = ?, category = ?, friendId = ?, completed = ? WHERE id = ?',
+        sql: 'UPDATE events SET title = ?, description = ?, eventDate = ?, location = ?, category = ?, friendId = ?, sharedWithFriend = ?, completed = ? WHERE id = ?',
         args: [
           updated.title,
           updated.description,
@@ -1478,6 +1575,7 @@ export const prisma = {
           updated.location,
           updated.category,
           updated.friendId,
+          updated.sharedWithFriend ? 1 : 0,
           updated.completed ? 1 : 0,
           where.id,
         ],
@@ -1999,10 +2097,65 @@ export const prisma = {
       });
 
       const row = existing.rows[0];
+      const requesterId = row.requesterId as string;
+      const addresseeId = row.addresseeId as string;
+
+      // When connection is accepted, create Friend records for both users
+      if (args.status === 'accepted') {
+        // Get user details for both users
+        const requesterResult = await client.execute({
+          sql: 'SELECT id, name, email, profileImage, birthday FROM users WHERE id = ?',
+          args: [requesterId],
+        });
+        const addresseeResult = await client.execute({
+          sql: 'SELECT id, name, email, profileImage, birthday FROM users WHERE id = ?',
+          args: [addresseeId],
+        });
+
+        const requester = requesterResult.rows[0];
+        const addressee = addresseeResult.rows[0];
+
+        // Check if friend records already exist
+        const existingFriendForRequester = await client.execute({
+          sql: 'SELECT id FROM friends WHERE userId = ? AND linkedUserId = ?',
+          args: [requesterId, addresseeId],
+        });
+        const existingFriendForAddressee = await client.execute({
+          sql: 'SELECT id FROM friends WHERE userId = ? AND linkedUserId = ?',
+          args: [addresseeId, requesterId],
+        });
+
+        // Create friend record for requester (the addressee becomes their friend)
+        if (existingFriendForRequester.rows.length === 0 && addressee) {
+          await prisma.friend.create({
+            data: {
+              userId: requesterId,
+              name: addressee.name as string,
+              birthday: addressee.birthday ? new Date(addressee.birthday as string) : null,
+              profileImage: addressee.profileImage as string | null,
+              linkedUserId: addresseeId,
+            },
+          });
+        }
+
+        // Create friend record for addressee (the requester becomes their friend)
+        if (existingFriendForAddressee.rows.length === 0 && requester) {
+          await prisma.friend.create({
+            data: {
+              userId: addresseeId,
+              name: requester.name as string,
+              birthday: requester.birthday ? new Date(requester.birthday as string) : null,
+              profileImage: requester.profileImage as string | null,
+              linkedUserId: requesterId,
+            },
+          });
+        }
+      }
+
       return {
         id: row.id as string,
-        requesterId: row.requesterId as string,
-        addresseeId: row.addresseeId as string,
+        requesterId: requesterId,
+        addresseeId: addresseeId,
         status: args.status,
         createdAt: new Date(row.createdAt as string),
       };
