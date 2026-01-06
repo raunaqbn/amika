@@ -33,51 +33,54 @@ export function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4 md:p-8">
-      <div className="w-full max-w-6xl flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-16">
+    <div className="min-h-screen bg-[#FFFBF5] flex items-center justify-center p-4 md:p-8">
+      <div className="w-full max-w-5xl flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-16">
         {/* Left side - Illustration */}
-        <div className="hidden lg:flex flex-1 items-center justify-center">
+        <div className="flex flex-1 items-center justify-center">
           <LandingIllustration />
         </div>
 
         {/* Right side - Login form */}
         <div className="w-full max-w-sm">
           {/* Logo */}
-          <div className="text-center mb-8">
-            <h1 className="text-5xl font-serif italic text-white tracking-tight">amika</h1>
+          <div className="text-center mb-6">
+            <h1 className="text-4xl font-semibold text-[#A8C5A8] tracking-tight">amika</h1>
+            <p className="text-gray-500 mt-2 text-sm">Nurture your friendships</p>
           </div>
 
           {/* Login Form Card */}
-          <div className="bg-[#1a1a2e]/50 backdrop-blur-sm border border-white/10 rounded-lg p-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm text-center">
+                <div className="bg-red-50 border border-red-100 text-red-600 p-3 rounded-xl text-sm text-center">
                   {error}
                 </div>
               )}
 
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 bg-[#121212] border border-white/10 rounded-md text-white placeholder-gray-500 focus:outline-none focus:border-[#A8C5A8]/50 text-sm"
-                placeholder="Email address"
-                required
-              />
+              <div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#A8C5A8]/50 focus:border-[#A8C5A8] text-sm transition-all"
+                  placeholder="Email address"
+                  required
+                />
+              </div>
 
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#121212] border border-white/10 rounded-md text-white placeholder-gray-500 focus:outline-none focus:border-[#A8C5A8]/50 pr-12 text-sm"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#A8C5A8]/50 focus:border-[#A8C5A8] pr-12 text-sm transition-all"
                   placeholder="Password"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -86,7 +89,7 @@ export function LandingPage() {
               <button
                 type="submit"
                 disabled={loading || !email || !password}
-                className="w-full py-3 bg-gradient-to-r from-[#A8C5A8] to-[#97B497] text-white rounded-md font-semibold hover:from-[#97B497] hover:to-[#86A386] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-3 bg-[#A8C5A8] text-white rounded-xl font-semibold hover:bg-[#97B497] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
@@ -101,25 +104,13 @@ export function LandingPage() {
 
             {/* Divider */}
             <div className="flex items-center gap-4 my-6">
-              <div className="flex-1 h-px bg-white/10" />
-              <span className="text-gray-500 text-sm font-medium">OR</span>
-              <div className="flex-1 h-px bg-white/10" />
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-gray-400 text-sm">or</span>
+              <div className="flex-1 h-px bg-gray-200" />
             </div>
 
-            {/* Features highlight */}
-            <div className="space-y-3 text-center">
-              <p className="text-gray-400 text-sm">Never forget a friend&apos;s birthday</p>
-              <div className="flex justify-center gap-4 text-2xl">
-                <span className="animate-bounce" style={{ animationDelay: '0s' }}>🎂</span>
-                <span className="animate-bounce" style={{ animationDelay: '0.1s' }}>💚</span>
-                <span className="animate-bounce" style={{ animationDelay: '0.2s' }}>📅</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Sign up link */}
-          <div className="mt-4 bg-[#1a1a2e]/50 backdrop-blur-sm border border-white/10 rounded-lg p-5 text-center">
-            <p className="text-gray-400 text-sm">
+            {/* Sign up link */}
+            <p className="text-center text-gray-600 text-sm">
               Don&apos;t have an account?{' '}
               <Link href="/signup" className="text-[#A8C5A8] hover:text-[#97B497] font-semibold">
                 Sign up
@@ -127,16 +118,22 @@ export function LandingPage() {
             </p>
           </div>
 
-          {/* App tagline */}
-          <p className="text-center text-gray-600 text-xs mt-6">
-            Nurture your friendships. Stay connected.
-          </p>
+          {/* Features */}
+          <div className="mt-6 flex justify-center gap-6 text-center">
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-2xl">🎂</span>
+              <span className="text-xs text-gray-500">Birthdays</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-2xl">☕</span>
+              <span className="text-xs text-gray-500">Meetups</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-2xl">💚</span>
+              <span className="text-xs text-gray-500">Connections</span>
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* Mobile illustration - shows below form on small screens */}
-      <div className="lg:hidden absolute bottom-0 left-0 right-0 h-32 overflow-hidden opacity-20 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] to-transparent z-10" />
       </div>
     </div>
   );

@@ -10,237 +10,175 @@ export function LandingIllustration() {
   }, []);
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center">
-      {/* Main illustration container */}
-      <div className={`relative transition-all duration-1000 ${mounted ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
-        {/* Floating elements */}
-        <div className="absolute -top-8 -left-8 animate-float-slow">
-          <div className="bg-[#A8C5A8]/20 backdrop-blur-sm rounded-2xl p-3 shadow-lg">
-            <span className="text-2xl">💚</span>
-          </div>
-        </div>
+    <div className={`relative transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+      {/* Main illustration - Friends having coffee together */}
+      <svg
+        viewBox="0 0 400 350"
+        className="w-72 h-64 md:w-96 md:h-80"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        {/* Background elements - soft shapes */}
+        <ellipse cx="200" cy="300" rx="180" ry="30" fill="#A8C5A8" opacity="0.15" />
 
-        <div className="absolute -top-4 right-12 animate-float-medium">
-          <div className="bg-[#D4A5A5]/20 backdrop-blur-sm rounded-2xl p-3 shadow-lg">
-            <span className="text-2xl">✨</span>
-          </div>
-        </div>
+        {/* Cafe table */}
+        <ellipse cx="200" cy="260" rx="90" ry="20" fill="#D4A5A5" opacity="0.3" />
+        <rect x="190" y="260" width="20" height="60" fill="#C4958C" opacity="0.5" />
 
-        <div className="absolute bottom-20 -left-12 animate-float-fast">
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 shadow-lg">
-            <span className="text-2xl">🎂</span>
-          </div>
-        </div>
+        {/* Coffee cups on table */}
+        <g>
+          {/* Cup 1 */}
+          <path d="M155 245 L165 245 L162 255 L158 255 Z" fill="#8B5A3C" />
+          <ellipse cx="160" cy="245" rx="6" ry="2" fill="#6B4226" />
+          <path d="M165 248 Q172 248 172 252 Q172 256 165 256" stroke="#8B5A3C" strokeWidth="2" fill="none" />
+          {/* Steam */}
+          <path d="M160 240 Q158 235 160 230" stroke="#A8C5A8" strokeWidth="1.5" fill="none" opacity="0.5" className="animate-steam" />
+        </g>
 
-        <div className="absolute bottom-8 right-0 animate-float-slow">
-          <div className="bg-[#A8C5A8]/20 backdrop-blur-sm rounded-2xl p-3 shadow-lg">
-            <span className="text-2xl">📅</span>
-          </div>
-        </div>
+        <g>
+          {/* Cup 2 */}
+          <path d="M235 245 L245 245 L242 255 L238 255 Z" fill="#8B5A3C" />
+          <ellipse cx="240" cy="245" rx="6" ry="2" fill="#6B4226" />
+          <path d="M245 248 Q252 248 252 252 Q252 256 245 256" stroke="#8B5A3C" strokeWidth="2" fill="none" />
+          {/* Steam */}
+          <path d="M240 240 Q242 235 240 230" stroke="#D4A5A5" strokeWidth="1.5" fill="none" opacity="0.5" className="animate-steam-delayed" />
+        </g>
 
-        {/* Main SVG Illustration - Friends connecting */}
-        <svg
-          viewBox="0 0 400 400"
-          className="w-80 h-80 md:w-96 md:h-96"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          {/* Background circle */}
-          <circle cx="200" cy="200" r="180" fill="url(#bgGradient)" opacity="0.1" />
+        {/* Person 1 - Left, warm and friendly */}
+        <g className="animate-gentle-bounce">
+          {/* Body - cozy sweater */}
+          <path d="M100 260 Q100 200 120 180 L150 180 Q170 200 170 260 Z" fill="#A8C5A8" />
+          {/* Sweater detail */}
+          <path d="M110 220 L160 220" stroke="#97B497" strokeWidth="2" opacity="0.5" />
+          <path d="M108 235 L162 235" stroke="#97B497" strokeWidth="2" opacity="0.5" />
 
-          {/* Connection lines */}
-          <path
-            d="M120 180 Q200 120 280 180"
-            stroke="url(#lineGradient)"
-            strokeWidth="3"
-            strokeLinecap="round"
-            fill="none"
-            opacity="0.6"
-            className="animate-dash"
-          />
-          <path
-            d="M100 240 Q200 300 300 240"
-            stroke="url(#lineGradient)"
-            strokeWidth="3"
-            strokeLinecap="round"
-            fill="none"
-            opacity="0.6"
-            className="animate-dash-reverse"
-          />
+          {/* Arms */}
+          <path d="M100 200 Q80 210 85 240 Q90 250 100 245" fill="#FFDAB9" />
+          <path d="M170 200 Q185 220 175 245" fill="#FFDAB9" />
 
-          {/* Person 1 - Left */}
-          <g className="animate-float-slow">
-            {/* Body */}
-            <ellipse cx="100" cy="280" rx="35" ry="45" fill="#A8C5A8" opacity="0.9" />
-            {/* Head */}
-            <circle cx="100" cy="200" r="35" fill="#FFDAB9" />
-            {/* Hair */}
-            <path
-              d="M65 195 Q70 160 100 155 Q130 160 135 195"
-              fill="#5D4E37"
-            />
-            {/* Eyes */}
-            <circle cx="88" cy="200" r="4" fill="#333" />
-            <circle cx="112" cy="200" r="4" fill="#333" />
-            {/* Smile */}
-            <path
-              d="M90 215 Q100 225 110 215"
-              stroke="#333"
-              strokeWidth="2"
-              strokeLinecap="round"
-              fill="none"
-            />
-            {/* Waving hand */}
-            <ellipse cx="145" cy="240" rx="12" ry="15" fill="#FFDAB9" className="animate-wave origin-[145px_255px]" />
-          </g>
+          {/* Head */}
+          <circle cx="135" cy="140" r="40" fill="#FFDAB9" />
 
-          {/* Person 2 - Right */}
-          <g className="animate-float-medium">
-            {/* Body */}
-            <ellipse cx="300" cy="280" rx="35" ry="45" fill="#D4A5A5" opacity="0.9" />
-            {/* Head */}
-            <circle cx="300" cy="200" r="35" fill="#F5DEB3" />
-            {/* Hair */}
-            <path
-              d="M265 200 Q265 155 300 150 Q335 155 340 185 L340 210 Q335 200 300 195 Q270 198 265 200"
-              fill="#8B4513"
-            />
-            {/* Eyes */}
-            <circle cx="288" cy="200" r="4" fill="#333" />
-            <circle cx="312" cy="200" r="4" fill="#333" />
-            {/* Smile */}
-            <path
-              d="M290 215 Q300 225 310 215"
-              stroke="#333"
-              strokeWidth="2"
-              strokeLinecap="round"
-              fill="none"
-            />
-            {/* Heart on shirt */}
-            <path
-              d="M295 270 Q290 263 295 260 Q300 257 300 263 Q300 257 305 260 Q310 263 305 270 L300 278 Z"
-              fill="white"
-              opacity="0.5"
-            />
-          </g>
+          {/* Hair - friendly wavy */}
+          <path d="M95 130 Q95 90 135 85 Q175 90 175 130 Q175 120 165 115 Q145 105 125 115 Q105 120 95 130" fill="#5D4037" />
 
-          {/* Person 3 - Center top */}
-          <g className="animate-float-fast">
-            {/* Body */}
-            <ellipse cx="200" cy="150" rx="30" ry="40" fill="#98B4D4" opacity="0.9" />
-            {/* Head */}
-            <circle cx="200" cy="85" r="30" fill="#DEB887" />
-            {/* Hair */}
-            <ellipse cx="200" cy="70" rx="32" ry="20" fill="#2F1E0F" />
-            {/* Eyes */}
-            <circle cx="190" cy="85" r="3" fill="#333" />
-            <circle cx="210" cy="85" r="3" fill="#333" />
-            {/* Smile */}
-            <path
-              d="M193 98 Q200 105 207 98"
-              stroke="#333"
-              strokeWidth="2"
-              strokeLinecap="round"
-              fill="none"
-            />
-          </g>
+          {/* Face - warm smile */}
+          <circle cx="120" cy="140" r="4" fill="#4A3728" /> {/* Left eye */}
+          <circle cx="150" cy="140" r="4" fill="#4A3728" /> {/* Right eye */}
+          <path d="M122 158 Q135 172 148 158" stroke="#4A3728" strokeWidth="3" strokeLinecap="round" fill="none" /> {/* Smile */}
 
-          {/* Heart particles */}
-          <g className="animate-pulse">
-            <path d="M170 160 Q165 153 170 150 Q175 147 175 153 Q175 147 180 150 Q185 153 180 160 L175 168 Z" fill="#D4A5A5" opacity="0.8" />
-            <path d="M230 160 Q225 153 230 150 Q235 147 235 153 Q235 147 240 150 Q245 153 240 160 L235 168 Z" fill="#A8C5A8" opacity="0.8" />
-            <path d="M200 340 Q195 333 200 330 Q205 327 205 333 Q205 327 210 330 Q215 333 210 340 L205 348 Z" fill="#D4A5A5" opacity="0.6" />
-          </g>
+          {/* Rosy cheeks */}
+          <circle cx="110" cy="150" r="8" fill="#D4A5A5" opacity="0.4" />
+          <circle cx="160" cy="150" r="8" fill="#D4A5A5" opacity="0.4" />
+        </g>
 
-          {/* Chat bubbles */}
-          <g className="animate-float-slow">
-            <rect x="140" y="110" width="50" height="30" rx="10" fill="white" opacity="0.9" />
-            <polygon points="155,140 165,140 155,150" fill="white" opacity="0.9" />
-            <text x="152" y="130" fontSize="14" fill="#A8C5A8">Hi! 👋</text>
-          </g>
+        {/* Person 2 - Right, warm and friendly */}
+        <g className="animate-gentle-bounce-delayed">
+          {/* Body - cozy cardigan */}
+          <path d="M230 260 Q230 200 250 180 L280 180 Q300 200 300 260 Z" fill="#D4A5A5" />
+          {/* Cardigan details */}
+          <path d="M265 180 L265 260" stroke="#C49494" strokeWidth="2" />
+          <circle cx="265" cy="200" r="3" fill="#C49494" />
+          <circle cx="265" cy="220" r="3" fill="#C49494" />
 
-          <g className="animate-float-medium">
-            <rect x="250" y="130" width="45" height="25" rx="8" fill="white" opacity="0.9" />
-            <polygon points="270,155 280,155 285,165" fill="white" opacity="0.9" />
-            <text x="260" y="147" fontSize="12" fill="#D4A5A5">Hey! 💕</text>
-          </g>
+          {/* Arms */}
+          <path d="M230 200 Q215 220 225 245" fill="#F5DEB3" />
+          <path d="M300 200 Q320 210 315 240 Q310 250 300 245" fill="#F5DEB3" />
 
-          {/* Gradients */}
-          <defs>
-            <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#A8C5A8" />
-              <stop offset="100%" stopColor="#D4A5A5" />
-            </linearGradient>
-            <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#A8C5A8" />
-              <stop offset="100%" stopColor="#D4A5A5" />
-            </linearGradient>
-          </defs>
-        </svg>
+          {/* Head */}
+          <circle cx="265" cy="140" r="40" fill="#F5DEB3" />
 
-        {/* Phone mockup with app preview */}
-        <div className="absolute -right-4 bottom-4 w-32 h-56 bg-gray-800 rounded-3xl p-1 shadow-2xl transform rotate-6 animate-float-medium">
-          <div className="w-full h-full bg-[#1a1a2e] rounded-2xl overflow-hidden">
-            {/* Phone screen content */}
-            <div className="p-2">
-              <div className="text-[#A8C5A8] text-[8px] font-semibold mb-1">amika</div>
-              <div className="space-y-1">
-                <div className="bg-white/10 rounded p-1">
-                  <div className="text-white text-[6px]">Birthday reminder</div>
-                  <div className="text-gray-400 text-[5px]">Sarah&apos;s birthday tomorrow!</div>
-                </div>
-                <div className="bg-[#A8C5A8]/20 rounded p-1">
-                  <div className="text-white text-[6px]">Coffee meetup</div>
-                  <div className="text-gray-400 text-[5px]">with Alex - Today 3pm</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+          {/* Hair - curly and friendly */}
+          <path d="M225 125 Q220 85 265 80 Q310 85 305 125" fill="#8D6E63" />
+          <circle cx="230" cy="110" r="10" fill="#8D6E63" />
+          <circle cx="250" cy="95" r="10" fill="#8D6E63" />
+          <circle cx="275" cy="95" r="10" fill="#8D6E63" />
+          <circle cx="295" cy="110" r="10" fill="#8D6E63" />
 
-      {/* CSS Animations */}
+          {/* Face - warm smile */}
+          <circle cx="250" cy="140" r="4" fill="#4A3728" /> {/* Left eye */}
+          <circle cx="280" cy="140" r="4" fill="#4A3728" /> {/* Right eye */}
+          <path d="M252 158 Q265 172 278 158" stroke="#4A3728" strokeWidth="3" strokeLinecap="round" fill="none" /> {/* Smile */}
+
+          {/* Rosy cheeks */}
+          <circle cx="240" cy="150" r="8" fill="#D4A5A5" opacity="0.4" />
+          <circle cx="290" cy="150" r="8" fill="#D4A5A5" opacity="0.4" />
+        </g>
+
+        {/* Decorative elements */}
+        {/* Heart floating */}
+        <g className="animate-float">
+          <path d="M200 80 Q195 70 200 65 Q205 60 205 68 Q205 60 210 65 Q215 70 210 80 L205 90 Z" fill="#D4A5A5" opacity="0.8" />
+        </g>
+
+        {/* Small plant on table */}
+        <g>
+          <rect x="195" y="230" width="10" height="15" rx="2" fill="#C49494" opacity="0.6" />
+          <ellipse cx="200" cy="225" rx="8" ry="6" fill="#A8C5A8" />
+          <ellipse cx="196" cy="222" rx="5" ry="4" fill="#97B497" />
+          <ellipse cx="204" cy="220" rx="5" ry="4" fill="#B8D4B8" />
+        </g>
+
+        {/* Sparkles */}
+        <g className="animate-twinkle">
+          <path d="M80 100 L82 105 L87 107 L82 109 L80 114 L78 109 L73 107 L78 105 Z" fill="#A8C5A8" opacity="0.6" />
+        </g>
+        <g className="animate-twinkle-delayed">
+          <path d="M320 120 L322 125 L327 127 L322 129 L320 134 L318 129 L313 127 L318 125 Z" fill="#D4A5A5" opacity="0.6" />
+        </g>
+        <g className="animate-twinkle">
+          <path d="M50 180 L51 183 L54 184 L51 185 L50 188 L49 185 L46 184 L49 183 Z" fill="#D4A5A5" opacity="0.5" />
+        </g>
+        <g className="animate-twinkle-delayed">
+          <path d="M350 170 L351 173 L354 174 L351 175 L350 178 L349 175 L346 174 L349 173 Z" fill="#A8C5A8" opacity="0.5" />
+        </g>
+      </svg>
+
+      {/* Tagline below illustration */}
+      <p className="text-center text-gray-500 text-sm mt-4 max-w-xs mx-auto">
+        Keep your friendships warm with meaningful connections
+      </p>
+
       <style jsx>{`
-        @keyframes float-slow {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-10px); }
+        @keyframes gentle-bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
         }
-        @keyframes float-medium {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-15px); }
+        @keyframes float {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-8px) scale(1.1); }
         }
-        @keyframes float-fast {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-8px); }
+        @keyframes steam {
+          0%, 100% { opacity: 0.3; transform: translateY(0); }
+          50% { opacity: 0.6; transform: translateY(-5px); }
         }
-        @keyframes wave {
-          0%, 100% { transform: rotate(0deg); }
-          25% { transform: rotate(20deg); }
-          75% { transform: rotate(-10deg); }
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.3; transform: scale(0.8); }
+          50% { opacity: 0.8; transform: scale(1.2); }
         }
-        @keyframes dash {
-          0% { stroke-dashoffset: 200; }
-          100% { stroke-dashoffset: 0; }
+        .animate-gentle-bounce {
+          animation: gentle-bounce 3s ease-in-out infinite;
         }
-        .animate-float-slow {
-          animation: float-slow 4s ease-in-out infinite;
+        .animate-gentle-bounce-delayed {
+          animation: gentle-bounce 3s ease-in-out infinite;
+          animation-delay: 0.5s;
         }
-        .animate-float-medium {
-          animation: float-medium 3s ease-in-out infinite;
+        .animate-float {
+          animation: float 2.5s ease-in-out infinite;
         }
-        .animate-float-fast {
-          animation: float-fast 2.5s ease-in-out infinite;
+        .animate-steam {
+          animation: steam 2s ease-in-out infinite;
         }
-        .animate-wave {
-          animation: wave 1s ease-in-out infinite;
+        .animate-steam-delayed {
+          animation: steam 2s ease-in-out infinite;
+          animation-delay: 0.5s;
         }
-        .animate-dash {
-          stroke-dasharray: 200;
-          animation: dash 3s linear infinite;
+        .animate-twinkle {
+          animation: twinkle 2s ease-in-out infinite;
         }
-        .animate-dash-reverse {
-          stroke-dasharray: 200;
-          animation: dash 3s linear infinite reverse;
+        .animate-twinkle-delayed {
+          animation: twinkle 2s ease-in-out infinite;
+          animation-delay: 1s;
         }
       `}</style>
     </div>
