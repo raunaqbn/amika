@@ -14,6 +14,7 @@ interface Event {
   location: string | null;
   friendId: string;
   completed?: boolean;
+  friends?: { id: string; name: string }[];
 }
 
 interface EventCardProps {
@@ -74,7 +75,13 @@ export function EventCard({ event, friendName, onDelete, onToggleComplete, onEdi
             {event.title}
           </h3>
 
-          {friendName && (
+          {(event.friends && event.friends.length > 0) ? (
+            <p className={`text-sm font-medium mb-2 ${
+              isCompleted ? 'text-[#A8C5A8]/60' : 'text-[#A8C5A8]'
+            }`}>
+              with {event.friends.map(f => f.name).join(', ')}
+            </p>
+          ) : friendName && (
             <p className={`text-sm font-medium mb-2 ${
               isCompleted ? 'text-[#A8C5A8]/60' : 'text-[#A8C5A8]'
             }`}>
