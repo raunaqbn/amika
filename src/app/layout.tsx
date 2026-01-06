@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Nav } from "@/components/nav";
+import { AuthProvider } from "@/lib/auth-context";
 
 export const metadata: Metadata = {
   title: "Amika - Nurture Your Friendships",
@@ -15,10 +16,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased bg-[#FFFBF5]">
-        <Nav />
-        <main className="md:pt-16 pb-20 md:pb-0">
-          {children}
-        </main>
+        <AuthProvider>
+          <Nav />
+          <main className="md:pt-16 pb-20 md:pb-0">
+            {children}
+          </main>
+        </AuthProvider>
       </body>
     </html>
   );

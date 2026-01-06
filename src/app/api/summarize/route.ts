@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateText } from 'ai';
 import { getModel } from '@/lib/ai';
+import { getUserId } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 // POST /api/summarize - Generate AI summary for text content
 export async function POST(request: NextRequest) {
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { content } = body;
 

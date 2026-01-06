@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { EventCard } from '@/components/event-card';
 import { AddEventDialog } from '@/components/add-event-dialog';
 import { FindEventsDialog } from '@/components/find-events-dialog';
 import { Timeline } from '@/components/timeline';
+import { useAuth } from '@/lib/auth-context';
 import { differenceInDays, format, isBefore, addDays } from 'date-fns';
 import { Cake, Clock, Calendar, Plus, TrendingUp, Sparkles } from 'lucide-react';
 
@@ -31,6 +33,8 @@ interface Event {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,17 +42,34 @@ export default function Home() {
   const [findEventsDialogOpen, setFindEventsDialogOpen] = useState(false);
 
   useEffect(() => {
-    fetchFriends();
-    fetchEvents();
-  }, []);
+    // Redirect to signin if not authenticated
+    if (!authLoading && !user) {
+      router.push('/signin');
+      return;
+    }
+
+    // Only fetch data when authenticated
+    if (user) {
+      fetchFriends();
+      fetchEvents();
+    }
+  }, [user, authLoading, router]);
 
   const fetchFriends = async () => {
     try {
       const response = await fetch('/api/friends');
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push('/signin');
+          return;
+        }
+        throw new Error('Failed to fetch friends');
+      }
       const data = await response.json();
-      setFriends(data);
+      setFriends(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching friends:', error);
+      setFriends([]);
     } finally {
       setLoading(false);
     }
@@ -57,10 +78,18 @@ export default function Home() {
   const fetchEvents = async () => {
     try {
       const response = await fetch('/api/events');
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push('/signin');
+          return;
+        }
+        throw new Error('Failed to fetch events');
+      }
       const data = await response.json();
-      setEvents(data);
+      setEvents(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching events:', error);
+      setEvents([]);
     }
   };
 
@@ -144,7 +173,8 @@ export default function Home() {
     .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())
     .slice(0, 5);
 
-  if (loading) {
+  // Show loading while checking auth or loading data
+  if (authLoading || loading || !user) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A8C5A8]" />

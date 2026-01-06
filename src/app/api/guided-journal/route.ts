@@ -1,5 +1,6 @@
 import { generateText } from 'ai';
 import { getModel } from '@/lib/ai';
+import { getUserId } from '@/lib/auth';
 
 function ensureApiKeyConfigured() {
   const provider = (process.env.AI_PROVIDER || 'google').toLowerCase();
@@ -25,6 +26,14 @@ function ensureApiKeyConfigured() {
 
 export async function POST(req: Request) {
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { messages, systemPrompt, currentPromptIndex, prompts } = await req.json();
 
     if (!Array.isArray(messages) || !systemPrompt || !Array.isArray(prompts)) {
