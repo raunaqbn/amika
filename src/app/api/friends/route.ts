@@ -16,6 +16,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Get all friends from friends table
     const friends = await prisma.friend.findMany({
       userId,
       include: {
@@ -25,7 +26,42 @@ export async function GET() {
       },
       orderBy: { createdAt: 'desc' },
     });
-    return NextResponse.json(friends);
+
+    // Get all accepted connections (Amika friends)
+    const acceptedConnections = await prisma.userConnection.findAcceptedConnections(userId);
+
+    // Find accepted connections that don't have corresponding friend records
+    const existingLinkedUserIds = new Set(
+      friends.filter((f: any) => f.linkedUserId).map((f: any) => f.linkedUserId)
+    );
+
+    // Create friend records for any accepted connections missing from friends table
+    const newFriends = [];
+    for (const connection of acceptedConnections) {
+      if (!existingLinkedUserIds.has(connection.id)) {
+        // Create the missing friend record
+        const newFriend = await prisma.friend.create({
+          data: {
+            userId,
+            name: connection.name,
+            birthday: connection.birthday,
+            profileImage: connection.profileImage,
+            linkedUserId: connection.id,
+          },
+        });
+        newFriends.push({
+          ...newFriend,
+          memories: [],
+        });
+      }
+    }
+
+    // Return combined list, sorted by createdAt desc
+    const allFriends = [...friends, ...newFriends].sort((a: any, b: any) => {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    return NextResponse.json(allFriends);
   } catch (error) {
     console.error('Error fetching friends:', error);
     return NextResponse.json({ error: 'Failed to fetch friends' }, { status: 500 });
