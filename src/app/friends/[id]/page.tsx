@@ -9,12 +9,28 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FriendAvatar } from '@/components/friend-avatar';
 import { MemoryList } from '@/components/memory-list';
-import { ArrowLeft, Edit, Trash2, Check, X, Plus, Calendar, BarChart3, Clock, BookOpen, Heart, Sparkles, Utensils, MapPin, Dumbbell, Star } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Check, X, Plus, Calendar, BarChart3, Clock, BookOpen, Heart, Sparkles, Utensils, MapPin, Dumbbell, Star, Trophy, CheckCircle2, Search } from 'lucide-react';
 import { EventCard } from '@/components/event-card';
 import { AddEventDialog } from '@/components/add-event-dialog';
+import { FindEventsDialog } from '@/components/find-events-dialog';
 import { InterestSelector } from '@/components/interest-selector';
 import { parseInterests, stringifyInterests } from '@/lib/interests';
 import { format, formatDistanceToNow } from 'date-fns';
+
+// Point system for events based on bonding potential and time/energy investment
+const EVENT_POINTS: Record<string, { planned: number; attended: number; label: string }> = {
+  fitness: { planned: 5, attended: 25, label: 'Fitness' },       // High commitment, shared physical activity
+  experiences: { planned: 4, attended: 20, label: 'Experiences' }, // Unique bonding, memorable moments
+  places: { planned: 3, attended: 15, label: 'Places' },         // Travel/exploration together
+  restaurants: { planned: 2, attended: 10, label: 'Restaurants' }, // Social dining, casual bonding
+  default: { planned: 2, attended: 10, label: 'Other' },         // Uncategorized events
+};
+
+const getEventPoints = (event: Event, isAttended: boolean): number => {
+  const category = event.category || 'default';
+  const points = EVENT_POINTS[category] || EVENT_POINTS.default;
+  return isAttended ? points.attended : points.planned;
+};
 
 interface Friend {
   id: string;
@@ -92,9 +108,12 @@ export default function FriendProfilePage() {
   const [taggedNotes, setTaggedNotes] = useState<DiaryNote[]>([]);
   const [notesLoading, setNotesLoading] = useState(false);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const [pastEvents, setPastEvents] = useState<Event[]>([]);
   const [selectedEventCategory, setSelectedEventCategory] = useState<string | null>(null);
+  const [selectedPastEventCategory, setSelectedPastEventCategory] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
+  const [findEventsDialogOpen, setFindEventsDialogOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
   const [stats, setStats] = useState<FriendStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -174,10 +193,15 @@ export default function FriendProfilePage() {
     try {
       const response = await fetch(`/api/events?friendId=${params.id}`);
       const data = await response.json();
+      const now = new Date();
       const upcoming = data.filter(
-        (event: Event) => new Date(event.eventDate) >= new Date()
+        (event: Event) => new Date(event.eventDate) >= now && !event.completed
       );
+      const past = data
+        .filter((event: Event) => new Date(event.eventDate) < now || event.completed)
+        .sort((a: Event, b: Event) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
       setUpcomingEvents(upcoming);
+      setPastEvents(past);
     } catch (error) {
       console.error('Error fetching events:', error);
     }
@@ -554,20 +578,106 @@ export default function FriendProfilePage() {
           )}
         </Card>
 
+        {/* Friendship Points Section */}
+        {(() => {
+          const plannedPoints = upcomingEvents.reduce((sum, event) => sum + getEventPoints(event, false), 0);
+          const attendedPoints = pastEvents.reduce((sum, event) => sum + getEventPoints(event, true), 0);
+          const totalPoints = plannedPoints + attendedPoints;
+
+          // Count events by category for breakdown
+          const categoryBreakdown = [...upcomingEvents, ...pastEvents].reduce((acc, event) => {
+            const cat = event.category || 'default';
+            const isAttended = pastEvents.some(e => e.id === event.id);
+            if (!acc[cat]) acc[cat] = { planned: 0, attended: 0, count: 0 };
+            if (isAttended) {
+              acc[cat].attended += getEventPoints(event, true);
+            } else {
+              acc[cat].planned += getEventPoints(event, false);
+            }
+            acc[cat].count++;
+            return acc;
+          }, {} as Record<string, { planned: number; attended: number; count: number }>);
+
+          if (totalPoints === 0 && upcomingEvents.length === 0 && pastEvents.length === 0) return null;
+
+          return (
+            <Card className="p-6 border-[#A8C5A8]/20 mt-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Trophy className="w-5 h-5 text-yellow-500" />
+                <h2 className="text-xl font-semibold">Friendship Points</h2>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="bg-yellow-50 rounded-xl p-4 text-center">
+                  <p className="text-3xl font-bold text-yellow-600">{totalPoints}</p>
+                  <p className="text-sm text-gray-600">Total Points</p>
+                </div>
+                <div className="bg-green-50 rounded-xl p-4 text-center">
+                  <p className="text-2xl font-bold text-green-600">{attendedPoints}</p>
+                  <p className="text-sm text-gray-600">Attended</p>
+                </div>
+                <div className="bg-blue-50 rounded-xl p-4 text-center">
+                  <p className="text-2xl font-bold text-blue-600">{plannedPoints}</p>
+                  <p className="text-sm text-gray-600">Planned</p>
+                </div>
+              </div>
+
+              {Object.keys(categoryBreakdown).length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Points by Category</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(categoryBreakdown).map(([cat, data]) => {
+                      const pointInfo = EVENT_POINTS[cat] || EVENT_POINTS.default;
+                      const Icon = cat === 'fitness' ? Dumbbell :
+                                   cat === 'experiences' ? Sparkles :
+                                   cat === 'places' ? MapPin :
+                                   cat === 'restaurants' ? Utensils : Calendar;
+                      return (
+                        <div key={cat} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
+                          <Icon className="w-4 h-4 text-gray-500" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 capitalize">{pointInfo.label}</p>
+                            <p className="text-xs text-gray-500">{data.count} events</p>
+                          </div>
+                          <span className="text-sm font-bold text-gray-900">{data.planned + data.attended} pts</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-3">
+                    Points reflect bonding potential: Fitness (25), Experiences (20), Places (15), Restaurants (10). Planned events earn partial points.
+                  </p>
+                </div>
+              )}
+            </Card>
+          );
+        })()}
+
         <Card className="p-6 border-[#A8C5A8]/20 mt-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Calendar className="w-5 h-5 text-[#A8C5A8]" />
               <h2 className="text-xl font-semibold">Planned Events</h2>
             </div>
-            <Button
-              size="sm"
-              onClick={() => setAddEventDialogOpen(true)}
-              className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Add Event
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setFindEventsDialogOpen(true)}
+                className="border-[#D4A5A5]/60 text-[#D4A5A5] hover:bg-[#D4A5A5]/10"
+              >
+                <Search className="w-4 h-4 mr-1" />
+                Find Events
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setAddEventDialogOpen(true)}
+                className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Add Event
+              </Button>
+            </div>
           </div>
 
           {/* Category Tabs */}
@@ -629,6 +739,83 @@ export default function FriendProfilePage() {
           })()}
         </Card>
 
+        {/* Past Events Section */}
+        <Card className="p-6 border-[#A8C5A8]/20 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-[#A8C5A8]" />
+              <h2 className="text-xl font-semibold">Past Events</h2>
+            </div>
+            {pastEvents.length > 0 && (
+              <span className="text-sm text-gray-500">
+                {pastEvents.reduce((sum, event) => sum + getEventPoints(event, true), 0)} points earned
+              </span>
+            )}
+          </div>
+
+          {/* Category Tabs for Past Events */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {eventCategories.map((cat) => {
+              const count = selectedPastEventCategory === null
+                ? (cat.value === null ? pastEvents.length : pastEvents.filter(e => e.category === cat.value).length)
+                : pastEvents.filter(e => e.category === cat.value).length;
+
+              return (
+                <button
+                  key={`past-${cat.label}`}
+                  onClick={() => setSelectedPastEventCategory(cat.value)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                    selectedPastEventCategory === cat.value
+                      ? 'bg-[#D4A5A5] text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  <cat.icon className="w-3 h-3" />
+                  {cat.label}
+                  {count > 0 && (
+                    <span className={`ml-0.5 ${
+                      selectedPastEventCategory === cat.value ? 'text-white/80' : 'text-gray-400'
+                    }`}>
+                      ({count})
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {(() => {
+            const filteredPastEvents = selectedPastEventCategory === null
+              ? pastEvents
+              : pastEvents.filter(e => e.category === selectedPastEventCategory);
+
+            return filteredPastEvents.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                {selectedPastEventCategory === null
+                  ? `No past events with ${friend.name} yet. Complete some planned events to see them here!`
+                  : `No past ${eventCategories.find(c => c.value === selectedPastEventCategory)?.label.toLowerCase()} events with ${friend.name}.`
+                }
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {filteredPastEvents.map((event) => (
+                  <div key={event.id} className="relative">
+                    <EventCard
+                      event={event}
+                      onDelete={handleDeleteEvent}
+                      onToggleComplete={handleToggleEventComplete}
+                      onEdit={handleEditEvent}
+                    />
+                    <div className="absolute top-2 right-12 bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full text-xs font-medium">
+                      +{getEventPoints(event, true)} pts
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </Card>
+
         <AddEventDialog
           open={addEventDialogOpen}
           onOpenChange={(open) => {
@@ -645,6 +832,16 @@ export default function FriendProfilePage() {
             fetchEvents();
             fetchStats();
             setEventToEdit(null);
+          }}
+        />
+
+        <FindEventsDialog
+          open={findEventsDialogOpen}
+          onOpenChange={setFindEventsDialogOpen}
+          friends={allFriends.length > 0 ? allFriends : [{ id: friend.id, name: friend.name }]}
+          onEventCreated={() => {
+            fetchEvents();
+            fetchStats();
           }}
         />
 

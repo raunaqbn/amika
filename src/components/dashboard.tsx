@@ -243,7 +243,7 @@ export function Dashboard() {
             <Calendar className="w-8 h-8 text-[#A8C5A8] mx-auto mb-2" />
             <p className="text-gray-600 text-sm">No upcoming events.</p>
             <p className="text-gray-500 text-xs mt-1">
-              Click &quot;Plan Event&quot; to schedule time with friends!
+              Click &quot;Add Event&quot; above to schedule time with friends!
             </p>
           </Card>
         )}
