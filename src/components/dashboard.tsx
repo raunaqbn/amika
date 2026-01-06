@@ -9,9 +9,10 @@ import { FriendCard } from '@/components/friend-card';
 import { EventCard } from '@/components/event-card';
 import { AddEventDialog } from '@/components/add-event-dialog';
 import { FindEventsDialog } from '@/components/find-events-dialog';
+import { NewNoteDialog } from '@/components/new-note-dialog';
 import { Timeline } from '@/components/timeline';
 import { differenceInDays, format, isBefore, addDays } from 'date-fns';
-import { Cake, Clock, Calendar, Plus, TrendingUp, Sparkles } from 'lucide-react';
+import { Cake, Clock, Calendar, Plus, TrendingUp, Sparkles, PenLine } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -38,6 +39,7 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
   const [findEventsDialogOpen, setFindEventsDialogOpen] = useState(false);
+  const [newNoteDialogOpen, setNewNoteDialogOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
 
   useEffect(() => {
@@ -184,35 +186,40 @@ export function Dashboard() {
         <p className="text-gray-600">Nurture your friendships</p>
       </div>
 
-      {/* Find Fun Events Button */}
+      {/* Quick Actions */}
       <section className="mb-6">
+        <div className="flex gap-3 mb-3">
+          <Button
+            onClick={() => setFindEventsDialogOpen(true)}
+            variant="outline"
+            className="flex-1 py-6 border-[#D4A5A5]/40 text-[#D4A5A5] hover:bg-[#D4A5A5]/5"
+          >
+            <Sparkles className="w-5 h-5 mr-2" />
+            Find Events
+          </Button>
+          <Button
+            onClick={() => setAddEventDialogOpen(true)}
+            className="flex-1 py-6 bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Add Event
+          </Button>
+        </div>
         <Button
-          onClick={() => setFindEventsDialogOpen(true)}
-          className="w-full bg-gradient-to-r from-[#A8C5A8] to-[#D4A5A5] hover:from-[#A8C5A8]/90 hover:to-[#D4A5A5]/90 text-white py-6"
+          onClick={() => setNewNoteDialogOpen(true)}
+          variant="outline"
+          className="w-full py-5 border-gray-200 text-gray-700 hover:bg-gray-50"
         >
-          <Sparkles className="w-5 h-5 mr-2" />
-          Find Fun Events
+          <PenLine className="w-5 h-5 mr-2" />
+          New Note
         </Button>
-        <p className="text-xs text-gray-500 text-center mt-2">
-          Discover activities to do with friends - locally or remotely
-        </p>
       </section>
 
       {/* Upcoming Events Section */}
       <section className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-[#A8C5A8]" />
-            <h2 className="text-xl font-semibold text-gray-900">Upcoming Events</h2>
-          </div>
-          <Button
-            onClick={() => setAddEventDialogOpen(true)}
-            size="sm"
-            className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Plan Event
-          </Button>
+        <div className="flex items-center gap-2 mb-4">
+          <Calendar className="w-5 h-5 text-[#A8C5A8]" />
+          <h2 className="text-xl font-semibold text-gray-900">Upcoming Events</h2>
         </div>
 
         {upcomingEvents.length > 0 ? (
@@ -351,6 +358,12 @@ export function Dashboard() {
         onEventCreated={() => {
           fetchEvents();
         }}
+      />
+
+      <NewNoteDialog
+        open={newNoteDialogOpen}
+        onOpenChange={setNewNoteDialogOpen}
+        friends={friends.map((f) => ({ id: f.id, name: f.name }))}
       />
       </div>
     </div>
