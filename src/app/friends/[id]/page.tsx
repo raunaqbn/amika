@@ -119,7 +119,7 @@ export default function FriendProfilePage() {
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
   const [stats, setStats] = useState<FriendStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
-  const [allFriends, setAllFriends] = useState<{ id: string; name: string }[]>([]);
+  const [allFriends, setAllFriends] = useState<{ id: string; name: string; interests?: string | null; notes?: string | null }[]>([]);
 
   useEffect(() => {
     fetchFriend();
@@ -160,7 +160,13 @@ export default function FriendProfilePage() {
       const foundFriend = data.find((f: Friend) => f.id === params.id);
 
       // Set all friends for the event dialog (with current friend first)
-      const friendsList = data.map((f: Friend) => ({ id: f.id, name: f.name }));
+      // Include interests and notes for personalized event suggestions
+      const friendsList = data.map((f: Friend) => ({
+        id: f.id,
+        name: f.name,
+        interests: f.interests,
+        notes: f.notes
+      }));
       // Move current friend to the top of the list
       const currentFriendIndex = friendsList.findIndex((f: { id: string }) => f.id === params.id);
       if (currentFriendIndex > 0) {
@@ -870,7 +876,7 @@ export default function FriendProfilePage() {
             setAddEventDialogOpen(open);
             if (!open) setEventToEdit(null);
           }}
-          friends={allFriends.length > 0 ? allFriends : [{ id: friend.id, name: friend.name }]}
+          friends={allFriends.length > 0 ? allFriends : [{ id: friend.id, name: friend.name, interests: friend.interests, notes: friend.notes }]}
           onEventAdded={() => {
             fetchEvents();
             fetchStats();
@@ -886,7 +892,7 @@ export default function FriendProfilePage() {
         <FindEventsDialog
           open={findEventsDialogOpen}
           onOpenChange={setFindEventsDialogOpen}
-          friends={allFriends.length > 0 ? allFriends : [{ id: friend.id, name: friend.name }]}
+          friends={allFriends.length > 0 ? allFriends : [{ id: friend.id, name: friend.name, interests: friend.interests, notes: friend.notes }]}
           onEventCreated={() => {
             fetchEvents();
             fetchStats();

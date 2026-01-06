@@ -29,6 +29,7 @@ type Friend = {
   birthday: Date | null;
   howWeMet: string | null;
   notes: string | null;
+  interests: string | null;
   lastContact: Date | null;
   profileImage: string | null;
   createdAt: Date;
@@ -312,6 +313,12 @@ async function ensureTablesExist() {
       // Column might already exist
     }
 
+    try {
+      await client.execute(`ALTER TABLE friends ADD COLUMN interests TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
+
     tablesInitialized = true;
   } catch (error) {
     console.error('Error initializing tables:', error);
@@ -542,6 +549,7 @@ export const prisma = {
         birthday: row.birthday ? new Date(row.birthday as string) : null,
         howWeMet: row.howWeMet as string | null,
         notes: row.notes as string | null,
+        interests: row.interests as string | null,
         lastContact: row.lastContact ? new Date(row.lastContact as string) : null,
         profileImage: row.profileImage as string | null,
         createdAt: new Date(row.createdAt as string),
@@ -587,13 +595,14 @@ export const prisma = {
         birthday: data.birthday ?? null,
         howWeMet: data.howWeMet ?? null,
         notes: data.notes ?? null,
+        interests: data.interests ?? null,
         lastContact: data.lastContact ?? null,
         profileImage: data.profileImage ?? null,
         createdAt: new Date(),
       };
 
       await client.execute({
-        sql: 'INSERT INTO friends (id, userId, name, birthday, howWeMet, notes, lastContact, profileImage, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        sql: 'INSERT INTO friends (id, userId, name, birthday, howWeMet, notes, interests, lastContact, profileImage, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         args: [
           newFriend.id,
           newFriend.userId,
@@ -601,6 +610,7 @@ export const prisma = {
           newFriend.birthday ? newFriend.birthday.toISOString() : null,
           newFriend.howWeMet,
           newFriend.notes,
+          newFriend.interests,
           newFriend.lastContact ? newFriend.lastContact.toISOString() : null,
           newFriend.profileImage,
           newFriend.createdAt.toISOString(),
@@ -634,18 +644,20 @@ export const prisma = {
         birthday: data.birthday !== undefined ? data.birthday : (existing.birthday ? new Date(existing.birthday as string) : null),
         howWeMet: (data.howWeMet !== undefined ? data.howWeMet : existing.howWeMet) as string | null,
         notes: (data.notes !== undefined ? data.notes : existing.notes) as string | null,
+        interests: (data.interests !== undefined ? data.interests : existing.interests) as string | null,
         lastContact: data.lastContact !== undefined ? data.lastContact : (existing.lastContact ? new Date(existing.lastContact as string) : null),
         profileImage: (data.profileImage !== undefined ? data.profileImage : existing.profileImage) as string | null,
         createdAt: new Date(existing.createdAt as string),
       };
 
       await client.execute({
-        sql: 'UPDATE friends SET name = ?, birthday = ?, howWeMet = ?, notes = ?, lastContact = ?, profileImage = ? WHERE id = ?',
+        sql: 'UPDATE friends SET name = ?, birthday = ?, howWeMet = ?, notes = ?, interests = ?, lastContact = ?, profileImage = ? WHERE id = ?',
         args: [
           updated.name,
           updated.birthday ? updated.birthday.toISOString() : null,
           updated.howWeMet,
           updated.notes,
+          updated.interests,
           updated.lastContact ? updated.lastContact.toISOString() : null,
           updated.profileImage,
           where.id,
@@ -833,6 +845,7 @@ export const prisma = {
             birthday: null,
             howWeMet: null,
             notes: null,
+            interests: null,
             lastContact: null,
             profileImage: null,
             createdAt: new Date(),
