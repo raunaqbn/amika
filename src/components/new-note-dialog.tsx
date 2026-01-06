@@ -65,7 +65,7 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const chatInputRef = useRef<HTMLInputElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
   // @ mention state
   const [showMentions, setShowMentions] = useState(false);
@@ -123,7 +123,7 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
   };
 
   // Custom input change handler for @ mentions
-  const handleCustomChatInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCustomChatInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     const cursorPosition = e.target.selectionStart || 0;
 
@@ -157,7 +157,7 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
   };
 
   // Handle keyboard navigation for mentions
-  const handleMentionKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleMentionKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Handle escape to close mentions dropdown
     if (showMentions && e.key === 'Escape') {
       e.preventDefault();
@@ -425,7 +425,7 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-4xl max-w-[95vw] h-[85vh] flex flex-col p-0 gap-0 bg-white">
+      <DialogContent className={`sm:max-w-4xl max-w-[95vw] flex flex-col p-0 gap-0 bg-white ${mode === 'amika-chat' ? 'h-[85vh]' : 'max-h-[90vh]'}`}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
           <div className="flex items-center gap-2">
@@ -626,16 +626,31 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
 
             {/* Chat input */}
             <div className="p-4 border-t border-gray-200">
-              <form onSubmit={handleSubmit} className="flex gap-2">
+              <form onSubmit={handleSubmit} className="flex gap-2 items-end">
                 <div className="flex-1 relative">
-                  <Input
+                  <Textarea
                     ref={chatInputRef}
                     value={input}
                     onChange={handleCustomChatInputChange}
-                    onKeyDown={handleMentionKeyDown}
+                    onKeyDown={(e) => {
+                      handleMentionKeyDown(e);
+                      // Send on Enter (without shift)
+                      if (e.key === 'Enter' && !e.shiftKey && !showMentions) {
+                        e.preventDefault();
+                        handleSubmit(e as any);
+                      }
+                    }}
                     placeholder="Type a message... (use @ to mention friends)"
                     disabled={isLoading}
                     autoFocus
+                    rows={1}
+                    className="min-h-[40px] max-h-[120px] resize-none py-2"
+                    style={{ height: 'auto', overflow: 'hidden' }}
+                    onInput={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      target.style.height = 'auto';
+                      target.style.height = Math.min(target.scrollHeight, 120) + 'px';
+                    }}
                   />
                   {/* @ Mentions dropdown */}
                   {showMentions && (
@@ -674,7 +689,7 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
               </form>
 
               <p className="text-xs text-gray-500 mt-2">
-                Use @ to mention friends in your conversation.
+                Press Enter to send, Shift+Enter for new line. Use @ to mention friends.
               </p>
 
               {/* Save chat button */}
