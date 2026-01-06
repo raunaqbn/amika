@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { EventCard } from '@/components/event-card';
 import { AddEventDialog } from '@/components/add-event-dialog';
 import { FindEventsDialog } from '@/components/find-events-dialog';
-import { Calendar, Plus, Sparkles, Clock, CheckCircle2 } from 'lucide-react';
+import { Calendar, Plus, Sparkles, Clock, CheckCircle2, Utensils, MapPin } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -21,10 +21,19 @@ interface Event {
   description: string | null;
   eventDate: Date;
   location: string | null;
+  category?: string | null;
   friendId: string;
   completed?: boolean;
   friends?: { id: string; name: string }[];
 }
+
+// Category definitions
+const categories = [
+  { value: null, label: 'All', icon: Calendar },
+  { value: 'experiences', label: 'Experiences', icon: Sparkles },
+  { value: 'restaurants', label: 'Restaurants', icon: Utensils },
+  { value: 'places', label: 'Places', icon: MapPin },
+];
 
 export default function EventsPage() {
   const router = useRouter();
@@ -35,6 +44,7 @@ export default function EventsPage() {
   const [findEventsDialogOpen, setFindEventsDialogOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   useEffect(() => {
     fetchFriends();
@@ -118,13 +128,29 @@ export default function EventsPage() {
 
   const now = new Date();
 
-  const upcomingEvents = events
+  // Filter by category
+  const filteredEvents = selectedCategory === null
+    ? events
+    : events.filter((event) => event.category === selectedCategory);
+
+  const upcomingEvents = filteredEvents
     .filter((event) => new Date(event.eventDate) >= now && !event.completed)
     .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
 
-  const pastEvents = events
+  const pastEvents = filteredEvents
     .filter((event) => new Date(event.eventDate) < now || event.completed)
     .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
+
+  // Count events per category for badge display
+  const getCategoryCount = (categoryValue: string | null, upcoming: boolean) => {
+    const baseFiltered = categoryValue === null
+      ? events
+      : events.filter((e) => e.category === categoryValue);
+
+    return upcoming
+      ? baseFiltered.filter((e) => new Date(e.eventDate) >= now && !e.completed).length
+      : baseFiltered.filter((e) => new Date(e.eventDate) < now || e.completed).length;
+  };
 
   if (loading) {
     return (
@@ -163,8 +189,8 @@ export default function EventsPage() {
           <p className="text-gray-600">Plan and track activities with your friends</p>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-2 mb-6">
+        {/* Time Tab Navigation */}
+        <div className="flex gap-2 mb-4">
           <button
             onClick={() => setActiveTab('upcoming')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -187,6 +213,34 @@ export default function EventsPage() {
             <CheckCircle2 className="w-4 h-4" />
             Past ({pastEvents.length})
           </button>
+        </div>
+
+        {/* Category Tabs */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {categories.map((cat) => {
+            const count = getCategoryCount(cat.value, activeTab === 'upcoming');
+            return (
+              <button
+                key={cat.label}
+                onClick={() => setSelectedCategory(cat.value)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  selectedCategory === cat.value
+                    ? 'bg-[#D4A5A5] text-white'
+                    : 'bg-white border border-gray-200 text-gray-600 hover:border-[#D4A5A5]/50'
+                }`}
+              >
+                <cat.icon className="w-3.5 h-3.5" />
+                {cat.label}
+                {count > 0 && (
+                  <span className={`ml-1 text-xs ${
+                    selectedCategory === cat.value ? 'text-white/80' : 'text-gray-400'
+                  }`}>
+                    ({count})
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Events List */}

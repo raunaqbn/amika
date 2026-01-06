@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FriendAvatar } from '@/components/friend-avatar';
 import { MemoryList } from '@/components/memory-list';
-import { ArrowLeft, Edit, Trash2, Check, X, Plus, Calendar, BarChart3, Clock, BookOpen, Heart } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Check, X, Plus, Calendar, BarChart3, Clock, BookOpen, Heart, Sparkles, Utensils, MapPin } from 'lucide-react';
 import { EventCard } from '@/components/event-card';
 import { AddEventDialog } from '@/components/add-event-dialog';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -49,10 +49,19 @@ interface Event {
   description: string | null;
   eventDate: Date;
   location: string | null;
+  category?: string | null;
   friendId: string;
   completed?: boolean;
   friends?: { id: string; name: string }[];
 }
+
+// Category definitions for filtering
+const eventCategories = [
+  { value: null, label: 'All', icon: Calendar },
+  { value: 'experiences', label: 'Experiences', icon: Sparkles },
+  { value: 'restaurants', label: 'Restaurants', icon: Utensils },
+  { value: 'places', label: 'Places', icon: MapPin },
+];
 
 interface FriendStats {
   eventsCount: number;
@@ -78,6 +87,7 @@ export default function FriendProfilePage() {
   const [taggedNotes, setTaggedNotes] = useState<DiaryNote[]>([]);
   const [notesLoading, setNotesLoading] = useState(false);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const [selectedEventCategory, setSelectedEventCategory] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
@@ -528,23 +538,63 @@ export default function FriendProfilePage() {
             </Button>
           </div>
 
-          {upcomingEvents.length === 0 ? (
-            <p className="text-sm text-gray-500">
-              No planned events with {friend.name}.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {upcomingEvents.map((event) => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  onDelete={handleDeleteEvent}
-                  onToggleComplete={handleToggleEventComplete}
-                  onEdit={handleEditEvent}
-                />
-              ))}
-            </div>
-          )}
+          {/* Category Tabs */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {eventCategories.map((cat) => {
+              const count = selectedEventCategory === null
+                ? (cat.value === null ? upcomingEvents.length : upcomingEvents.filter(e => e.category === cat.value).length)
+                : (cat.value === selectedEventCategory ? upcomingEvents.filter(e => e.category === cat.value).length : upcomingEvents.filter(e => e.category === cat.value).length);
+
+              return (
+                <button
+                  key={cat.label}
+                  onClick={() => setSelectedEventCategory(cat.value)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                    selectedEventCategory === cat.value
+                      ? 'bg-[#D4A5A5] text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  <cat.icon className="w-3 h-3" />
+                  {cat.label}
+                  {count > 0 && (
+                    <span className={`ml-0.5 ${
+                      selectedEventCategory === cat.value ? 'text-white/80' : 'text-gray-400'
+                    }`}>
+                      ({count})
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {(() => {
+            const filteredEvents = selectedEventCategory === null
+              ? upcomingEvents
+              : upcomingEvents.filter(e => e.category === selectedEventCategory);
+
+            return filteredEvents.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                {selectedEventCategory === null
+                  ? `No planned events with ${friend.name}.`
+                  : `No ${eventCategories.find(c => c.value === selectedEventCategory)?.label.toLowerCase()} events with ${friend.name}.`
+                }
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {filteredEvents.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    onDelete={handleDeleteEvent}
+                    onToggleComplete={handleToggleEventComplete}
+                    onEdit={handleEditEvent}
+                  />
+                ))}
+              </div>
+            );
+          })()}
         </Card>
 
         <AddEventDialog

@@ -92,6 +92,7 @@ model Event {
   description String?
   eventDate   DateTime
   location    String?
+  category    String?  // experiences, restaurants, places
   friendId    String
   friend      Friend   @relation(fields: [friendId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())

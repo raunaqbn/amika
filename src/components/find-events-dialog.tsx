@@ -12,7 +12,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { Send, MapPin, Calendar, Users, Video, Sparkles, Plus, ExternalLink, Star, Clock, Ticket, X, UserPlus } from 'lucide-react';
+import { Send, MapPin, Calendar, Users, Video, Sparkles, Plus, ExternalLink, Star, Clock, Ticket, X, UserPlus, CalendarPlus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface Friend {
@@ -46,6 +46,7 @@ export function FindEventsDialog({
   const [eventTitle, setEventTitle] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [eventLocation, setEventLocation] = useState('');
+  const [eventCategory, setEventCategory] = useState<string | null>(null);
   const [selectedEventFriendIds, setSelectedEventFriendIds] = useState<string[]>([]);
   const [creatingEvent, setCreatingEvent] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -184,6 +185,7 @@ export function FindEventsDialog({
           title: eventTitle.trim(),
           eventDate: new Date(eventDate).toISOString(),
           location: eventLocation.trim() || null,
+          category: eventCategory,
           friendId: selectedEventFriendIds[0],
           friendIds: selectedEventFriendIds,
         }),
@@ -195,6 +197,7 @@ export function FindEventsDialog({
       setEventTitle('');
       setEventDate('');
       setEventLocation('');
+      setEventCategory(null);
       setSelectedEventFriendIds([]);
       onEventCreated?.();
 
@@ -224,6 +227,29 @@ export function FindEventsDialog({
         ? prev.filter(id => id !== friendId)
         : [...prev, friendId]
     );
+  };
+
+  // Pre-populate event form from a card
+  const handleCreateFromCard = (title: string, location?: string, date?: string, category?: string) => {
+    setEventTitle(title);
+    setEventLocation(location || '');
+    setEventCategory(category || null);
+    // Pre-select friends from chat selection
+    setSelectedEventFriendIds(selectedFriendIds.length > 0 ? selectedFriendIds : []);
+    // If date is provided and parseable, set it
+    if (date) {
+      try {
+        const parsedDate = new Date(date);
+        if (!isNaN(parsedDate.getTime())) {
+          // Format for datetime-local input
+          const formatted = parsedDate.toISOString().slice(0, 16);
+          setEventDate(formatted);
+        }
+      } catch {
+        // Ignore invalid dates
+      }
+    }
+    setShowCreateEvent(true);
   };
 
   return (
@@ -348,18 +374,32 @@ export function FindEventsDialog({
                                       {event.description && (
                                         <p className="text-xs text-gray-600 line-clamp-2 mt-1">{event.description}</p>
                                       )}
-                                      {event.link && (
-                                        <a
-                                          href={event.link}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1 text-xs text-[#A8C5A8] hover:underline mt-2"
+                                      <div className="flex items-center gap-2 mt-2">
+                                        {event.link && (
+                                          <a
+                                            href={event.link}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 text-xs text-[#A8C5A8] hover:underline"
+                                          >
+                                            <Ticket className="w-3 h-3" />
+                                            Get Tickets
+                                            <ExternalLink className="w-3 h-3" />
+                                          </a>
+                                        )}
+                                        <button
+                                          onClick={() => handleCreateFromCard(
+                                            event.title,
+                                            event.venue || event.location,
+                                            event.date,
+                                            'experiences'
+                                          )}
+                                          className="inline-flex items-center gap-1 text-xs text-[#D4A5A5] hover:text-[#D4A5A5]/80 font-medium"
                                         >
-                                          <Ticket className="w-3 h-3" />
-                                          Get Tickets
-                                          <ExternalLink className="w-3 h-3" />
-                                        </a>
-                                      )}
+                                          <CalendarPlus className="w-3 h-3" />
+                                          Create Event
+                                        </button>
+                                      </div>
                                     </div>
                                   </div>
                                 </Card>
@@ -398,6 +438,18 @@ export function FindEventsDialog({
                                       ))}
                                     </div>
                                   )}
+                                  <button
+                                    onClick={() => handleCreateFromCard(
+                                      `Watch ${movie.name}`,
+                                      movie.theaters?.[0]?.name,
+                                      undefined,
+                                      'experiences'
+                                    )}
+                                    className="inline-flex items-center gap-1 text-xs text-[#D4A5A5] hover:text-[#D4A5A5]/80 font-medium mt-2"
+                                  >
+                                    <CalendarPlus className="w-3 h-3" />
+                                    Create Event
+                                  </button>
                                 </Card>
                               ))}
                             </div>
@@ -429,17 +481,31 @@ export function FindEventsDialog({
                                     )}
                                     {place.price && <p className="text-green-600">{place.price}</p>}
                                   </div>
-                                  {place.website && (
-                                    <a
-                                      href={place.website}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 text-xs text-[#A8C5A8] hover:underline mt-2"
+                                  <div className="flex items-center gap-2 mt-2">
+                                    {place.website && (
+                                      <a
+                                        href={place.website}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-xs text-[#A8C5A8] hover:underline"
+                                      >
+                                        Visit Website
+                                        <ExternalLink className="w-3 h-3" />
+                                      </a>
+                                    )}
+                                    <button
+                                      onClick={() => handleCreateFromCard(
+                                        `Visit ${place.name}`,
+                                        place.address || place.name,
+                                        undefined,
+                                        'places'
+                                      )}
+                                      className="inline-flex items-center gap-1 text-xs text-[#D4A5A5] hover:text-[#D4A5A5]/80 font-medium"
                                     >
-                                      Visit Website
-                                      <ExternalLink className="w-3 h-3" />
-                                    </a>
-                                  )}
+                                      <CalendarPlus className="w-3 h-3" />
+                                      Create Event
+                                    </button>
+                                  </div>
                                 </Card>
                               ))}
                             </div>
@@ -467,17 +533,31 @@ export function FindEventsDialog({
                                     {biz.price && <p className="text-green-600">{biz.price}</p>}
                                     {biz.snippet && <p className="text-gray-600 mt-1 italic">"{biz.snippet}"</p>}
                                   </div>
-                                  {biz.link && (
-                                    <a
-                                      href={biz.link}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 text-xs text-red-500 hover:underline mt-2"
+                                  <div className="flex items-center gap-2 mt-2">
+                                    {biz.link && (
+                                      <a
+                                        href={biz.link}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-xs text-red-500 hover:underline"
+                                      >
+                                        View on Yelp
+                                        <ExternalLink className="w-3 h-3" />
+                                      </a>
+                                    )}
+                                    <button
+                                      onClick={() => handleCreateFromCard(
+                                        `Dine at ${biz.name}`,
+                                        biz.neighborhood || biz.name,
+                                        undefined,
+                                        'restaurants'
+                                      )}
+                                      className="inline-flex items-center gap-1 text-xs text-[#D4A5A5] hover:text-[#D4A5A5]/80 font-medium"
                                     >
-                                      View on Yelp
-                                      <ExternalLink className="w-3 h-3" />
-                                    </a>
-                                  )}
+                                      <CalendarPlus className="w-3 h-3" />
+                                      Create Event
+                                    </button>
+                                  </div>
                                 </Card>
                               ))}
                             </div>
@@ -607,11 +687,38 @@ export function FindEventsDialog({
                   onChange={(e) => setEventLocation(e.target.value)}
                   placeholder="Location (optional)"
                 />
+                <div>
+                  <label className="text-sm text-gray-600 mb-1 block">Category</label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { value: null, label: 'None' },
+                      { value: 'experiences', label: 'Experiences' },
+                      { value: 'restaurants', label: 'Restaurants' },
+                      { value: 'places', label: 'Places' },
+                    ].map((cat) => (
+                      <button
+                        key={cat.label}
+                        type="button"
+                        onClick={() => setEventCategory(cat.value)}
+                        className={`px-3 py-1 rounded text-xs transition-colors ${
+                          eventCategory === cat.value
+                            ? 'bg-[#D4A5A5] text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setShowCreateEvent(false)}
+                    onClick={() => {
+                      setShowCreateEvent(false);
+                      setEventCategory(null);
+                    }}
                     className="flex-1"
                   >
                     Cancel
