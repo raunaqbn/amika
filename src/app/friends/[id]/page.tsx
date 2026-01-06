@@ -535,7 +535,17 @@ export default function FriendProfilePage() {
             onInterestsChange={(interests) =>
               setFormData({ ...formData, interests })
             }
-            editing={editing}
+            editing={true}
+            onSave={async (interests) => {
+              await fetch('/api/friends', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  id: params.id,
+                  interests: stringifyInterests(interests),
+                }),
+              });
+            }}
           />
         </Card>
 
