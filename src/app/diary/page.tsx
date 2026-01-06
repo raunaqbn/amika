@@ -738,7 +738,6 @@ function DiaryPageContent() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Image (optional)</label>
               {imagePreview && (
                 <div className="relative inline-block">
                   <img
