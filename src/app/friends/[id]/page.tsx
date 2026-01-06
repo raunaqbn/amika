@@ -549,25 +549,20 @@ export default function FriendProfilePage() {
 
         {/* Friendship Points Section */}
         {(() => {
-          const plannedPoints = upcomingEvents.reduce((sum, event) => sum + getEventPoints(event, false), 0);
-          const attendedPoints = pastEvents.reduce((sum, event) => sum + getEventPoints(event, true), 0);
-          const totalPoints = plannedPoints + attendedPoints;
+          // Only count completed events for points
+          const completedEvents = pastEvents.filter(e => e.completed);
+          const attendedPoints = completedEvents.reduce((sum, event) => sum + getEventPoints(event, true), 0);
 
-          // Count events by category for breakdown
-          const categoryBreakdown = [...upcomingEvents, ...pastEvents].reduce((acc, event) => {
+          // Count events by category for breakdown (only completed events earn points)
+          const categoryBreakdown = completedEvents.reduce((acc, event) => {
             const cat = event.category || 'default';
-            const isAttended = pastEvents.some(e => e.id === event.id);
-            if (!acc[cat]) acc[cat] = { planned: 0, attended: 0, count: 0 };
-            if (isAttended) {
-              acc[cat].attended += getEventPoints(event, true);
-            } else {
-              acc[cat].planned += getEventPoints(event, false);
-            }
+            if (!acc[cat]) acc[cat] = { points: 0, count: 0 };
+            acc[cat].points += getEventPoints(event, true);
             acc[cat].count++;
             return acc;
-          }, {} as Record<string, { planned: number; attended: number; count: number }>);
+          }, {} as Record<string, { points: number; count: number }>);
 
-          if (totalPoints === 0 && upcomingEvents.length === 0 && pastEvents.length === 0) return null;
+          if (completedEvents.length === 0) return null;
 
           return (
             <Card className="p-6 border-[#A8C5A8]/20 mt-6">
@@ -576,18 +571,11 @@ export default function FriendProfilePage() {
                 <h2 className="text-xl font-semibold">Friendship Points</h2>
               </div>
 
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div className="bg-yellow-50 rounded-xl p-4 text-center">
-                  <p className="text-3xl font-bold text-yellow-600">{totalPoints}</p>
-                  <p className="text-sm text-gray-600">Total Points</p>
-                </div>
-                <div className="bg-green-50 rounded-xl p-4 text-center">
-                  <p className="text-2xl font-bold text-green-600">{attendedPoints}</p>
-                  <p className="text-sm text-gray-600">Attended</p>
-                </div>
-                <div className="bg-blue-50 rounded-xl p-4 text-center">
-                  <p className="text-2xl font-bold text-blue-600">{plannedPoints}</p>
-                  <p className="text-sm text-gray-600">Planned</p>
+              <div className="flex justify-center mb-4">
+                <div className="bg-yellow-50 rounded-xl p-6 text-center">
+                  <p className="text-4xl font-bold text-yellow-600">{attendedPoints}</p>
+                  <p className="text-sm text-gray-600">Points Earned</p>
+                  <p className="text-xs text-gray-500 mt-1">{completedEvents.length} completed events</p>
                 </div>
               </div>
 
@@ -608,13 +596,13 @@ export default function FriendProfilePage() {
                             <p className="text-sm font-medium text-gray-900 capitalize">{pointInfo.label}</p>
                             <p className="text-xs text-gray-500">{data.count} events</p>
                           </div>
-                          <span className="text-sm font-bold text-gray-900">{data.planned + data.attended} pts</span>
+                          <span className="text-sm font-bold text-gray-900">{data.points} pts</span>
                         </div>
                       );
                     })}
                   </div>
                   <p className="text-xs text-gray-500 mt-3">
-                    Points reflect bonding potential: Fitness (25), Experiences (20), Places (15), Restaurants (10). Planned events earn partial points.
+                    Points are earned when events are marked complete: Fitness (25), Experiences (20), Places (15), Restaurants (10).
                   </p>
                 </div>
               )}
@@ -715,9 +703,9 @@ export default function FriendProfilePage() {
               <CheckCircle2 className="w-5 h-5 text-[#A8C5A8]" />
               <h2 className="text-xl font-semibold">Past Events</h2>
             </div>
-            {pastEvents.length > 0 && (
+            {pastEvents.filter(e => e.completed).length > 0 && (
               <span className="text-sm text-gray-500">
-                {pastEvents.reduce((sum, event) => sum + getEventPoints(event, true), 0)} points earned
+                {pastEvents.filter(e => e.completed).reduce((sum, event) => sum + getEventPoints(event, true), 0)} points earned
               </span>
             )}
           </div>
@@ -758,28 +746,75 @@ export default function FriendProfilePage() {
               ? pastEvents
               : pastEvents.filter(e => e.category === selectedPastEventCategory);
 
-            return filteredPastEvents.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                {selectedPastEventCategory === null
-                  ? `No past events with ${friend.name} yet. Complete some planned events to see them here!`
-                  : `No past ${eventCategories.find(c => c.value === selectedPastEventCategory)?.label.toLowerCase()} events with ${friend.name}.`
-                }
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {filteredPastEvents.map((event) => (
-                  <div key={event.id} className="relative">
-                    <EventCard
-                      event={event}
-                      onDelete={handleDeleteEvent}
-                      onToggleComplete={handleToggleEventComplete}
-                      onEdit={handleEditEvent}
-                    />
-                    <div className="absolute top-2 right-12 bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full text-xs font-medium">
-                      +{getEventPoints(event, true)} pts
+            const completedEvents = filteredPastEvents.filter(e => e.completed);
+            const notCompletedEvents = filteredPastEvents.filter(e => !e.completed);
+
+            if (filteredPastEvents.length === 0) {
+              return (
+                <p className="text-sm text-gray-500">
+                  {selectedPastEventCategory === null
+                    ? `No past events with ${friend.name} yet.`
+                    : `No past ${eventCategories.find(c => c.value === selectedPastEventCategory)?.label.toLowerCase()} events with ${friend.name}.`
+                  }
+                </p>
+              );
+            }
+
+            return (
+              <div className="space-y-6">
+                {/* Completed Events */}
+                {completedEvents.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 rounded-full bg-green-500" />
+                      <h3 className="text-sm font-semibold text-gray-700">Completed ({completedEvents.length})</h3>
+                      <span className="text-xs text-yellow-600 font-medium">
+                        +{completedEvents.reduce((sum, e) => sum + getEventPoints(e, true), 0)} pts
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      {completedEvents.map((event) => (
+                        <div key={event.id} className="relative">
+                          <EventCard
+                            event={event}
+                            onDelete={handleDeleteEvent}
+                            onToggleComplete={handleToggleEventComplete}
+                            onEdit={handleEditEvent}
+                          />
+                          <div className="absolute top-2 right-12 bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full text-xs font-medium">
+                            +{getEventPoints(event, true)} pts
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
+                )}
+
+                {/* Not Completed Events */}
+                {notCompletedEvents.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-2 h-2 rounded-full bg-gray-400" />
+                      <h3 className="text-sm font-semibold text-gray-700">Not Completed ({notCompletedEvents.length})</h3>
+                      <span className="text-xs text-gray-500">Mark complete to earn points</span>
+                    </div>
+                    <div className="space-y-3">
+                      {notCompletedEvents.map((event) => (
+                        <div key={event.id} className="relative opacity-75">
+                          <EventCard
+                            event={event}
+                            onDelete={handleDeleteEvent}
+                            onToggleComplete={handleToggleEventComplete}
+                            onEdit={handleEditEvent}
+                          />
+                          <div className="absolute top-2 right-12 bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-xs font-medium">
+                            {getEventPoints(event, true)} pts available
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}
