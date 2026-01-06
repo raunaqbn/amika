@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { FriendAvatar } from '@/components/friend-avatar';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
-import { Share2 } from 'lucide-react';
+import { Share2, Trophy } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -14,6 +14,7 @@ interface Friend {
   notes?: string | null;
   profileImage?: string | null;
   linkedUserId?: string | null;
+  friendshipPoints?: number;
 }
 
 interface FriendCardProps {
@@ -51,6 +52,12 @@ export function FriendCard({ friend, isAmikaFriend }: FriendCardProps) {
               </p>
             )}
           </div>
+          {friend.friendshipPoints !== undefined && friend.friendshipPoints > 0 && (
+            <div className="flex items-center gap-1 px-2 py-1 bg-yellow-50 text-yellow-700 rounded-full text-xs font-medium">
+              <Trophy className="w-3 h-3" />
+              {friend.friendshipPoints}
+            </div>
+          )}
         </div>
       </Card>
     </Link>

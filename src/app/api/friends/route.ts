@@ -9,6 +9,20 @@ function parseLocalDate(dateString: string | null | undefined): Date | null {
   return new Date(year, month - 1, day, 12, 0, 0);
 }
 
+// Point system for events based on bonding potential and time/energy investment
+const EVENT_POINTS: Record<string, number> = {
+  fitness: 25,       // High commitment, shared physical activity
+  experiences: 20,   // Unique bonding, memorable moments
+  places: 15,        // Travel/exploration together
+  restaurants: 10,   // Social dining, casual bonding
+  virtual: 5,        // Phone calls, video chats - lower investment
+  default: 10,       // Uncategorized events
+};
+
+function getEventPoints(category: string | null): number {
+  return EVENT_POINTS[category || 'default'] || EVENT_POINTS.default;
+}
+
 export async function GET() {
   try {
     const userId = await getUserId();
@@ -94,7 +108,44 @@ export async function GET() {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
-    return NextResponse.json(allFriends);
+    // Fetch all completed events to calculate friendship points
+    const allEvents = await prisma.event.findMany({ userId, includeFriends: true });
+    const completedEvents = allEvents.filter((e: any) => e.completed);
+
+    // Calculate points for each friend
+    const friendPointsMap = new Map<string, number>();
+
+    for (const event of completedEvents) {
+      const points = getEventPoints(event.category);
+
+      // Add points to primary friend
+      if (event.friendId) {
+        friendPointsMap.set(
+          event.friendId,
+          (friendPointsMap.get(event.friendId) || 0) + points
+        );
+      }
+
+      // Add points to additional friends (from event_friends)
+      if (event.friends && Array.isArray(event.friends)) {
+        for (const f of event.friends) {
+          if (f.id !== event.friendId) {
+            friendPointsMap.set(
+              f.id,
+              (friendPointsMap.get(f.id) || 0) + points
+            );
+          }
+        }
+      }
+    }
+
+    // Add friendship points to each friend object
+    const friendsWithPoints = allFriends.map((friend: any) => ({
+      ...friend,
+      friendshipPoints: friendPointsMap.get(friend.id) || 0,
+    }));
+
+    return NextResponse.json(friendsWithPoints);
   } catch (error) {
     console.error('Error fetching friends:', error);
     return NextResponse.json({ error: 'Failed to fetch friends' }, { status: 500 });

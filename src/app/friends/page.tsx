@@ -5,7 +5,8 @@ import { FriendCard } from '@/components/friend-card';
 import { AddFriendDialog } from '@/components/add-friend-dialog';
 import { FriendRequests } from '@/components/friend-requests';
 import { Input } from '@/components/ui/input';
-import { Search, Users, Share2 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Search, Users, Share2, Trophy, TrendingUp, Heart, Calendar } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -14,6 +15,7 @@ interface Friend {
   lastContact?: Date | null;
   notes?: string | null;
   linkedUserId?: string | null;
+  friendshipPoints?: number;
 }
 
 export default function FriendsPage() {
@@ -75,6 +77,52 @@ export default function FriendsPage() {
           </div>
           <AddFriendDialog onAdd={handleConnectionUpdate} />
         </div>
+
+        {/* Overall Metrics Section */}
+        {friends.length > 0 && (
+          <Card className="p-4 mb-6 border-[#A8C5A8]/20 bg-gradient-to-r from-[#A8C5A8]/5 to-yellow-50/50">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <Trophy className="w-4 h-4 text-yellow-500" />
+                  <span className="text-2xl font-bold text-gray-900">
+                    {friends.reduce((sum, f) => sum + (f.friendshipPoints || 0), 0)}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600">Total Points</p>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <Heart className="w-4 h-4 text-[#D4A5A5]" />
+                  <span className="text-2xl font-bold text-gray-900">
+                    {friends.length}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600">Friends</p>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <TrendingUp className="w-4 h-4 text-[#A8C5A8]" />
+                  <span className="text-2xl font-bold text-gray-900">
+                    {friends.filter(f => (f.friendshipPoints || 0) > 0).length}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600">Active</p>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <Calendar className="w-4 h-4 text-[#D4A5A5]" />
+                  <span className="text-2xl font-bold text-gray-900">
+                    {friends.length > 0
+                      ? Math.round(friends.reduce((sum, f) => sum + (f.friendshipPoints || 0), 0) / friends.length)
+                      : 0}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600">Avg Points</p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Friend Requests Section */}
         <FriendRequests key={refreshKey} onUpdate={handleConnectionUpdate} />
