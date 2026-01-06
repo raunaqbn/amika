@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FriendAvatar } from '@/components/friend-avatar';
 import { MemoryList } from '@/components/memory-list';
-import { ArrowLeft, Edit, Trash2, Check, X, Plus, Calendar, BarChart3, Clock, BookOpen, Heart, Sparkles, Utensils, MapPin, Dumbbell, Star, Trophy, CheckCircle2, Search } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Check, X, Plus, Calendar, BarChart3, Clock, BookOpen, Heart, Sparkles, Utensils, MapPin, Dumbbell, Star, Trophy, CheckCircle2, Search, Video } from 'lucide-react';
 import { EventCard } from '@/components/event-card';
 import { AddEventDialog } from '@/components/add-event-dialog';
 import { FindEventsDialog } from '@/components/find-events-dialog';
@@ -23,6 +23,7 @@ const EVENT_POINTS: Record<string, { planned: number; attended: number; label: s
   experiences: { planned: 4, attended: 20, label: 'Experiences' }, // Unique bonding, memorable moments
   places: { planned: 3, attended: 15, label: 'Places' },         // Travel/exploration together
   restaurants: { planned: 2, attended: 10, label: 'Restaurants' }, // Social dining, casual bonding
+  virtual: { planned: 1, attended: 5, label: 'Virtual' },        // Phone calls, video chats - lower investment
   default: { planned: 2, attended: 10, label: 'Other' },         // Uncategorized events
 };
 
@@ -81,6 +82,7 @@ const eventCategories = [
   { value: 'restaurants', label: 'Restaurants', icon: Utensils },
   { value: 'places', label: 'Places', icon: MapPin },
   { value: 'fitness', label: 'Fitness', icon: Dumbbell },
+  { value: 'virtual', label: 'Virtual', icon: Video },
 ];
 
 interface FriendStats {
@@ -619,7 +621,8 @@ export default function FriendProfilePage() {
                       const Icon = cat === 'fitness' ? Dumbbell :
                                    cat === 'experiences' ? Sparkles :
                                    cat === 'places' ? MapPin :
-                                   cat === 'restaurants' ? Utensils : Calendar;
+                                   cat === 'restaurants' ? Utensils :
+                                   cat === 'virtual' ? Video : Calendar;
                       return (
                         <div key={cat} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
                           <Icon className="w-4 h-4 text-gray-500" />
@@ -633,7 +636,7 @@ export default function FriendProfilePage() {
                     })}
                   </div>
                   <p className="text-xs text-gray-500 mt-3">
-                    Points are earned when events are marked complete: Fitness (25), Experiences (20), Places (15), Restaurants (10).
+                    Points are earned when events are marked complete: Fitness (25), Experiences (20), Places (15), Restaurants (10), Virtual (5).
                   </p>
                 </div>
               )}
