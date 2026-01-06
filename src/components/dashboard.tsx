@@ -9,9 +9,10 @@ import { FriendCard } from '@/components/friend-card';
 import { EventCard } from '@/components/event-card';
 import { AddEventDialog } from '@/components/add-event-dialog';
 import { FindEventsDialog } from '@/components/find-events-dialog';
+import { AddNoteDialog } from '@/components/add-note-dialog';
 import { Timeline } from '@/components/timeline';
 import { differenceInDays, format, isBefore, addDays } from 'date-fns';
-import { Cake, Clock, Calendar, Plus, TrendingUp, Sparkles } from 'lucide-react';
+import { Cake, Clock, Calendar, Plus, TrendingUp, Sparkles, PenLine } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -38,6 +39,7 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
   const [findEventsDialogOpen, setFindEventsDialogOpen] = useState(false);
+  const [addNoteDialogOpen, setAddNoteDialogOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
 
   useEffect(() => {
@@ -198,21 +200,31 @@ export function Dashboard() {
         </p>
       </section>
 
+      {/* Quick Actions Row */}
+      <section className="mb-6 flex gap-3">
+        <Button
+          onClick={() => setAddEventDialogOpen(true)}
+          variant="outline"
+          className="flex-1 border-[#A8C5A8]/60 text-[#A8C5A8] hover:bg-[#A8C5A8]/10"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add Event
+        </Button>
+        <Button
+          onClick={() => setAddNoteDialogOpen(true)}
+          variant="outline"
+          className="flex-1 border-[#A8C5A8]/60 text-[#A8C5A8] hover:bg-[#A8C5A8]/10"
+        >
+          <PenLine className="w-4 h-4 mr-2" />
+          New Note
+        </Button>
+      </section>
+
       {/* Upcoming Events Section */}
       <section className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-[#A8C5A8]" />
-            <h2 className="text-xl font-semibold text-gray-900">Upcoming Events</h2>
-          </div>
-          <Button
-            onClick={() => setAddEventDialogOpen(true)}
-            size="sm"
-            className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Plan Event
-          </Button>
+        <div className="flex items-center gap-2 mb-4">
+          <Calendar className="w-5 h-5 text-[#A8C5A8]" />
+          <h2 className="text-xl font-semibold text-gray-900">Upcoming Events</h2>
         </div>
 
         {upcomingEvents.length > 0 ? (
@@ -236,7 +248,7 @@ export function Dashboard() {
             <Calendar className="w-8 h-8 text-[#A8C5A8] mx-auto mb-2" />
             <p className="text-gray-600 text-sm">No upcoming events.</p>
             <p className="text-gray-500 text-xs mt-1">
-              Click &quot;Plan Event&quot; to schedule time with friends!
+              Click &quot;Add Event&quot; above to schedule time with friends!
             </p>
           </Card>
         )}
@@ -351,6 +363,12 @@ export function Dashboard() {
         onEventCreated={() => {
           fetchEvents();
         }}
+      />
+
+      <AddNoteDialog
+        open={addNoteDialogOpen}
+        onOpenChange={setAddNoteDialogOpen}
+        friends={friends.map((f) => ({ id: f.id, name: f.name }))}
       />
       </div>
     </div>
