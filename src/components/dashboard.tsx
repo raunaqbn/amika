@@ -11,6 +11,8 @@ import { AddEventDialog } from '@/components/add-event-dialog';
 import { FindEventsDialog } from '@/components/find-events-dialog';
 import { NewNoteDialog } from '@/components/new-note-dialog';
 import { Timeline } from '@/components/timeline';
+import { FriendRequests } from '@/components/friend-requests';
+import { SharedItemsInbox } from '@/components/shared-items';
 import { differenceInDays, format, isBefore, addDays } from 'date-fns';
 import { Cake, Clock, Calendar, Plus, TrendingUp, Sparkles, PenLine } from 'lucide-react';
 
@@ -213,6 +215,12 @@ export function Dashboard() {
           <PenLine className="w-5 h-5 mr-2" />
           New Note
         </Button>
+      </section>
+
+      {/* Friend Requests & Shared Items */}
+      <section className="mb-6 space-y-4">
+        <FriendRequests onUpdate={() => {}} />
+        <SharedItemsInbox onUpdate={() => {}} />
       </section>
 
       {/* Upcoming Events Section */}

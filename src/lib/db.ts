@@ -88,6 +88,25 @@ type ChatTranscript = {
   createdAt: Date;
 };
 
+type UserConnection = {
+  id: string;
+  requesterId: string;
+  addresseeId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: Date;
+};
+
+type SharedItem = {
+  id: string;
+  sharedByUserId: string;
+  sharedWithUserId: string;
+  itemType: 'memory' | 'note' | 'event';
+  itemId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  message: string | null;
+  createdAt: Date;
+};
+
 let clientInstance: Client | null = null;
 let tablesInitialized = false;
 
@@ -242,6 +261,37 @@ async function ensureTablesExist() {
         PRIMARY KEY (eventId, friendId),
         FOREIGN KEY (eventId) REFERENCES events(id) ON DELETE CASCADE,
         FOREIGN KEY (friendId) REFERENCES friends(id) ON DELETE CASCADE
+      )
+    `);
+
+    // User connections (friend requests between Amika users)
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS user_connections (
+        id TEXT PRIMARY KEY,
+        requesterId TEXT NOT NULL,
+        addresseeId TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (requesterId) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (addresseeId) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE (requesterId, addresseeId)
+      )
+    `);
+
+    // Shared items between connected users
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS shared_items (
+        id TEXT PRIMARY KEY,
+        sharedByUserId TEXT NOT NULL,
+        sharedWithUserId TEXT NOT NULL,
+        itemType TEXT NOT NULL,
+        itemId TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        message TEXT,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (sharedByUserId) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (sharedWithUserId) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE (sharedByUserId, sharedWithUserId, itemType, itemId)
       )
     `);
 
@@ -1450,5 +1500,477 @@ export const prisma = {
     });
 
     return { success: true };
+  },
+
+  // User connections (friend requests between Amika users)
+  userConnection: {
+    // Send a friend request
+    create: async (data: { requesterId: string; addresseeId: string }): Promise<UserConnection> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Check if connection already exists in either direction
+      const existing = await client.execute({
+        sql: `SELECT * FROM user_connections
+              WHERE (requesterId = ? AND addresseeId = ?)
+              OR (requesterId = ? AND addresseeId = ?)`,
+        args: [data.requesterId, data.addresseeId, data.addresseeId, data.requesterId],
+      });
+
+      if (existing.rows.length > 0) {
+        throw new Error('Connection already exists');
+      }
+
+      // Cannot send request to yourself
+      if (data.requesterId === data.addresseeId) {
+        throw new Error('Cannot send friend request to yourself');
+      }
+
+      const connection: UserConnection = {
+        id: randomUUID(),
+        requesterId: data.requesterId,
+        addresseeId: data.addresseeId,
+        status: 'pending',
+        createdAt: new Date(),
+      };
+
+      await client.execute({
+        sql: 'INSERT INTO user_connections (id, requesterId, addresseeId, status, createdAt) VALUES (?, ?, ?, ?, ?)',
+        args: [connection.id, connection.requesterId, connection.addresseeId, connection.status, connection.createdAt.toISOString()],
+      });
+
+      return connection;
+    },
+
+    // Find connections for a user (both sent and received)
+    findMany: async (args: { userId: string; status?: string; type?: 'sent' | 'received' | 'all' }): Promise<(UserConnection & { user: { id: string; name: string; email: string; profileImage: string | null } })[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      let sql: string;
+      let sqlArgs: any[];
+
+      if (args.type === 'sent') {
+        sql = 'SELECT * FROM user_connections WHERE requesterId = ?';
+        sqlArgs = [args.userId];
+      } else if (args.type === 'received') {
+        sql = 'SELECT * FROM user_connections WHERE addresseeId = ?';
+        sqlArgs = [args.userId];
+      } else {
+        sql = 'SELECT * FROM user_connections WHERE requesterId = ? OR addresseeId = ?';
+        sqlArgs = [args.userId, args.userId];
+      }
+
+      if (args.status) {
+        sql += ' AND status = ?';
+        sqlArgs.push(args.status);
+      }
+
+      sql += ' ORDER BY createdAt DESC';
+
+      const result = await client.execute({ sql, args: sqlArgs });
+
+      // Fetch user info for connections
+      const userIds = new Set<string>();
+      result.rows.forEach((row: any) => {
+        if (row.requesterId !== args.userId) userIds.add(row.requesterId as string);
+        if (row.addresseeId !== args.userId) userIds.add(row.addresseeId as string);
+      });
+
+      const userMap = new Map<string, { id: string; name: string; email: string; profileImage: string | null }>();
+
+      if (userIds.size > 0) {
+        const usersResult = await client.execute({
+          sql: `SELECT id, name, email, profileImage FROM users WHERE id IN (${Array.from(userIds).map(() => '?').join(',')})`,
+          args: Array.from(userIds),
+        });
+        usersResult.rows.forEach((row: any) => {
+          userMap.set(row.id as string, {
+            id: row.id as string,
+            name: row.name as string,
+            email: row.email as string,
+            profileImage: row.profileImage as string | null,
+          });
+        });
+      }
+
+      return result.rows.map((row: any) => {
+        const otherUserId = row.requesterId === args.userId ? row.addresseeId : row.requesterId;
+        return {
+          id: row.id as string,
+          requesterId: row.requesterId as string,
+          addresseeId: row.addresseeId as string,
+          status: row.status as 'pending' | 'accepted' | 'rejected',
+          createdAt: new Date(row.createdAt as string),
+          user: userMap.get(otherUserId as string) || { id: otherUserId as string, name: 'Unknown', email: '', profileImage: null },
+        };
+      });
+    },
+
+    // Find accepted connections (actual friends)
+    findAcceptedConnections: async (userId: string): Promise<{ id: string; name: string; email: string; profileImage: string | null; birthday: Date | null }[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: `SELECT u.id, u.name, u.email, u.profileImage, u.birthday
+              FROM users u
+              INNER JOIN user_connections uc ON (
+                (uc.requesterId = ? AND uc.addresseeId = u.id) OR
+                (uc.addresseeId = ? AND uc.requesterId = u.id)
+              )
+              WHERE uc.status = 'accepted'`,
+        args: [userId, userId],
+      });
+
+      return result.rows.map((row: any) => ({
+        id: row.id as string,
+        name: row.name as string,
+        email: row.email as string,
+        profileImage: row.profileImage as string | null,
+        birthday: row.birthday ? new Date(row.birthday as string) : null,
+      }));
+    },
+
+    // Update connection status
+    update: async (args: { id: string; userId: string; status: 'accepted' | 'rejected' }): Promise<UserConnection> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Only the addressee can accept/reject
+      const existing = await client.execute({
+        sql: 'SELECT * FROM user_connections WHERE id = ? AND addresseeId = ?',
+        args: [args.id, args.userId],
+      });
+
+      if (existing.rows.length === 0) {
+        throw new Error('Connection not found or unauthorized');
+      }
+
+      await client.execute({
+        sql: 'UPDATE user_connections SET status = ? WHERE id = ?',
+        args: [args.status, args.id],
+      });
+
+      const row = existing.rows[0];
+      return {
+        id: row.id as string,
+        requesterId: row.requesterId as string,
+        addresseeId: row.addresseeId as string,
+        status: args.status,
+        createdAt: new Date(row.createdAt as string),
+      };
+    },
+
+    // Delete a connection
+    delete: async (args: { id: string; userId: string }): Promise<{ success: boolean }> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Either user can delete the connection
+      const existing = await client.execute({
+        sql: 'SELECT * FROM user_connections WHERE id = ? AND (requesterId = ? OR addresseeId = ?)',
+        args: [args.id, args.userId, args.userId],
+      });
+
+      if (existing.rows.length === 0) {
+        throw new Error('Connection not found');
+      }
+
+      await client.execute({
+        sql: 'DELETE FROM user_connections WHERE id = ?',
+        args: [args.id],
+      });
+
+      return { success: true };
+    },
+
+    // Check if two users are connected
+    areConnected: async (userId1: string, userId2: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: `SELECT * FROM user_connections
+              WHERE status = 'accepted' AND (
+                (requesterId = ? AND addresseeId = ?) OR
+                (requesterId = ? AND addresseeId = ?)
+              )`,
+        args: [userId1, userId2, userId2, userId1],
+      });
+
+      return result.rows.length > 0;
+    },
+  },
+
+  // Shared items between users
+  sharedItem: {
+    // Share an item with a connected user
+    create: async (data: { sharedByUserId: string; sharedWithUserId: string; itemType: 'memory' | 'note' | 'event'; itemId: string; message?: string }): Promise<SharedItem> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Check if users are connected
+      const connected = await prisma.userConnection.areConnected(data.sharedByUserId, data.sharedWithUserId);
+      if (!connected) {
+        throw new Error('You can only share with connected friends');
+      }
+
+      // Check if already shared
+      const existing = await client.execute({
+        sql: 'SELECT * FROM shared_items WHERE sharedByUserId = ? AND sharedWithUserId = ? AND itemType = ? AND itemId = ?',
+        args: [data.sharedByUserId, data.sharedWithUserId, data.itemType, data.itemId],
+      });
+
+      if (existing.rows.length > 0) {
+        throw new Error('Item already shared with this user');
+      }
+
+      const sharedItem: SharedItem = {
+        id: randomUUID(),
+        sharedByUserId: data.sharedByUserId,
+        sharedWithUserId: data.sharedWithUserId,
+        itemType: data.itemType,
+        itemId: data.itemId,
+        status: 'pending',
+        message: data.message || null,
+        createdAt: new Date(),
+      };
+
+      await client.execute({
+        sql: 'INSERT INTO shared_items (id, sharedByUserId, sharedWithUserId, itemType, itemId, status, message, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [sharedItem.id, sharedItem.sharedByUserId, sharedItem.sharedWithUserId, sharedItem.itemType, sharedItem.itemId, sharedItem.status, sharedItem.message, sharedItem.createdAt.toISOString()],
+      });
+
+      return sharedItem;
+    },
+
+    // Find shared items for a user
+    findMany: async (args: { userId: string; type?: 'sent' | 'received'; status?: string; itemType?: string }): Promise<(SharedItem & { sharedBy: { id: string; name: string; email: string; profileImage: string | null }; sharedWith: { id: string; name: string; email: string; profileImage: string | null }; item?: any })[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      let sql: string;
+      let sqlArgs: any[];
+
+      if (args.type === 'sent') {
+        sql = 'SELECT * FROM shared_items WHERE sharedByUserId = ?';
+        sqlArgs = [args.userId];
+      } else if (args.type === 'received') {
+        sql = 'SELECT * FROM shared_items WHERE sharedWithUserId = ?';
+        sqlArgs = [args.userId];
+      } else {
+        sql = 'SELECT * FROM shared_items WHERE sharedByUserId = ? OR sharedWithUserId = ?';
+        sqlArgs = [args.userId, args.userId];
+      }
+
+      if (args.status) {
+        sql += ' AND status = ?';
+        sqlArgs.push(args.status);
+      }
+
+      if (args.itemType) {
+        sql += ' AND itemType = ?';
+        sqlArgs.push(args.itemType);
+      }
+
+      sql += ' ORDER BY createdAt DESC';
+
+      const result = await client.execute({ sql, args: sqlArgs });
+
+      // Fetch user info
+      const userIds = new Set<string>();
+      result.rows.forEach((row: any) => {
+        userIds.add(row.sharedByUserId as string);
+        userIds.add(row.sharedWithUserId as string);
+      });
+
+      const userMap = new Map<string, { id: string; name: string; email: string; profileImage: string | null }>();
+
+      if (userIds.size > 0) {
+        const usersResult = await client.execute({
+          sql: `SELECT id, name, email, profileImage FROM users WHERE id IN (${Array.from(userIds).map(() => '?').join(',')})`,
+          args: Array.from(userIds),
+        });
+        usersResult.rows.forEach((row: any) => {
+          userMap.set(row.id as string, {
+            id: row.id as string,
+            name: row.name as string,
+            email: row.email as string,
+            profileImage: row.profileImage as string | null,
+          });
+        });
+      }
+
+      // Fetch item details for each shared item
+      const items = await Promise.all(result.rows.map(async (row: any) => {
+        const itemType = row.itemType as string;
+        const itemId = row.itemId as string;
+        let item: any = null;
+
+        if (itemType === 'memory') {
+          const memResult = await client.execute({
+            sql: 'SELECT * FROM memories WHERE id = ?',
+            args: [itemId],
+          });
+          if (memResult.rows.length > 0) {
+            const memRow = memResult.rows[0];
+            item = {
+              id: memRow.id as string,
+              content: memRow.content as string,
+              imageUrl: memRow.imageUrl as string | null,
+              createdAt: new Date(memRow.createdAt as string),
+            };
+          }
+        } else if (itemType === 'note') {
+          const noteResult = await client.execute({
+            sql: 'SELECT * FROM diary_notes WHERE id = ?',
+            args: [itemId],
+          });
+          if (noteResult.rows.length > 0) {
+            const noteRow = noteResult.rows[0];
+            item = {
+              id: noteRow.id as string,
+              title: noteRow.title as string | null,
+              content: noteRow.content as string,
+              imageUrl: noteRow.imageUrl as string | null,
+              createdAt: new Date(noteRow.createdAt as string),
+            };
+          }
+        } else if (itemType === 'event') {
+          const eventResult = await client.execute({
+            sql: 'SELECT * FROM events WHERE id = ?',
+            args: [itemId],
+          });
+          if (eventResult.rows.length > 0) {
+            const eventRow = eventResult.rows[0];
+            item = {
+              id: eventRow.id as string,
+              title: eventRow.title as string,
+              description: eventRow.description as string | null,
+              eventDate: new Date(eventRow.eventDate as string),
+              location: eventRow.location as string | null,
+              category: eventRow.category as string | null,
+            };
+          }
+        }
+
+        const sharedBy = userMap.get(row.sharedByUserId as string) || { id: row.sharedByUserId as string, name: 'Unknown', email: '', profileImage: null };
+        const sharedWith = userMap.get(row.sharedWithUserId as string) || { id: row.sharedWithUserId as string, name: 'Unknown', email: '', profileImage: null };
+
+        return {
+          id: row.id as string,
+          sharedByUserId: row.sharedByUserId as string,
+          sharedWithUserId: row.sharedWithUserId as string,
+          itemType: row.itemType as 'memory' | 'note' | 'event',
+          itemId: row.itemId as string,
+          status: row.status as 'pending' | 'accepted' | 'rejected',
+          message: row.message as string | null,
+          createdAt: new Date(row.createdAt as string),
+          sharedBy,
+          sharedWith,
+          item,
+        };
+      }));
+
+      return items;
+    },
+
+    // Update shared item status (accept/reject)
+    update: async (args: { id: string; userId: string; status: 'accepted' | 'rejected' }): Promise<SharedItem> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Only the recipient can accept/reject
+      const existing = await client.execute({
+        sql: 'SELECT * FROM shared_items WHERE id = ? AND sharedWithUserId = ?',
+        args: [args.id, args.userId],
+      });
+
+      if (existing.rows.length === 0) {
+        throw new Error('Shared item not found or unauthorized');
+      }
+
+      await client.execute({
+        sql: 'UPDATE shared_items SET status = ? WHERE id = ?',
+        args: [args.status, args.id],
+      });
+
+      const row = existing.rows[0];
+      return {
+        id: row.id as string,
+        sharedByUserId: row.sharedByUserId as string,
+        sharedWithUserId: row.sharedWithUserId as string,
+        itemType: row.itemType as 'memory' | 'note' | 'event',
+        itemId: row.itemId as string,
+        status: args.status,
+        message: row.message as string | null,
+        createdAt: new Date(row.createdAt as string),
+      };
+    },
+
+    // Delete a shared item
+    delete: async (args: { id: string; userId: string }): Promise<{ success: boolean }> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Either sharer or recipient can delete
+      const existing = await client.execute({
+        sql: 'SELECT * FROM shared_items WHERE id = ? AND (sharedByUserId = ? OR sharedWithUserId = ?)',
+        args: [args.id, args.userId, args.userId],
+      });
+
+      if (existing.rows.length === 0) {
+        throw new Error('Shared item not found');
+      }
+
+      await client.execute({
+        sql: 'DELETE FROM shared_items WHERE id = ?',
+        args: [args.id],
+      });
+
+      return { success: true };
+    },
+
+    // Get pending count for a user
+    getPendingCount: async (userId: string): Promise<{ connectionRequests: number; sharedItems: number }> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const connectionsResult = await client.execute({
+        sql: `SELECT COUNT(*) as count FROM user_connections WHERE addresseeId = ? AND status = 'pending'`,
+        args: [userId],
+      });
+
+      const sharedResult = await client.execute({
+        sql: `SELECT COUNT(*) as count FROM shared_items WHERE sharedWithUserId = ? AND status = 'pending'`,
+        args: [userId],
+      });
+
+      return {
+        connectionRequests: Number(connectionsResult.rows[0]?.count || 0),
+        sharedItems: Number(sharedResult.rows[0]?.count || 0),
+      };
+    },
+  },
+
+  // Search users by email or name
+  searchUsers: async (query: string, excludeUserId: string): Promise<{ id: string; name: string; email: string; profileImage: string | null }[]> => {
+    await ensureTablesExist();
+    const client = getClient();
+
+    const result = await client.execute({
+      sql: `SELECT id, name, email, profileImage FROM users
+            WHERE id != ? AND (LOWER(email) LIKE LOWER(?) OR LOWER(name) LIKE LOWER(?))
+            LIMIT 10`,
+      args: [excludeUserId, `%${query}%`, `%${query}%`],
+    });
+
+    return result.rows.map((row: any) => ({
+      id: row.id as string,
+      name: row.name as string,
+      email: row.email as string,
+      profileImage: row.profileImage as string | null,
+    }));
   },
 };

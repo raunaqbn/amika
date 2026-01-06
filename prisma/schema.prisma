@@ -23,6 +23,12 @@ model User {
   diaryNotes   DiaryNote[]
   events       Event[]
   chatTranscripts ChatTranscript[]
+  // User connections (friend requests between Amika users)
+  connectionsSent     UserConnection[] @relation("ConnectionRequester")
+  connectionsReceived UserConnection[] @relation("ConnectionAddressee")
+  // Shared items
+  itemsShared    SharedItem[] @relation("SharedByUser")
+  itemsReceived  SharedItem[] @relation("SharedWithUser")
 }
 
 model Session {
@@ -107,4 +113,33 @@ model ChatTranscript {
   role      String
   content   String
   createdAt DateTime @default(now())
+}
+
+// User-to-user connections (adding friends from existing Amika users)
+model UserConnection {
+  id          String   @id @default(cuid())
+  requesterId String   // User who sent the friend request
+  requester   User     @relation("ConnectionRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addresseeId String   // User who received the friend request
+  addressee   User     @relation("ConnectionAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+  status      String   @default("pending") // pending, accepted, rejected
+  createdAt   DateTime @default(now())
+
+  @@unique([requesterId, addresseeId])
+}
+
+// Shared items between connected users
+model SharedItem {
+  id             String   @id @default(cuid())
+  sharedByUserId String   // User who shared the item
+  sharedBy       User     @relation("SharedByUser", fields: [sharedByUserId], references: [id], onDelete: Cascade)
+  sharedWithUserId String // User receiving the shared item
+  sharedWith     User     @relation("SharedWithUser", fields: [sharedWithUserId], references: [id], onDelete: Cascade)
+  itemType       String   // memory, note, event
+  itemId         String   // ID of the memory, note, or event
+  status         String   @default("pending") // pending, accepted, rejected
+  message        String?  // Optional message from sharer
+  createdAt      DateTime @default(now())
+
+  @@unique([sharedByUserId, sharedWithUserId, itemType, itemId])
 }
