@@ -5,6 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { z } from 'zod';
 
 const SERPAPI_KEY = process.env.SERPAPI_API_KEY;
+const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY;
 
 interface SerpAPIEvent {
   title: string;
@@ -223,6 +224,384 @@ async function searchGoogleEvents(query: string, location?: string): Promise<{
   }
 }
 
+// Google Local search for restaurants, bars, cafes, activities
+interface SerpAPILocalResult {
+  position?: number;
+  title: string;
+  place_id?: string;
+  rating?: number;
+  reviews?: number;
+  price?: string;
+  type?: string;
+  types?: string[];
+  address?: string;
+  phone?: string;
+  website?: string;
+  hours?: string;
+  description?: string;
+  thumbnail?: string;
+}
+
+interface SerpAPILocalResponse {
+  local_results?: SerpAPILocalResult[];
+  error?: string;
+}
+
+async function searchLocalPlaces(query: string, location: string): Promise<{
+  places: Array<{
+    name: string;
+    rating: number | null;
+    reviews: number | null;
+    price: string;
+    type: string;
+    address: string;
+    phone: string;
+    website: string;
+    hours: string;
+  }>;
+  searchQuery: string;
+  location: string;
+  source: string;
+}> {
+  if (!SERPAPI_KEY) {
+    return {
+      searchQuery: query,
+      location,
+      source: 'suggestions',
+      places: [],
+    };
+  }
+
+  try {
+    const params = new URLSearchParams({
+      engine: 'google_local',
+      q: query,
+      location,
+      api_key: SERPAPI_KEY,
+      hl: 'en',
+    });
+
+    const response = await fetch(`https://serpapi.com/search?${params.toString()}`);
+
+    if (!response.ok) {
+      console.error('SerpAPI local error:', response.status);
+      return {
+        searchQuery: query,
+        location,
+        source: 'error',
+        places: [],
+      };
+    }
+
+    const data: SerpAPILocalResponse = await response.json();
+
+    if (data.error) {
+      console.error('SerpAPI local returned error:', data.error);
+      return {
+        searchQuery: query,
+        location,
+        source: 'error',
+        places: [],
+      };
+    }
+
+    const places = (data.local_results || []).slice(0, 10).map((place) => ({
+      name: place.title,
+      rating: place.rating || null,
+      reviews: place.reviews || null,
+      price: place.price || '',
+      type: place.type || place.types?.join(', ') || '',
+      address: place.address || '',
+      phone: place.phone || '',
+      website: place.website || '',
+      hours: place.hours || '',
+    }));
+
+    return {
+      searchQuery: query,
+      location,
+      source: 'google_local',
+      places,
+    };
+  } catch (error) {
+    console.error('Error fetching local places from SerpAPI:', error);
+    return {
+      searchQuery: query,
+      location,
+      source: 'error',
+      places: [],
+    };
+  }
+}
+
+// Yelp search for businesses with reviews
+interface SerpAPIYelpResult {
+  position?: number;
+  title: string;
+  link?: string;
+  rating?: number;
+  reviews?: number;
+  price?: string;
+  categories?: string[];
+  neighborhoods?: string[];
+  snippet?: string;
+  phone?: string;
+}
+
+interface SerpAPIYelpResponse {
+  organic_results?: SerpAPIYelpResult[];
+  error?: string;
+}
+
+async function searchYelp(query: string, location: string): Promise<{
+  businesses: Array<{
+    name: string;
+    rating: number | null;
+    reviews: number | null;
+    price: string;
+    categories: string;
+    neighborhood: string;
+    snippet: string;
+    phone: string;
+    link: string;
+  }>;
+  searchQuery: string;
+  location: string;
+  source: string;
+}> {
+  if (!SERPAPI_KEY) {
+    return {
+      searchQuery: query,
+      location,
+      source: 'suggestions',
+      businesses: [],
+    };
+  }
+
+  try {
+    const params = new URLSearchParams({
+      engine: 'yelp',
+      find_desc: query,
+      find_loc: location,
+      api_key: SERPAPI_KEY,
+    });
+
+    const response = await fetch(`https://serpapi.com/search?${params.toString()}`);
+
+    if (!response.ok) {
+      console.error('SerpAPI Yelp error:', response.status);
+      return {
+        searchQuery: query,
+        location,
+        source: 'error',
+        businesses: [],
+      };
+    }
+
+    const data: SerpAPIYelpResponse = await response.json();
+
+    if (data.error) {
+      console.error('SerpAPI Yelp returned error:', data.error);
+      return {
+        searchQuery: query,
+        location,
+        source: 'error',
+        businesses: [],
+      };
+    }
+
+    const businesses = (data.organic_results || []).slice(0, 10).map((biz) => ({
+      name: biz.title,
+      rating: biz.rating || null,
+      reviews: biz.reviews || null,
+      price: biz.price || '',
+      categories: biz.categories?.join(', ') || '',
+      neighborhood: biz.neighborhoods?.join(', ') || '',
+      snippet: biz.snippet || '',
+      phone: biz.phone || '',
+      link: biz.link || '',
+    }));
+
+    return {
+      searchQuery: query,
+      location,
+      source: 'yelp',
+      businesses,
+    };
+  } catch (error) {
+    console.error('Error fetching from Yelp via SerpAPI:', error);
+    return {
+      searchQuery: query,
+      location,
+      source: 'error',
+      businesses: [],
+    };
+  }
+}
+
+// Weather lookup for outdoor planning
+interface OpenWeatherResponse {
+  weather?: Array<{
+    main: string;
+    description: string;
+    icon: string;
+  }>;
+  main?: {
+    temp: number;
+    feels_like: number;
+    humidity: number;
+  };
+  wind?: {
+    speed: number;
+  };
+  name?: string;
+  cod?: number | string;
+  message?: string;
+}
+
+interface WeatherForecastDay {
+  dt: number;
+  main: {
+    temp: number;
+    feels_like: number;
+    humidity: number;
+  };
+  weather: Array<{
+    main: string;
+    description: string;
+  }>;
+  wind: {
+    speed: number;
+  };
+  dt_txt: string;
+}
+
+interface OpenWeatherForecastResponse {
+  list?: WeatherForecastDay[];
+  city?: {
+    name: string;
+  };
+  cod?: number | string;
+  message?: string;
+}
+
+async function getWeather(location: string): Promise<{
+  current: {
+    location: string;
+    temperature: number;
+    feelsLike: number;
+    humidity: number;
+    windSpeed: number;
+    condition: string;
+    description: string;
+  } | null;
+  forecast: Array<{
+    date: string;
+    temperature: number;
+    condition: string;
+    description: string;
+  }>;
+  source: string;
+}> {
+  if (!OPENWEATHER_API_KEY) {
+    return {
+      current: null,
+      forecast: [],
+      source: 'not_configured',
+    };
+  }
+
+  try {
+    // Get current weather
+    const currentParams = new URLSearchParams({
+      q: location,
+      appid: OPENWEATHER_API_KEY,
+      units: 'imperial',
+    });
+
+    const currentResponse = await fetch(
+      `https://api.openweathermap.org/data/2.5/weather?${currentParams.toString()}`
+    );
+
+    if (!currentResponse.ok) {
+      console.error('OpenWeather current error:', currentResponse.status);
+      return {
+        current: null,
+        forecast: [],
+        source: 'error',
+      };
+    }
+
+    const currentData: OpenWeatherResponse = await currentResponse.json();
+
+    if (currentData.cod && currentData.cod !== 200) {
+      console.error('OpenWeather returned error:', currentData.message);
+      return {
+        current: null,
+        forecast: [],
+        source: 'error',
+      };
+    }
+
+    // Get 5-day forecast
+    const forecastParams = new URLSearchParams({
+      q: location,
+      appid: OPENWEATHER_API_KEY,
+      units: 'imperial',
+    });
+
+    const forecastResponse = await fetch(
+      `https://api.openweathermap.org/data/2.5/forecast?${forecastParams.toString()}`
+    );
+
+    let forecast: Array<{
+      date: string;
+      temperature: number;
+      condition: string;
+      description: string;
+    }> = [];
+
+    if (forecastResponse.ok) {
+      const forecastData: OpenWeatherForecastResponse = await forecastResponse.json();
+      // Get one forecast per day (noon)
+      const dailyForecasts = (forecastData.list || []).filter((item) =>
+        item.dt_txt.includes('12:00:00')
+      );
+      forecast = dailyForecasts.slice(0, 5).map((day) => ({
+        date: new Date(day.dt * 1000).toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        }),
+        temperature: Math.round(day.main.temp),
+        condition: day.weather[0]?.main || '',
+        description: day.weather[0]?.description || '',
+      }));
+    }
+
+    return {
+      current: {
+        location: currentData.name || location,
+        temperature: Math.round(currentData.main?.temp || 0),
+        feelsLike: Math.round(currentData.main?.feels_like || 0),
+        humidity: currentData.main?.humidity || 0,
+        windSpeed: Math.round(currentData.wind?.speed || 0),
+        condition: currentData.weather?.[0]?.main || '',
+        description: currentData.weather?.[0]?.description || '',
+      },
+      forecast,
+      source: 'openweather',
+    };
+  } catch (error) {
+    console.error('Error fetching weather:', error);
+    return {
+      current: null,
+      forecast: [],
+      source: 'error',
+    };
+  }
+}
+
 function ensureApiKeyConfigured() {
   const provider = (process.env.AI_PROVIDER || 'google').toLowerCase();
 
@@ -415,6 +794,107 @@ export async function POST(req: Request) {
                 'Look for independent theaters like Landmark or Alamo Drafthouse',
                 'Check Google for "movies near me"',
               ],
+            };
+          },
+        }),
+        searchPlaces: tool({
+          description: 'Search for local places like restaurants, bars, cafes, parks, bowling alleys, or any other type of business or activity venue. Use this when the user asks for recommendations on where to eat, drink, or do activities.',
+          parameters: z.object({
+            query: z.string().describe('What to search for (e.g., "sushi restaurants", "cocktail bars", "bowling alleys", "coffee shops", "hiking trails")'),
+            location: z.string().describe('The location to search in (e.g., "Campbell, CA", "San Francisco", "Downtown San Jose")'),
+          }),
+          execute: async ({ query, location }) => {
+            const result = await searchLocalPlaces(query, location);
+
+            if (result.source === 'google_local' && result.places.length > 0) {
+              return {
+                searchQuery: result.searchQuery,
+                location: result.location,
+                source: 'Google Local',
+                places: result.places,
+                note: 'Here are some places I found that match your search!',
+              };
+            }
+
+            return {
+              searchQuery: result.searchQuery,
+              location: result.location,
+              source: 'suggestions',
+              places: [],
+              note: 'I couldn\'t find specific places, but try searching on Google Maps or Yelp.',
+            };
+          },
+        }),
+        searchYelpReviews: tool({
+          description: 'Search Yelp for businesses with detailed reviews and ratings. Use this when the user wants recommendations with reviews, or specifically mentions Yelp, or wants to find highly-rated places.',
+          parameters: z.object({
+            query: z.string().describe('What to search for (e.g., "best pizza", "romantic restaurants", "happy hour spots")'),
+            location: z.string().describe('The location to search in (e.g., "Campbell, CA", "San Francisco Bay Area")'),
+          }),
+          execute: async ({ query, location }) => {
+            const result = await searchYelp(query, location);
+
+            if (result.source === 'yelp' && result.businesses.length > 0) {
+              return {
+                searchQuery: result.searchQuery,
+                location: result.location,
+                source: 'Yelp',
+                businesses: result.businesses,
+                note: 'Here are Yelp-reviewed businesses matching your search!',
+              };
+            }
+
+            return {
+              searchQuery: result.searchQuery,
+              location: result.location,
+              source: 'suggestions',
+              businesses: [],
+              note: 'I couldn\'t find Yelp results, but try searching directly on Yelp.com.',
+            };
+          },
+        }),
+        getWeather: tool({
+          description: 'Get current weather and 5-day forecast for a location. Use this when planning outdoor activities, or when the user asks about weather conditions.',
+          parameters: z.object({
+            location: z.string().describe('The city or location to get weather for (e.g., "San Francisco", "Campbell, CA", "New York")'),
+          }),
+          execute: async ({ location }) => {
+            const result = await getWeather(location);
+
+            if (result.source === 'openweather' && result.current) {
+              return {
+                location: result.current.location,
+                source: 'OpenWeather',
+                current: {
+                  temperature: `${result.current.temperature}°F`,
+                  feelsLike: `${result.current.feelsLike}°F`,
+                  humidity: `${result.current.humidity}%`,
+                  windSpeed: `${result.current.windSpeed} mph`,
+                  condition: result.current.condition,
+                  description: result.current.description,
+                },
+                forecast: result.forecast.map((day) => ({
+                  date: day.date,
+                  temperature: `${day.temperature}°F`,
+                  condition: day.condition,
+                  description: day.description,
+                })),
+                note: 'Here\'s the current weather and forecast to help you plan!',
+              };
+            }
+
+            if (result.source === 'not_configured') {
+              return {
+                location,
+                source: 'not_configured',
+                note: 'Weather API is not configured. Check weather.com or your phone\'s weather app for current conditions.',
+              };
+            }
+
+            return {
+              location,
+              source: 'error',
+              note: 'I couldn\'t fetch weather data. Try checking weather.com or Google for current conditions.',
             };
           },
         }),
