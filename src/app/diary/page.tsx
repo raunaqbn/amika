@@ -16,8 +16,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, Search, Plus, X, MoreVertical, Share2, Image as ImageIcon, ArrowLeft, Sparkles } from 'lucide-react';
-import Link from 'next/link';
+import { Heart, Search, Plus, X, MoreVertical, Share2, Image as ImageIcon, ArrowLeft } from 'lucide-react';
+import { NewNoteDialog } from '@/components/new-note-dialog';
 
 interface Friend {
   id: string;
@@ -40,7 +40,8 @@ function DiaryPageContent() {
   const [notes, setNotes] = useState<DiaryNote[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [newNoteDialogOpen, setNewNoteDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingNote, setEditingNote] = useState<DiaryNote | null>(null);
   const [selectedNote, setSelectedNote] = useState<DiaryNote | null>(null);
@@ -189,13 +190,7 @@ function DiaryPageContent() {
   };
 
   const openCreateDialog = () => {
-    setEditingNote(null);
-    setTitle('');
-    setContent('');
-    setSelectedFriends([]);
-    setSelectedImage(null);
-    setImagePreview(null);
-    setDialogOpen(true);
+    setNewNoteDialogOpen(true);
   };
 
   const openEditDialog = (note: DiaryNote) => {
@@ -205,7 +200,22 @@ function DiaryPageContent() {
     setSelectedFriends(note.friends.map((friend) => friend.id));
     setSelectedImage(null);
     setImagePreview(note.imageUrl || null);
-    setDialogOpen(true);
+    setEditDialogOpen(true);
+  };
+
+  const handleNoteCreated = async () => {
+    // Refresh the notes list after a new note is created
+    const notesRes = await fetch('/api/diary');
+    const notesData = await notesRes.json();
+    setNotes(notesData);
+
+    // Select the newest note
+    const sorted = [...notesData].sort(
+      (a: DiaryNote, b: DiaryNote) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+    if (sorted.length > 0) {
+      setSelectedNote(sorted[0]);
+    }
   };
 
   const toggleFriend = (friendId: string) => {
@@ -265,15 +275,9 @@ function DiaryPageContent() {
       if (editingNote) {
         const updated = updatedNotes.find((n: DiaryNote) => n.id === editingNote.id);
         if (updated) setSelectedNote(updated);
-      } else {
-        // Select the newly created note
-        const sorted = [...updatedNotes].sort(
-          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-        );
-        setSelectedNote(sorted[0]);
       }
 
-      setDialogOpen(false);
+      setEditDialogOpen(false);
     } catch (error) {
       console.error('Error saving note:', error);
       alert('Failed to save note. Please try again.');
@@ -698,11 +702,19 @@ function DiaryPageContent() {
         </Button>
       )}
 
-      {/* Edit/Create Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg max-w-[95vw] max-h-[85vh] flex flex-col">
+      {/* New Note Dialog */}
+      <NewNoteDialog
+        open={newNoteDialogOpen}
+        onOpenChange={setNewNoteDialogOpen}
+        friends={friends}
+        onNoteCreated={handleNoteCreated}
+      />
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>{editingNote ? 'Edit note' : 'New note'}</DialogTitle>
+            <DialogTitle>Edit note</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 overflow-y-auto pr-1 flex-1">
@@ -724,22 +736,6 @@ function DiaryPageContent() {
                 placeholder="What's on your mind?"
               />
             </div>
-
-            {/* Chat with Amika link - only show for new notes */}
-            {!editingNote && (
-              <Link
-                href="/mirror"
-                className="flex items-center gap-3 p-3 rounded-lg border border-[#A8C5A8]/30 bg-[#A8C5A8]/5 hover:bg-[#A8C5A8]/10 transition-colors"
-              >
-                <div className="w-8 h-8 rounded-full bg-[#A8C5A8]/20 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-[#A8C5A8]" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900 text-sm">Chat with Amika</p>
-                  <p className="text-xs text-gray-500">Talk through your thoughts with your AI coach</p>
-                </div>
-              </Link>
-            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Image (optional)</label>
@@ -812,7 +808,7 @@ function DiaryPageContent() {
               disabled={saving || !content.trim()}
               className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
             >
-              {saving ? 'Saving...' : editingNote ? 'Save changes' : 'Save note'}
+              {saving ? 'Saving...' : 'Save changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
