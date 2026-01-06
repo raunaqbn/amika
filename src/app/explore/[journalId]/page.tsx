@@ -30,8 +30,6 @@ export default function GuidedJournalPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
-  const [isComplete, setIsComplete] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [noteTitle, setNoteTitle] = useState('');
   const [savingNote, setSavingNote] = useState(false);
@@ -161,8 +159,6 @@ export default function GuidedJournalPage() {
         body: JSON.stringify({
           messages: apiMessages,
           systemPrompt: journal.systemPrompt,
-          currentPromptIndex,
-          prompts: journal.prompts,
         }),
       });
 
@@ -179,35 +175,14 @@ export default function GuidedJournalPage() {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-
-      // Check if we should move to next prompt
-      const nextPromptIndex = currentPromptIndex + 1;
-      if (nextPromptIndex >= journal.prompts.length) {
-        setIsComplete(true);
-      } else {
-        setCurrentPromptIndex(nextPromptIndex);
-      }
     } catch (error) {
       console.error('Error:', error);
-      // Fallback: just use the next prompt if AI fails
-      const nextPromptIndex = currentPromptIndex + 1;
-      if (nextPromptIndex < journal.prompts.length) {
-        const fallbackMessage: Message = {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: journal.prompts[nextPromptIndex],
-        };
-        setMessages(prev => [...prev, fallbackMessage]);
-        setCurrentPromptIndex(nextPromptIndex);
-      } else {
-        setIsComplete(true);
-        const completeMessage: Message = {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: "Thank you for sharing. You've completed this guided journal. Would you like to save this reflection to your diary?",
-        };
-        setMessages(prev => [...prev, completeMessage]);
-      }
+      const errorMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: "I'm sorry, I had trouble responding. Please try again.",
+      };
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -292,8 +267,6 @@ export default function GuidedJournalPage() {
     );
   }
 
-  const progress = ((currentPromptIndex + 1) / journal.prompts.length) * 100;
-
   return (
     <div className="flex flex-col h-screen md:h-[calc(100vh-4rem)] bg-gray-50">
       {/* Header */}
@@ -325,20 +298,6 @@ export default function GuidedJournalPage() {
               <Save className="w-4 h-4 mr-2" />
               Save
             </Button>
-          </div>
-
-          {/* Progress bar */}
-          <div className="mt-3">
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
-              <span>Progress</span>
-              <span>{currentPromptIndex + 1} of {journal.prompts.length}</span>
-            </div>
-            <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#A8C5A8] transition-all duration-500"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
           </div>
         </div>
       </div>
@@ -383,69 +342,55 @@ export default function GuidedJournalPage() {
             </div>
           )}
 
-          {isComplete && (
-            <div className="flex justify-center pt-4">
-              <Button
-                onClick={() => setSaveDialogOpen(true)}
-                className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Save to Diary
-              </Button>
-            </div>
-          )}
-
           <div ref={messagesEndRef} />
         </div>
       </div>
 
       {/* Input */}
-      {!isComplete && (
-        <div className="border-t bg-white">
-          <div className="max-w-3xl mx-auto px-4 py-4">
-            <form onSubmit={handleSubmit} className="flex gap-2">
-              <div className="flex-1 relative">
-                <Textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={handleInputChange}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Share your thoughts... (use @ to mention friends)"
-                  rows={2}
-                  className="resize-none w-full"
-                  disabled={isLoading}
-                />
-                {showMentions && filteredFriends.length > 0 && (
-                  <div className="absolute bottom-full left-0 mb-2 w-full max-w-xs bg-white border border-[#A8C5A8]/30 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
-                    {filteredFriends.map((friend, index) => (
-                      <button
-                        key={friend.id}
-                        type="button"
-                        onClick={() => handleMentionSelect(friend.name)}
-                        className={`w-full text-left px-4 py-2 hover:bg-[#A8C5A8]/10 transition-colors ${
-                          index === selectedMentionIndex ? 'bg-[#A8C5A8]/20' : ''
-                        }`}
-                      >
-                        <span className="font-medium text-gray-900">{friend.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <Button
-                type="submit"
-                disabled={isLoading || !input.trim()}
-                className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white self-end"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
-            </form>
-            <p className="text-xs text-gray-500 mt-2">
-              Press Enter to send, Shift+Enter for new line. Use @ to mention friends.
-            </p>
-          </div>
+      <div className="border-t bg-white">
+        <div className="max-w-3xl mx-auto px-4 py-4">
+          <form onSubmit={handleSubmit} className="flex gap-2">
+            <div className="flex-1 relative">
+              <Textarea
+                ref={textareaRef}
+                value={input}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                placeholder="Share your thoughts... (use @ to mention friends)"
+                rows={2}
+                className="resize-none w-full"
+                disabled={isLoading}
+              />
+              {showMentions && filteredFriends.length > 0 && (
+                <div className="absolute bottom-full left-0 mb-2 w-full max-w-xs bg-white border border-[#A8C5A8]/30 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                  {filteredFriends.map((friend, index) => (
+                    <button
+                      key={friend.id}
+                      type="button"
+                      onClick={() => handleMentionSelect(friend.name)}
+                      className={`w-full text-left px-4 py-2 hover:bg-[#A8C5A8]/10 transition-colors ${
+                        index === selectedMentionIndex ? 'bg-[#A8C5A8]/20' : ''
+                      }`}
+                    >
+                      <span className="font-medium text-gray-900">{friend.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Button
+              type="submit"
+              disabled={isLoading || !input.trim()}
+              className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white self-end"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </form>
+          <p className="text-xs text-gray-500 mt-2">
+            Press Enter to send, Shift+Enter for new line. Use @ to mention friends.
+          </p>
         </div>
-      )}
+      </div>
 
       {/* Save Dialog */}
       <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
