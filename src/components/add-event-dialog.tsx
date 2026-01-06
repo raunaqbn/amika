@@ -37,6 +37,7 @@ interface EventToEdit {
   eventDate: Date;
   location: string | null;
   friendId: string;
+  friends?: { id: string; name: string }[];
 }
 
 interface AddEventDialogProps {
@@ -60,7 +61,7 @@ export function AddEventDialog({
   const [description, setDescription] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [location, setLocation] = useState('');
-  const [selectedFriendId, setSelectedFriendId] = useState('');
+  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,7 +79,9 @@ export function AddEventDialog({
       setTitle(eventToEdit.title);
       setDescription(eventToEdit.description || '');
       setLocation(eventToEdit.location || '');
-      setSelectedFriendId(eventToEdit.friendId);
+      // Set selected friend IDs from event's friends array or fallback to friendId
+      const friendIdsFromEvent = eventToEdit.friends?.map(f => f.id) || [eventToEdit.friendId];
+      setSelectedFriendIds(friendIdsFromEvent);
       // Format date for datetime-local input
       const date = new Date(eventToEdit.eventDate);
       setEventDate(format(date, "yyyy-MM-dd'T'HH:mm"));
@@ -100,8 +103,8 @@ export function AddEventDialog({
   };
 
   const handleQuickSubmit = async () => {
-    if (!quickEventDate || !quickTimeOfDay || !selectedFriendId) {
-      setError('Please select date, time, and friend');
+    if (!quickEventDate || !quickTimeOfDay || selectedFriendIds.length === 0) {
+      setError('Please select date, time, and at least one friend');
       return;
     }
 
@@ -123,7 +126,8 @@ export function AddEventDialog({
           description: null,
           eventDate: date.toISOString(),
           location: null,
-          friendId: selectedFriendId,
+          friendId: selectedFriendIds[0],
+          friendIds: selectedFriendIds,
         }),
       });
 
@@ -148,7 +152,7 @@ export function AddEventDialog({
     setDescription('');
     setEventDate('');
     setLocation('');
-    setSelectedFriendId('');
+    setSelectedFriendIds([]);
     setQuickMode(false);
     setQuickEventType(null);
     setQuickEventDate('');
@@ -159,8 +163,8 @@ export function AddEventDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!title.trim() || !eventDate || !selectedFriendId) {
-      setError('Title, date, and friend are required');
+    if (!title.trim() || !eventDate || selectedFriendIds.length === 0) {
+      setError('Title, date, and at least one friend are required');
       return;
     }
 
@@ -179,7 +183,8 @@ export function AddEventDialog({
             description: description.trim() || null,
             eventDate: new Date(eventDate).toISOString(),
             location: location.trim() || null,
-            friendId: selectedFriendId,
+            friendId: selectedFriendIds[0],
+            friendIds: selectedFriendIds,
           }),
         });
 
@@ -200,7 +205,8 @@ export function AddEventDialog({
             description: description.trim() || null,
             eventDate: new Date(eventDate).toISOString(),
             location: location.trim() || null,
-            friendId: selectedFriendId,
+            friendId: selectedFriendIds[0],
+            friendIds: selectedFriendIds,
           }),
         });
 
@@ -260,19 +266,29 @@ export function AddEventDialog({
         {!isEditMode && quickMode && (quickEventType === 'Phone Call' || quickEventType === 'Message') ? (
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Friend*</label>
-              <select
-                value={selectedFriendId}
-                onChange={(e) => setSelectedFriendId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#A8C5A8] focus:border-transparent"
-              >
-                <option value="">Select a friend...</option>
+              <label className="text-sm font-medium">Friends* {selectedFriendIds.length > 0 && `(${selectedFriendIds.length} selected)`}</label>
+              <div className="max-h-32 overflow-y-auto border border-gray-300 rounded-lg p-2 space-y-1">
                 {friends.map((friend) => (
-                  <option key={friend.id} value={friend.id}>
-                    {friend.name}
-                  </option>
+                  <label
+                    key={friend.id}
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedFriendIds.includes(friend.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedFriendIds([...selectedFriendIds, friend.id]);
+                        } else {
+                          setSelectedFriendIds(selectedFriendIds.filter(id => id !== friend.id));
+                        }
+                      }}
+                      className="w-4 h-4 text-[#A8C5A8] border-gray-300 rounded focus:ring-[#A8C5A8]"
+                    />
+                    <span className="text-sm">{friend.name}</span>
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -346,20 +362,32 @@ export function AddEventDialog({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Friend*</label>
-              <select
-                value={selectedFriendId}
-                onChange={(e) => setSelectedFriendId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#A8C5A8] focus:border-transparent"
-                required
-              >
-                <option value="">Select a friend...</option>
+              <label className="text-sm font-medium">Friends* {selectedFriendIds.length > 0 && `(${selectedFriendIds.length} selected)`}</label>
+              <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-2 space-y-1">
                 {friends.map((friend) => (
-                  <option key={friend.id} value={friend.id}>
-                    {friend.name}
-                  </option>
+                  <label
+                    key={friend.id}
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedFriendIds.includes(friend.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedFriendIds([...selectedFriendIds, friend.id]);
+                        } else {
+                          setSelectedFriendIds(selectedFriendIds.filter(id => id !== friend.id));
+                        }
+                      }}
+                      className="w-4 h-4 text-[#A8C5A8] border-gray-300 rounded focus:ring-[#A8C5A8]"
+                    />
+                    <span className="text-sm">{friend.name}</span>
+                  </label>
                 ))}
-              </select>
+                {friends.length === 0 && (
+                  <p className="text-sm text-gray-500 p-2">No friends available</p>
+                )}
+              </div>
             </div>
 
             <div className="space-y-2">

@@ -38,11 +38,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, eventDate, location, friendId } = body;
+    const { title, description, eventDate, location, friendId, friendIds } = body;
 
-    if (!title || !eventDate || !friendId) {
+    // Support both single friendId and multiple friendIds
+    const allFriendIds: string[] = friendIds || (friendId ? [friendId] : []);
+    const primaryFriendId = friendId || allFriendIds[0];
+
+    if (!title || !eventDate || !primaryFriendId) {
       return NextResponse.json(
-        { error: 'Title, event date, and friend ID are required' },
+        { error: 'Title, event date, and at least one friend are required' },
         { status: 400 }
       );
     }
@@ -54,7 +58,8 @@ export async function POST(request: NextRequest) {
         description: description || null,
         eventDate: new Date(eventDate),
         location: location || null,
-        friendId,
+        friendId: primaryFriendId,
+        friendIds: allFriendIds,
       },
     });
 
@@ -77,7 +82,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, title, description, eventDate, location, completed } = body;
+    const { id, title, description, eventDate, location, completed, friendId, friendIds } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -86,15 +91,19 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Build update data
+    const updateData: Record<string, any> = {};
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (eventDate !== undefined) updateData.eventDate = new Date(eventDate);
+    if (location !== undefined) updateData.location = location;
+    if (completed !== undefined) updateData.completed = completed;
+    if (friendId !== undefined) updateData.friendId = friendId;
+    if (friendIds !== undefined) updateData.friendIds = friendIds;
+
     const updatedEvent = await prisma.event.update({
       where: { id, userId },
-      data: {
-        ...(title !== undefined && { title }),
-        ...(description !== undefined && { description }),
-        ...(eventDate !== undefined && { eventDate: new Date(eventDate) }),
-        ...(location !== undefined && { location }),
-        ...(completed !== undefined && { completed }),
-      },
+      data: updateData,
     });
 
     return NextResponse.json(updatedEvent);

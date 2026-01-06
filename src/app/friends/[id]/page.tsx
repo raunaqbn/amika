@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FriendAvatar } from '@/components/friend-avatar';
 import { MemoryList } from '@/components/memory-list';
-import { ArrowLeft, Edit, Trash2, Check, X, Plus, Calendar } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Check, X, Plus, Calendar, BarChart3, Clock, BookOpen, Heart } from 'lucide-react';
 import { EventCard } from '@/components/event-card';
 import { AddEventDialog } from '@/components/add-event-dialog';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -51,6 +51,15 @@ interface Event {
   location: string | null;
   friendId: string;
   completed?: boolean;
+  friends?: { id: string; name: string }[];
+}
+
+interface FriendStats {
+  eventsCount: number;
+  memoriesCount: number;
+  diaryCount: number;
+  lastContact: string | null;
+  daysSinceLastContact: number | null;
 }
 
 export default function FriendProfilePage() {
@@ -72,10 +81,14 @@ export default function FriendProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
+  const [stats, setStats] = useState<FriendStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [allFriends, setAllFriends] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     fetchFriend();
     fetchEvents();
+    fetchStats();
   }, [params.id]);
 
   useEffect(() => {
@@ -110,6 +123,16 @@ export default function FriendProfilePage() {
       const data = await response.json();
       const foundFriend = data.find((f: Friend) => f.id === params.id);
 
+      // Set all friends for the event dialog (with current friend first)
+      const friendsList = data.map((f: Friend) => ({ id: f.id, name: f.name }));
+      // Move current friend to the top of the list
+      const currentFriendIndex = friendsList.findIndex((f: { id: string }) => f.id === params.id);
+      if (currentFriendIndex > 0) {
+        const [currentFriend] = friendsList.splice(currentFriendIndex, 1);
+        friendsList.unshift(currentFriend);
+      }
+      setAllFriends(friendsList);
+
       if (foundFriend) {
         setFriend(foundFriend);
         setFormData({
@@ -141,6 +164,21 @@ export default function FriendProfilePage() {
       setUpcomingEvents(upcoming);
     } catch (error) {
       console.error('Error fetching events:', error);
+    }
+  };
+
+  const fetchStats = async () => {
+    setStatsLoading(true);
+    try {
+      const response = await fetch(`/api/friends/${params.id}/stats`);
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
+      }
+    } catch (error) {
+      console.error('Error fetching friend stats:', error);
+    } finally {
+      setStatsLoading(false);
     }
   };
 
@@ -433,6 +471,47 @@ export default function FriendProfilePage() {
           </div>
         </Card>
 
+        {/* Metrics Section */}
+        <Card className="p-6 border-[#A8C5A8]/20 mt-6">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 className="w-5 h-5 text-[#A8C5A8]" />
+            <h2 className="text-xl font-semibold">Friendship Metrics</h2>
+          </div>
+
+          {statsLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#A8C5A8]" />
+            </div>
+          ) : stats ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-[#A8C5A8]/10 rounded-xl p-4 text-center">
+                <Calendar className="w-6 h-6 text-[#A8C5A8] mx-auto mb-2" />
+                <p className="text-2xl font-bold text-gray-900">{stats.eventsCount}</p>
+                <p className="text-sm text-gray-600">Events</p>
+              </div>
+              <div className="bg-[#D4A5A5]/10 rounded-xl p-4 text-center">
+                <Heart className="w-6 h-6 text-[#D4A5A5] mx-auto mb-2" />
+                <p className="text-2xl font-bold text-gray-900">{stats.memoriesCount}</p>
+                <p className="text-sm text-gray-600">Memories</p>
+              </div>
+              <div className="bg-[#A8C5A8]/10 rounded-xl p-4 text-center">
+                <BookOpen className="w-6 h-6 text-[#A8C5A8] mx-auto mb-2" />
+                <p className="text-2xl font-bold text-gray-900">{stats.diaryCount}</p>
+                <p className="text-sm text-gray-600">Diary Entries</p>
+              </div>
+              <div className="bg-[#D4A5A5]/10 rounded-xl p-4 text-center">
+                <Clock className="w-6 h-6 text-[#D4A5A5] mx-auto mb-2" />
+                <p className="text-2xl font-bold text-gray-900">
+                  {stats.daysSinceLastContact !== null ? stats.daysSinceLastContact : '—'}
+                </p>
+                <p className="text-sm text-gray-600">Days Since Contact</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">Unable to load metrics</p>
+          )}
+        </Card>
+
         <Card className="p-6 border-[#A8C5A8]/20 mt-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -474,11 +553,15 @@ export default function FriendProfilePage() {
             setAddEventDialogOpen(open);
             if (!open) setEventToEdit(null);
           }}
-          friends={[{ id: friend.id, name: friend.name }]}
-          onEventAdded={fetchEvents}
+          friends={allFriends.length > 0 ? allFriends : [{ id: friend.id, name: friend.name }]}
+          onEventAdded={() => {
+            fetchEvents();
+            fetchStats();
+          }}
           eventToEdit={eventToEdit}
           onEventUpdated={() => {
             fetchEvents();
+            fetchStats();
             setEventToEdit(null);
           }}
         />

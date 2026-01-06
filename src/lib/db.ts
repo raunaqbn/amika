@@ -67,8 +67,14 @@ type Event = {
   description: string | null;
   eventDate: Date;
   location: string | null;
-  friendId: string;
+  friendId: string; // Primary friend (for backward compatibility)
   completed: boolean;
+  createdAt: Date;
+};
+
+type EventFriend = {
+  eventId: string;
+  friendId: string;
   createdAt: Date;
 };
 
@@ -222,6 +228,18 @@ async function ensureTablesExist() {
         content TEXT NOT NULL,
         createdAt TEXT NOT NULL,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Junction table for many-to-many relationship between events and friends
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS event_friends (
+        eventId TEXT NOT NULL,
+        friendId TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        PRIMARY KEY (eventId, friendId),
+        FOREIGN KEY (eventId) REFERENCES events(id) ON DELETE CASCADE,
+        FOREIGN KEY (friendId) REFERENCES friends(id) ON DELETE CASCADE
       )
     `);
 
@@ -981,7 +999,7 @@ export const prisma = {
     },
   },
   event: {
-    findMany: async (args?: { userId?: string; where?: { friendId?: string } }) => {
+    findMany: async (args?: { userId?: string; where?: { friendId?: string }; includeFriends?: boolean }) => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -994,17 +1012,81 @@ export const prisma = {
         sqlArgs.push(args.userId);
       }
 
+      // If filtering by friendId, check both the primary friendId and event_friends junction table
       if (args?.where?.friendId) {
-        conditions.push('friendId = ?');
-        sqlArgs.push(args.where.friendId);
+        sql = `SELECT DISTINCT e.* FROM events e
+               LEFT JOIN event_friends ef ON e.id = ef.eventId
+               WHERE (e.friendId = ? OR ef.friendId = ?)`;
+        sqlArgs = [args.where.friendId, args.where.friendId];
+        if (args?.userId) {
+          sql += ' AND e.userId = ?';
+          sqlArgs.push(args.userId);
+        }
+        sql += ' ORDER BY e.eventDate ASC';
+      } else {
+        if (conditions.length > 0) {
+          sql += ' WHERE ' + conditions.join(' AND ');
+        }
+        sql += ' ORDER BY eventDate ASC';
       }
-
-      if (conditions.length > 0) {
-        sql += ' WHERE ' + conditions.join(' AND ');
-      }
-      sql += ' ORDER BY eventDate ASC';
 
       const result = await client.execute({ sql, args: sqlArgs });
+
+      // Fetch all event_friends and friends for including friend names
+      const eventIds = result.rows.map((row: any) => row.id as string);
+      let eventFriendsMap = new Map<string, { id: string; name: string }[]>();
+
+      if (eventIds.length > 0) {
+        // Get all event_friends entries
+        const efResult = await client.execute({
+          sql: 'SELECT * FROM event_friends WHERE eventId IN (' + eventIds.map(() => '?').join(',') + ')',
+          args: eventIds,
+        });
+
+        // Get all friend IDs needed
+        const allFriendIds = new Set<string>();
+        result.rows.forEach((row: any) => allFriendIds.add(row.friendId as string));
+        efResult.rows.forEach((row: any) => allFriendIds.add(row.friendId as string));
+
+        if (allFriendIds.size > 0) {
+          const friendIdsArray = Array.from(allFriendIds);
+          const friendsResult = await client.execute({
+            sql: 'SELECT id, name FROM friends WHERE id IN (' + friendIdsArray.map(() => '?').join(',') + ')',
+            args: friendIdsArray,
+          });
+
+          const friendMap = new Map<string, { id: string; name: string }>();
+          friendsResult.rows.forEach((row: any) => {
+            friendMap.set(row.id as string, { id: row.id as string, name: row.name as string });
+          });
+
+          // Build event -> friends mapping
+          result.rows.forEach((row: any) => {
+            const eventId = row.id as string;
+            const primaryFriendId = row.friendId as string;
+            const friends: { id: string; name: string }[] = [];
+
+            // Add primary friend first
+            const primaryFriend = friendMap.get(primaryFriendId);
+            if (primaryFriend) {
+              friends.push(primaryFriend);
+            }
+
+            // Add additional friends from junction table
+            efResult.rows.forEach((efRow: any) => {
+              if (efRow.eventId === eventId && efRow.friendId !== primaryFriendId) {
+                const friend = friendMap.get(efRow.friendId as string);
+                if (friend) {
+                  friends.push(friend);
+                }
+              }
+            });
+
+            eventFriendsMap.set(eventId, friends);
+          });
+        }
+      }
+
       return result.rows.map((row: any) => ({
         id: row.id as string,
         userId: row.userId as string,
@@ -1015,9 +1097,10 @@ export const prisma = {
         friendId: row.friendId as string,
         completed: Boolean(row.completed),
         createdAt: new Date(row.createdAt as string),
+        friends: eventFriendsMap.get(row.id as string) || [],
       }));
     },
-    create: async ({ data }: { data: { userId: string; title: string; description?: string | null; eventDate: Date; location?: string | null; friendId: string; completed?: boolean } }) => {
+    create: async ({ data }: { data: { userId: string; title: string; description?: string | null; eventDate: Date; location?: string | null; friendId: string; friendIds?: string[]; completed?: boolean } }) => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -1048,9 +1131,20 @@ export const prisma = {
         ],
       });
 
+      // Add additional friends to junction table (excluding the primary friendId)
+      const additionalFriendIds = data.friendIds?.filter(id => id !== data.friendId) || [];
+      if (additionalFriendIds.length > 0) {
+        const now = new Date().toISOString();
+        const insertValues = additionalFriendIds.map(() => '(?, ?, ?)').join(', ');
+        await client.execute({
+          sql: `INSERT INTO event_friends (eventId, friendId, createdAt) VALUES ${insertValues}`,
+          args: additionalFriendIds.flatMap((friendId) => [event.id, friendId, now]),
+        });
+      }
+
       return event;
     },
-    update: async ({ where, data }: { where: { id: string; userId?: string }; data: Partial<Event> }) => {
+    update: async ({ where, data }: { where: { id: string; userId?: string }; data: Partial<Event> & { friendIds?: string[] } }) => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -1081,16 +1175,37 @@ export const prisma = {
       };
 
       await client.execute({
-        sql: 'UPDATE events SET title = ?, description = ?, eventDate = ?, location = ?, completed = ? WHERE id = ?',
+        sql: 'UPDATE events SET title = ?, description = ?, eventDate = ?, location = ?, friendId = ?, completed = ? WHERE id = ?',
         args: [
           updated.title,
           updated.description,
           updated.eventDate.toISOString(),
           updated.location,
+          updated.friendId,
           updated.completed ? 1 : 0,
           where.id,
         ],
       });
+
+      // Update junction table if friendIds provided
+      if (data.friendIds) {
+        // Delete all existing entries
+        await client.execute({
+          sql: 'DELETE FROM event_friends WHERE eventId = ?',
+          args: [where.id],
+        });
+
+        // Add additional friends (excluding the primary friendId)
+        const additionalFriendIds = data.friendIds.filter(id => id !== updated.friendId);
+        if (additionalFriendIds.length > 0) {
+          const now = new Date().toISOString();
+          const insertValues = additionalFriendIds.map(() => '(?, ?, ?)').join(', ');
+          await client.execute({
+            sql: `INSERT INTO event_friends (eventId, friendId, createdAt) VALUES ${insertValues}`,
+            args: additionalFriendIds.flatMap((friendId) => [where.id, friendId, now]),
+          });
+        }
+      }
 
       return updated;
     },
@@ -1110,6 +1225,12 @@ export const prisma = {
       if (existingResult.rows.length === 0) {
         throw new Error('Event not found');
       }
+
+      // Delete from junction table first
+      await client.execute({
+        sql: 'DELETE FROM event_friends WHERE eventId = ?',
+        args: [where.id],
+      });
 
       await client.execute({
         sql: 'DELETE FROM events WHERE id = ?',
@@ -1227,6 +1348,60 @@ export const prisma = {
       memoriesCount: Number(memoriesCount.rows[0]?.count || 0),
       diaryCount: Number(diaryCount.rows[0]?.count || 0),
       eventsCount: Number(eventsCount.rows[0]?.count || 0),
+    };
+  },
+
+  // Get stats for a specific friend
+  getFriendStats: async (userId: string, friendId: string) => {
+    await ensureTablesExist();
+    const client = getClient();
+
+    // Count events where this friend is primary or in event_friends
+    const eventsResult = await client.execute({
+      sql: `SELECT COUNT(DISTINCT e.id) as count FROM events e
+            LEFT JOIN event_friends ef ON e.id = ef.eventId
+            WHERE e.userId = ? AND (e.friendId = ? OR ef.friendId = ?)`,
+      args: [userId, friendId, friendId],
+    });
+
+    // Count memories for this friend
+    const memoriesResult = await client.execute({
+      sql: 'SELECT COUNT(*) as count FROM memories WHERE userId = ? AND friendId = ?',
+      args: [userId, friendId],
+    });
+
+    // Count diary entries tagged with this friend
+    const diaryResult = await client.execute({
+      sql: `SELECT COUNT(DISTINCT dn.id) as count FROM diary_notes dn
+            JOIN diary_note_tags dnt ON dn.id = dnt.noteId
+            WHERE dn.userId = ? AND dnt.friendId = ?`,
+      args: [userId, friendId],
+    });
+
+    // Get last contact date for this friend
+    const friendResult = await client.execute({
+      sql: 'SELECT lastContact FROM friends WHERE id = ? AND userId = ?',
+      args: [friendId, userId],
+    });
+
+    const lastContact = friendResult.rows[0]?.lastContact
+      ? new Date(friendResult.rows[0].lastContact as string)
+      : null;
+
+    // Calculate days since last contact
+    let daysSinceLastContact: number | null = null;
+    if (lastContact) {
+      const now = new Date();
+      const diffTime = now.getTime() - lastContact.getTime();
+      daysSinceLastContact = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    return {
+      eventsCount: Number(eventsResult.rows[0]?.count || 0),
+      memoriesCount: Number(memoriesResult.rows[0]?.count || 0),
+      diaryCount: Number(diaryResult.rows[0]?.count || 0),
+      lastContact,
+      daysSinceLastContact,
     };
   },
 
