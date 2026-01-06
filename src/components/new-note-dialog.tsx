@@ -356,7 +356,27 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
         .map((msg) => `${msg.role === 'user' ? 'Me' : 'Amika'}: ${msg.content}`)
         .join('\n\n');
 
-      const chatTitle = title.trim() || `Amika Chat - ${new Date().toLocaleDateString()}`;
+      // Generate AI title if user hasn't provided one
+      let chatTitle = title.trim();
+      if (!chatTitle) {
+        try {
+          const summaryResponse = await fetch('/api/summarize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: chatContent }),
+          });
+          if (summaryResponse.ok) {
+            const { summary } = await summaryResponse.json();
+            chatTitle = summary;
+          }
+        } catch (error) {
+          console.error('Error generating title:', error);
+        }
+        // Fallback to date-based title if AI generation fails
+        if (!chatTitle) {
+          chatTitle = `Amika Chat - ${new Date().toLocaleDateString()}`;
+        }
+      }
 
       const response = await fetch('/api/diary', {
         method: 'POST',
