@@ -212,8 +212,8 @@ export function FriendAvatar({
               </button>
             )}
 
-            {/* Change Image Option */}
-            {onImageUpload && (
+            {/* Change Image Option - Not available for Amika friends (their profile is managed by themselves) */}
+            {onImageUpload && !linkedUserId && (
               <button
                 onClick={() => {
                   setMenuOpen(false);

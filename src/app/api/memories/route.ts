@@ -25,9 +25,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { friendId, content, imageUrl, sharedWithFriend } = body;
+    const { friendId, friendIds, content, imageUrl, sharedWithFriend } = body;
 
-    if (!friendId || !content) {
+    // Support both single friendId and multiple friendIds (use first one as primary)
+    const primaryFriendId = friendId || (friendIds && friendIds[0]);
+
+    if (!primaryFriendId || !content) {
       return NextResponse.json(
         { error: 'Friend ID and content required' },
         { status: 400 }
@@ -37,29 +40,37 @@ export async function POST(request: NextRequest) {
     const memory = await prisma.memory.create({
       data: {
         userId,
-        friendId,
+        friendId: primaryFriendId,
         content,
         imageUrl: imageUrl || null,
         sharedWithFriend: sharedWithFriend || false,
       },
     });
 
-    // If sharing is enabled and friend is an Amika user, auto-create a SharedItem notification
+    // If sharing is enabled, auto-create SharedItem for Amika friends
     if (sharedWithFriend) {
       try {
-        // Get the friend to check if they have a linkedUserId (are an Amika user)
+        // Get all friends to check which ones have linkedUserId (are Amika users)
         const friends = await prisma.friend.findMany({ userId });
-        const friend = friends.find((f: { id: string }) => f.id === friendId);
+        const allFriendIds = friendIds || [primaryFriendId];
 
-        if (friend && friend.linkedUserId) {
-          // Create a SharedItem so the Amika friend gets a notification
-          await prisma.sharedItem.create({
-            sharedByUserId: userId,
-            sharedWithUserId: friend.linkedUserId,
-            itemType: 'memory',
-            itemId: memory.id,
-            message: undefined,
-          });
+        for (const fId of allFriendIds) {
+          const friend = friends.find((f: { id: string }) => f.id === fId);
+          if (friend && friend.linkedUserId) {
+            try {
+              // Create a SharedItem so the Amika friend gets a notification
+              await prisma.sharedItem.create({
+                sharedByUserId: userId,
+                sharedWithUserId: friend.linkedUserId,
+                itemType: 'memory',
+                itemId: memory.id,
+                message: undefined,
+              });
+            } catch (shareError) {
+              // Ignore duplicate share errors
+              console.error('Error auto-sharing memory:', shareError);
+            }
+          }
         }
       } catch (shareError) {
         // Log the error but don't fail the memory creation
@@ -82,18 +93,51 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, sharedWithFriend } = body;
+    const { id, content, imageUrl, friendId, friendIds, sharedWithFriend } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Memory ID required' }, { status: 400 });
     }
 
-    await prisma.memory.updateSharing({
+    // Update the memory
+    const updatedMemory = await prisma.memory.update({
       where: { id, userId },
-      sharedWithFriend: sharedWithFriend,
+      data: {
+        content,
+        imageUrl,
+        sharedWithFriend,
+      },
     });
 
-    return NextResponse.json({ success: true });
+    // Handle sharing with Amika friends if sharing is enabled
+    if (sharedWithFriend) {
+      try {
+        const friends = await prisma.friend.findMany({ userId });
+        const allFriendIds = friendIds || (friendId ? [friendId] : [updatedMemory.friendId].filter(Boolean));
+
+        for (const fId of allFriendIds) {
+          const friend = friends.find((f: { id: string }) => f.id === fId);
+          if (friend && friend.linkedUserId) {
+            try {
+              await prisma.sharedItem.create({
+                sharedByUserId: userId,
+                sharedWithUserId: friend.linkedUserId,
+                itemType: 'memory',
+                itemId: id,
+                message: undefined,
+              });
+            } catch (shareError) {
+              // Ignore duplicate share errors
+              console.error('Error sharing memory:', shareError);
+            }
+          }
+        }
+      } catch (shareError) {
+        console.error('Error auto-sharing memory:', shareError);
+      }
+    }
+
+    return NextResponse.json(updatedMemory);
   } catch (error) {
     console.error('Error updating memory:', error);
     return NextResponse.json({ error: 'Failed to update memory' }, { status: 500 });

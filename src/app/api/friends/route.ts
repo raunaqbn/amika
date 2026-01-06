@@ -56,8 +56,41 @@ export async function GET() {
       }
     }
 
-    // Return combined list, sorted by createdAt desc
-    const allFriends = [...friends, ...newFriends].sort((a: any, b: any) => {
+    // Combine lists
+    const allFriends = [...friends, ...newFriends];
+
+    // Sync profile data for Amika friends (linked users)
+    // Update their profile image and birthday from the linked user's data
+    for (const friend of allFriends as any[]) {
+      if (friend.linkedUserId) {
+        const linkedConnection = acceptedConnections.find(c => c.id === friend.linkedUserId);
+        if (linkedConnection) {
+          const needsUpdate =
+            friend.profileImage !== linkedConnection.profileImage ||
+            (friend.birthday?.toISOString?.() || friend.birthday) !== (linkedConnection.birthday?.toISOString?.() || linkedConnection.birthday) ||
+            friend.name !== linkedConnection.name;
+
+          if (needsUpdate) {
+            // Update the friend record with latest data from linked user
+            await prisma.friend.update({
+              where: { id: friend.id },
+              data: {
+                name: linkedConnection.name,
+                profileImage: linkedConnection.profileImage,
+                birthday: linkedConnection.birthday,
+              } as any,
+            });
+            // Update the in-memory object as well
+            friend.name = linkedConnection.name;
+            friend.profileImage = linkedConnection.profileImage;
+            friend.birthday = linkedConnection.birthday;
+          }
+        }
+      }
+    }
+
+    // Sort by createdAt desc
+    allFriends.sort((a: any, b: any) => {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 

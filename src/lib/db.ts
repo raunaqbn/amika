@@ -1002,6 +1002,41 @@ export const prisma = {
 
       return { success: true };
     },
+    update: async ({ where, data }: { where: { id: string; userId?: string }; data: { content?: string; imageUrl?: string | null; sharedWithFriend?: boolean } }) => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      let sql = 'SELECT * FROM memories WHERE id = ?';
+      let sqlArgs: any[] = [where.id];
+      if (where.userId) {
+        sql += ' AND userId = ?';
+        sqlArgs.push(where.userId);
+      }
+
+      const existingResult = await client.execute({ sql, args: sqlArgs });
+
+      if (existingResult.rows.length === 0) {
+        throw new Error('Memory not found');
+      }
+
+      const existing = existingResult.rows[0];
+      const updated: Memory = {
+        id: existing.id as string,
+        userId: existing.userId as string,
+        friendId: existing.friendId as string | null,
+        content: data.content !== undefined ? data.content : existing.content as string,
+        imageUrl: data.imageUrl !== undefined ? data.imageUrl : existing.imageUrl as string | null,
+        sharedWithFriend: data.sharedWithFriend !== undefined ? data.sharedWithFriend : Boolean(existing.sharedWithFriend),
+        createdAt: new Date(existing.createdAt as string),
+      };
+
+      await client.execute({
+        sql: 'UPDATE memories SET content = ?, imageUrl = ?, sharedWithFriend = ? WHERE id = ?',
+        args: [updated.content, updated.imageUrl, updated.sharedWithFriend ? 1 : 0, where.id],
+      });
+
+      return updated;
+    },
     delete: async ({ where }: { where: { id: string; userId?: string } }) => {
       await ensureTablesExist();
       const client = getClient();

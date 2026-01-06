@@ -11,7 +11,9 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { Phone, MessageSquare, Calendar, Coffee, Utensils, MapPin, Sparkles, Dumbbell, Video } from 'lucide-react';
+import { Switch } from './ui/switch';
+import { Label } from './ui/label';
+import { Phone, MessageSquare, Calendar, Coffee, Utensils, MapPin, Sparkles, Dumbbell, Video, Share2 } from 'lucide-react';
 import { LocationAutocomplete } from './location-autocomplete';
 import { format } from 'date-fns';
 
@@ -51,10 +53,16 @@ interface EventToEdit {
   friends?: { id: string; name: string }[];
 }
 
+interface FriendWithLinkedUser {
+  id: string;
+  name: string;
+  linkedUserId?: string | null;
+}
+
 interface AddEventDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  friends: { id: string; name: string }[];
+  friends: FriendWithLinkedUser[];
   onEventAdded?: () => void;
   eventToEdit?: EventToEdit | null;
   onEventUpdated?: () => void;
@@ -76,6 +84,7 @@ export function AddEventDialog({
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shareWithFriends, setShareWithFriends] = useState(false);
 
   // Quick event mode
   const [quickMode, setQuickMode] = useState(false);
@@ -84,6 +93,17 @@ export function AddEventDialog({
   const [quickTimeOfDay, setQuickTimeOfDay] = useState<string | null>(null);
 
   const isEditMode = !!eventToEdit;
+
+  // Check if any selected friend is an Amika friend (has linkedUserId)
+  const hasAmikaFriends = selectedFriendIds.some(id => {
+    const friend = friends.find(f => f.id === id);
+    return friend?.linkedUserId;
+  });
+
+  // Get the Amika friends that are selected
+  const selectedAmikaFriends = selectedFriendIds
+    .map(id => friends.find(f => f.id === id))
+    .filter(f => f?.linkedUserId) as FriendWithLinkedUser[];
 
   // Pre-fill form when editing
   useEffect(() => {
@@ -172,6 +192,7 @@ export function AddEventDialog({
     setQuickEventDate('');
     setQuickTimeOfDay(null);
     setError(null);
+    setShareWithFriends(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -200,6 +221,7 @@ export function AddEventDialog({
             category: category,
             friendId: selectedFriendIds[0],
             friendIds: selectedFriendIds,
+            sharedWithFriend: shareWithFriends,
           }),
         });
 
@@ -223,6 +245,7 @@ export function AddEventDialog({
             category: category,
             friendId: selectedFriendIds[0],
             friendIds: selectedFriendIds,
+            sharedWithFriend: shareWithFriends,
           }),
         });
 
@@ -457,6 +480,29 @@ export function AddEventDialog({
                 placeholder="Optional"
               />
             </div>
+
+            {/* Share with Amika friends option */}
+            {hasAmikaFriends && (
+              <div className="space-y-2 p-3 bg-[#A8C5A8]/10 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Share2 className="w-4 h-4 text-[#A8C5A8]" />
+                  <span className="text-sm font-medium">Share with Amika friends</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="share-event"
+                    checked={shareWithFriends}
+                    onCheckedChange={setShareWithFriends}
+                  />
+                  <Label htmlFor="share-event" className="text-sm text-gray-600">
+                    Share this event with {selectedAmikaFriends.map(f => f.name).join(', ')}
+                  </Label>
+                </div>
+                <p className="text-xs text-gray-500">
+                  The event will appear in their Amika app
+                </p>
+              </div>
+            )}
 
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3">
