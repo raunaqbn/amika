@@ -394,7 +394,7 @@ export function FindEventsDialog({
                                             event.date,
                                             'experiences'
                                           )}
-                                          className="inline-flex items-center gap-1 text-xs text-[#D4A5A5] hover:text-[#D4A5A5]/80 font-medium"
+                                          className="inline-flex items-center gap-1 text-xs text-rose-500 hover:text-rose-600 font-medium"
                                         >
                                           <CalendarPlus className="w-3 h-3" />
                                           Create Event
@@ -445,7 +445,7 @@ export function FindEventsDialog({
                                       undefined,
                                       'experiences'
                                     )}
-                                    className="inline-flex items-center gap-1 text-xs text-[#D4A5A5] hover:text-[#D4A5A5]/80 font-medium mt-2"
+                                    className="inline-flex items-center gap-1 text-xs text-rose-500 hover:text-rose-600 font-medium mt-2"
                                   >
                                     <CalendarPlus className="w-3 h-3" />
                                     Create Event
@@ -500,7 +500,7 @@ export function FindEventsDialog({
                                         undefined,
                                         'places'
                                       )}
-                                      className="inline-flex items-center gap-1 text-xs text-[#D4A5A5] hover:text-[#D4A5A5]/80 font-medium"
+                                      className="inline-flex items-center gap-1 text-xs text-rose-500 hover:text-rose-600 font-medium"
                                     >
                                       <CalendarPlus className="w-3 h-3" />
                                       Create Event
@@ -552,7 +552,7 @@ export function FindEventsDialog({
                                         undefined,
                                         'restaurants'
                                       )}
-                                      className="inline-flex items-center gap-1 text-xs text-[#D4A5A5] hover:text-[#D4A5A5]/80 font-medium"
+                                      className="inline-flex items-center gap-1 text-xs text-rose-500 hover:text-rose-600 font-medium"
                                     >
                                       <CalendarPlus className="w-3 h-3" />
                                       Create Event
