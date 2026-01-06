@@ -390,6 +390,8 @@ export default function FriendProfilePage() {
                 size="md"
                 editable={!editing}
                 onImageUpload={handleImageUpload}
+                linkedUserId={friend.linkedUserId}
+                friendId={friend.id}
               />
               {uploading && (
                 <div className="absolute -bottom-6 left-0 text-xs text-gray-500">

@@ -1,9 +1,11 @@
 'use client';
 
-import { Calendar, Upload } from 'lucide-react';
+import { Calendar, Eye, ImagePlus, User, Image as ImageIcon, Camera, FolderOpen, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
-import { useRef } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface FriendAvatarProps {
   name: string;
@@ -12,6 +14,8 @@ interface FriendAvatarProps {
   size?: 'sm' | 'md' | 'lg';
   editable?: boolean;
   onImageUpload?: (file: File) => void;
+  linkedUserId?: string | null;
+  friendId?: string;
 }
 
 export function FriendAvatar({
@@ -21,8 +25,15 @@ export function FriendAvatar({
   size = 'md',
   editable = false,
   onImageUpload,
+  linkedUserId,
+  friendId,
 }: FriendAvatarProps) {
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [changeImageMenuOpen, setChangeImageMenuOpen] = useState(false);
 
   const getInitials = (name: string) => {
     return name
@@ -126,9 +137,31 @@ export function FriendAvatar({
     }
   };
 
+  const handleViewProfile = () => {
+    setMenuOpen(false);
+    if (linkedUserId) {
+      router.push(`/friends/amika/${linkedUserId}`);
+    }
+  };
+
+  const handleTakePhoto = () => {
+    setChangeImageMenuOpen(false);
+    setMenuOpen(false);
+    cameraInputRef.current?.click();
+  };
+
+  const handleChooseFromLibrary = () => {
+    setChangeImageMenuOpen(false);
+    setMenuOpen(false);
+    fileInputRef.current?.click();
+  };
+
   return (
     <div className="relative inline-block">
-      <Avatar className={`${sizeClasses[size]} bg-[#A8C5A8] text-white`}>
+      <Avatar
+        className={`${sizeClasses[size]} bg-[#A8C5A8] text-white ${editable ? 'cursor-pointer' : ''}`}
+        onClick={editable ? () => setMenuOpen(true) : undefined}
+      >
         {profileImage && <AvatarImage src={profileImage} alt={name} />}
         <AvatarFallback className="bg-[#A8C5A8] text-white">
           {getInitials(name)}
@@ -144,25 +177,136 @@ export function FriendAvatar({
         </Badge>
       )}
 
-      {editable && onImageUpload && (
-        <>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="absolute inset-0 bg-black/50 rounded-full opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
-            title="Upload profile picture"
-          >
-            <Upload className="w-6 h-6 text-white" />
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-        </>
-      )}
+      {/* Hidden file inputs */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
+      {/* Main Menu Dialog */}
+      <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
+        <DialogContent className="sm:max-w-sm p-0 rounded-2xl overflow-hidden" showCloseButton={false}>
+          <div className="bg-white">
+            {/* View Image Option */}
+            {profileImage && (
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  setImageViewerOpen(true);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
+              >
+                <Eye className="w-5 h-5 text-gray-600" />
+                <span className="text-gray-900">View Image</span>
+              </button>
+            )}
+
+            {/* Change Image Option */}
+            {onImageUpload && (
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  setChangeImageMenuOpen(true);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
+              >
+                <ImagePlus className="w-5 h-5 text-gray-600" />
+                <span className="text-gray-900">Change Image</span>
+              </button>
+            )}
+
+            {/* View Profile Option (only for Amika friends) */}
+            {linkedUserId && (
+              <button
+                onClick={handleViewProfile}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
+              >
+                <User className="w-5 h-5 text-gray-600" />
+                <span className="text-gray-900">View Profile</span>
+              </button>
+            )}
+
+            {/* Cancel Button */}
+            <button
+              onClick={() => setMenuOpen(false)}
+              className="w-full py-3 text-[#D4A5A5] font-medium hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Image Menu Dialog */}
+      <Dialog open={changeImageMenuOpen} onOpenChange={setChangeImageMenuOpen}>
+        <DialogContent className="sm:max-w-sm p-0 rounded-2xl overflow-hidden" showCloseButton={false}>
+          <div className="bg-white">
+            <button
+              onClick={handleChooseFromLibrary}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
+            >
+              <ImageIcon className="w-5 h-5 text-gray-600" />
+              <span className="text-gray-900">Photo Library</span>
+            </button>
+
+            <button
+              onClick={handleTakePhoto}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
+            >
+              <Camera className="w-5 h-5 text-gray-600" />
+              <span className="text-gray-900">Take Photo</span>
+            </button>
+
+            <button
+              onClick={handleChooseFromLibrary}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
+            >
+              <FolderOpen className="w-5 h-5 text-gray-600" />
+              <span className="text-gray-900">Choose File</span>
+            </button>
+
+            {/* Cancel Button */}
+            <button
+              onClick={() => setChangeImageMenuOpen(false)}
+              className="w-full py-3 text-[#D4A5A5] font-medium hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Viewer Dialog */}
+      <Dialog open={imageViewerOpen} onOpenChange={setImageViewerOpen}>
+        <DialogContent className="sm:max-w-lg p-0 bg-black/95 border-none" showCloseButton={false}>
+          <div className="relative">
+            <button
+              onClick={() => setImageViewerOpen(false)}
+              className="absolute top-2 right-2 z-10 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            {profileImage && (
+              <img
+                src={profileImage}
+                alt={name}
+                className="w-full h-auto max-h-[80vh] object-contain"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
