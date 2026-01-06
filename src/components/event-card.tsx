@@ -1,8 +1,9 @@
 'use client';
 
-import { Calendar, MapPin, Trash2, Check, Edit2 } from 'lucide-react';
+import { Calendar, MapPin, Trash2, Check, Edit2, Share2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
+import { ShareItemDialog } from '@/components/share-item-dialog';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 
@@ -120,6 +121,20 @@ export function EventCard({ event, friendName, onDelete, onToggleComplete, onEdi
         </div>
 
         <div className="flex gap-1">
+          <ShareItemDialog
+            itemType="event"
+            itemId={event.id}
+            itemTitle={event.title}
+            trigger={
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-400 hover:text-[#A8C5A8]"
+              >
+                <Share2 className="w-4 h-4" />
+              </Button>
+            }
+          />
           {onEdit && (
             <Button
               variant="ghost"

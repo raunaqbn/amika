@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Heart, Search, Plus, X, MoreVertical, Share2, Image as ImageIcon, ArrowLeft } from 'lucide-react';
 import { NewNoteDialog } from '@/components/new-note-dialog';
+import { ShareItemDialog } from '@/components/share-item-dialog';
 
 interface Friend {
   id: string;
@@ -552,13 +553,20 @@ function DiaryPageContent() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 md:gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-gray-500 hover:text-gray-700"
-                    >
-                      <Share2 className="w-4 h-4" />
-                    </Button>
+                    <ShareItemDialog
+                      itemType="note"
+                      itemId={selectedNote.id}
+                      itemTitle={selectedNote.title || 'Diary Note'}
+                      trigger={
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-gray-500 hover:text-[#A8C5A8]"
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </Button>
+                      }
+                    />
                     <Button
                       variant="ghost"
                       size="sm"

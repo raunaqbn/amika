@@ -3,9 +3,10 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { ShareItemDialog } from '@/components/share-item-dialog';
 import { useState, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Trash2, Image as ImageIcon, X } from 'lucide-react';
+import { Trash2, Image as ImageIcon, X, Share2 } from 'lucide-react';
 
 interface Memory {
   id: string;
@@ -258,14 +259,30 @@ export function MemoryList({ friendId, memories, onUpdate }: MemoryListProps) {
                     {formatDistanceToNow(new Date(memory.createdAt), { addSuffix: true })}
                   </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDeleteMemory(memory.id)}
-                  className="text-gray-400 hover:text-red-500"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                <div className="flex gap-1">
+                  <ShareItemDialog
+                    itemType="memory"
+                    itemId={memory.id}
+                    itemTitle={memory.content.slice(0, 50)}
+                    trigger={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-400 hover:text-[#A8C5A8]"
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </Button>
+                    }
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteMemory(memory.id)}
+                    className="text-gray-400 hover:text-red-500"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </Card>
           ))
