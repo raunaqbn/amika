@@ -635,33 +635,39 @@ export function ChatInterface() {
   };
 
   const handleMentionKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!showMentions || filteredFriends.length === 0) {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        handleSubmit();
-      }
+    // Handle escape to close mentions dropdown
+    if (showMentions && e.key === 'Escape') {
+      e.preventDefault();
+      setShowMentions(false);
       return;
     }
 
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSelectedMentionIndex((prev) =>
-        prev < filteredFriends.length - 1 ? prev + 1 : prev
-      );
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedMentionIndex((prev) => (prev > 0 ? prev - 1 : 0));
-    } else if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault();
-      const selectedFriend = filteredFriends[selectedMentionIndex];
-      if (selectedFriend) {
-        handleMentionSelect(selectedFriend.name);
+    // Handle navigation and selection when mentions are shown with friends
+    if (showMentions && filteredFriends.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedMentionIndex((prev) =>
+          prev < filteredFriends.length - 1 ? prev + 1 : prev
+        );
+        return;
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedMentionIndex((prev) => (prev > 0 ? prev - 1 : 0));
+        return;
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        const selectedFriend = filteredFriends[selectedMentionIndex];
+        if (selectedFriend) {
+          handleMentionSelect(selectedFriend.name);
+        }
+        return;
       }
-    } else if (e.key === 'Escape') {
+    }
+
+    // Handle Enter to send message (when not selecting a mention)
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       setShowMentions(false);
-    } else if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
       handleSubmit();
     }
   };
@@ -1053,20 +1059,29 @@ export function ChatInterface() {
                 className="flex-1 resize-none w-full min-h-[80px]"
                 onKeyDown={handleMentionKeyDown}
               />
-              {showMentions && filteredFriends.length > 0 && (
-                <div className="absolute bottom-full left-0 mb-2 w-full max-w-xs bg-white border border-[#A8C5A8]/30 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
-                  {filteredFriends.map((friend, index) => (
-                    <button
-                      key={friend.id}
-                      type="button"
-                      onClick={() => handleMentionSelect(friend.name)}
-                      className={`w-full text-left px-4 py-2 hover:bg-[#A8C5A8]/10 transition-colors ${
-                        index === selectedMentionIndex ? 'bg-[#A8C5A8]/20' : ''
-                      }`}
-                    >
-                      <span className="font-medium text-gray-900">{friend.name}</span>
-                    </button>
-                  ))}
+              {showMentions && (
+                <div className="absolute bottom-full left-0 mb-2 w-full max-w-sm bg-white border border-[#A8C5A8]/30 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                  {filteredFriends.length > 0 ? (
+                    filteredFriends.map((friend, index) => (
+                      <button
+                        key={friend.id}
+                        type="button"
+                        onClick={() => handleMentionSelect(friend.name)}
+                        className={`w-full text-left px-4 py-2 hover:bg-[#A8C5A8]/10 transition-colors ${
+                          index === selectedMentionIndex ? 'bg-[#A8C5A8]/20' : ''
+                        }`}
+                      >
+                        <span className="font-medium text-gray-900">{friend.name}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-gray-500">
+                      {friends.length === 0
+                        ? 'No friends added yet. Add friends to mention them!'
+                        : `No friends matching "${mentionSearch}"`
+                      }
+                    </div>
+                  )}
                 </div>
               )}
             </div>
