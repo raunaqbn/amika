@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Check, X, Loader2, UserPlus, Users } from 'lucide-react';
+import { Check, X, Loader2, UserPlus, Users, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 type Connection = {
@@ -141,6 +142,7 @@ export function FriendRequests({ onUpdate }: { onUpdate?: () => void }) {
 }
 
 export function ConnectedFriendsList({ onUpdate }: { onUpdate?: () => void }) {
+  const router = useRouter();
   const [friends, setFriends] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -185,7 +187,8 @@ export function ConnectedFriendsList({ onUpdate }: { onUpdate?: () => void }) {
         {friends.map((friend) => (
           <div
             key={friend.id}
-            className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
+            onClick={() => router.push(`/friends/amika/${friend.id}`)}
+            className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/80 transition-colors"
           >
             <Avatar className="w-10 h-10">
               {friend.profileImage ? (
@@ -195,10 +198,11 @@ export function ConnectedFriendsList({ onUpdate }: { onUpdate?: () => void }) {
                 {friend.name.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div>
+            <div className="flex-1">
               <p className="font-medium">{friend.name}</p>
               <p className="text-sm text-muted-foreground">{friend.email}</p>
             </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground" />
           </div>
         ))}
       </CardContent>
