@@ -305,11 +305,14 @@ export function AddFriendDialog({ onAdd }: { onAdd: () => void }) {
               <div className="border-t pt-4">
                 <button
                   onClick={switchToManual}
-                  className="w-full flex items-center justify-center gap-2 p-3 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors"
+                  className="w-full flex items-center justify-center gap-2 p-3 bg-[#A8C5A8]/10 border-2 border-dashed border-[#A8C5A8] text-[#A8C5A8] hover:bg-[#A8C5A8]/20 hover:border-solid rounded-lg transition-all font-medium"
                 >
-                  <UserRoundPlus className="w-4 h-4" />
-                  <span>Can&apos;t find them? Add friend manually</span>
+                  <UserRoundPlus className="w-5 h-5" />
+                  <span>Add friend manually</span>
                 </button>
+                <p className="text-xs text-center text-muted-foreground mt-2">
+                  For friends who aren&apos;t on Amika yet
+                </p>
               </div>
             </div>
           </>
