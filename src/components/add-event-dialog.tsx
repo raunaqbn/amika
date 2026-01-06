@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,8 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Phone, MessageSquare, Calendar, Coffee } from 'lucide-react';
+import { LocationAutocomplete } from './location-autocomplete';
+import { format } from 'date-fns';
 
 // Quick event types
 const quickEventTypes = [
@@ -28,11 +30,22 @@ const timeOfDayOptions = [
   { label: 'Evening', hours: 18, minutes: 0 },
 ];
 
+interface EventToEdit {
+  id: string;
+  title: string;
+  description: string | null;
+  eventDate: Date;
+  location: string | null;
+  friendId: string;
+}
+
 interface AddEventDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   friends: { id: string; name: string }[];
   onEventAdded?: () => void;
+  eventToEdit?: EventToEdit | null;
+  onEventUpdated?: () => void;
 }
 
 export function AddEventDialog({
@@ -40,6 +53,8 @@ export function AddEventDialog({
   onOpenChange,
   friends,
   onEventAdded,
+  eventToEdit,
+  onEventUpdated,
 }: AddEventDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -54,6 +69,24 @@ export function AddEventDialog({
   const [quickEventType, setQuickEventType] = useState<string | null>(null);
   const [quickEventDate, setQuickEventDate] = useState('');
   const [quickTimeOfDay, setQuickTimeOfDay] = useState<string | null>(null);
+
+  const isEditMode = !!eventToEdit;
+
+  // Pre-fill form when editing
+  useEffect(() => {
+    if (eventToEdit && open) {
+      setTitle(eventToEdit.title);
+      setDescription(eventToEdit.description || '');
+      setLocation(eventToEdit.location || '');
+      setSelectedFriendId(eventToEdit.friendId);
+      // Format date for datetime-local input
+      const date = new Date(eventToEdit.eventDate);
+      setEventDate(format(date, "yyyy-MM-dd'T'HH:mm"));
+      // Disable quick mode when editing
+      setQuickMode(false);
+      setQuickEventType(null);
+    }
+  }, [eventToEdit, open]);
 
   const handleQuickEventSelect = (eventType: { label: string; title: string }) => {
     if (eventType.label === 'Custom') {
@@ -135,29 +168,53 @@ export function AddEventDialog({
     setError(null);
 
     try {
-      const response = await fetch('/api/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title.trim(),
-          description: description.trim() || null,
-          eventDate: new Date(eventDate).toISOString(),
-          location: location.trim() || null,
-          friendId: selectedFriendId,
-        }),
-      });
+      if (isEditMode && eventToEdit) {
+        // Update existing event
+        const response = await fetch('/api/events', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: eventToEdit.id,
+            title: title.trim(),
+            description: description.trim() || null,
+            eventDate: new Date(eventDate).toISOString(),
+            location: location.trim() || null,
+            friendId: selectedFriendId,
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to create event');
+        if (!response.ok) {
+          throw new Error('Failed to update event');
+        }
+
+        resetForm();
+        onOpenChange(false);
+        onEventUpdated?.();
+      } else {
+        // Create new event
+        const response = await fetch('/api/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: title.trim(),
+            description: description.trim() || null,
+            eventDate: new Date(eventDate).toISOString(),
+            location: location.trim() || null,
+            friendId: selectedFriendId,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create event');
+        }
+
+        resetForm();
+        onOpenChange(false);
+        onEventAdded?.();
       }
-
-      // Reset form
-      resetForm();
-      onOpenChange(false);
-      onEventAdded?.();
     } catch (err) {
-      console.error('Error creating event:', err);
-      setError('Failed to create event. Please try again.');
+      console.error('Error saving event:', err);
+      setError(isEditMode ? 'Failed to update event. Please try again.' : 'Failed to create event. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -173,10 +230,11 @@ export function AddEventDialog({
     }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Plan an Event</DialogTitle>
+          <DialogTitle>{isEditMode ? 'Edit Event' : 'Plan an Event'}</DialogTitle>
         </DialogHeader>
 
-        {/* Quick event type buttons */}
+        {/* Quick event type buttons - only show when not editing */}
+        {!isEditMode && (
         <div className="grid grid-cols-4 gap-2 pb-4 border-b">
           {quickEventTypes.map((type) => (
             <button
@@ -196,9 +254,10 @@ export function AddEventDialog({
             </button>
           ))}
         </div>
+        )}
 
         {/* Quick mode form - simplified for phone/message */}
-        {quickMode && (quickEventType === 'Phone Call' || quickEventType === 'Message') ? (
+        {!isEditMode && quickMode && (quickEventType === 'Phone Call' || quickEventType === 'Message') ? (
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Friend*</label>
@@ -315,10 +374,10 @@ export function AddEventDialog({
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Location</label>
-              <Input
+              <LocationAutocomplete
                 value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="Optional"
+                onChange={setLocation}
+                placeholder="Search for a location..."
               />
             </div>
 
@@ -354,7 +413,9 @@ export function AddEventDialog({
                 disabled={saving}
                 className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
               >
-                {saving ? 'Creating...' : 'Create Event'}
+                {saving
+                  ? (isEditMode ? 'Updating...' : 'Creating...')
+                  : (isEditMode ? 'Update Event' : 'Create Event')}
               </Button>
             </DialogFooter>
           </form>

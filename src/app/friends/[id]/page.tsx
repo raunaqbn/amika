@@ -71,6 +71,7 @@ export default function FriendProfilePage() {
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [uploading, setUploading] = useState(false);
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
+  const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
 
   useEffect(() => {
     fetchFriend();
@@ -245,6 +246,11 @@ export default function FriendProfilePage() {
     } catch (error) {
       console.error('Error updating event:', error);
     }
+  };
+
+  const handleEditEvent = (event: Event) => {
+    setEventToEdit(event);
+    setAddEventDialogOpen(true);
   };
 
   if (loading) {
@@ -455,6 +461,7 @@ export default function FriendProfilePage() {
                   event={event}
                   onDelete={handleDeleteEvent}
                   onToggleComplete={handleToggleEventComplete}
+                  onEdit={handleEditEvent}
                 />
               ))}
             </div>
@@ -463,9 +470,17 @@ export default function FriendProfilePage() {
 
         <AddEventDialog
           open={addEventDialogOpen}
-          onOpenChange={setAddEventDialogOpen}
+          onOpenChange={(open) => {
+            setAddEventDialogOpen(open);
+            if (!open) setEventToEdit(null);
+          }}
           friends={[{ id: friend.id, name: friend.name }]}
           onEventAdded={fetchEvents}
+          eventToEdit={eventToEdit}
+          onEventUpdated={() => {
+            fetchEvents();
+            setEventToEdit(null);
+          }}
         />
 
         <Card className="p-6 border-[#A8C5A8]/20 mt-6">

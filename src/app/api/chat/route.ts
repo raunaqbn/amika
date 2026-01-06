@@ -5,6 +5,108 @@ import { formatDistanceToNow } from 'date-fns';
 import { getUserId } from '@/lib/auth';
 import { z } from 'zod';
 
+const SERPAPI_KEY = process.env.SERPAPI_API_KEY;
+
+interface SerpAPIEvent {
+  title: string;
+  date?: {
+    start_date?: string;
+    when?: string;
+  };
+  address?: string[];
+  link?: string;
+  description?: string;
+  venue?: {
+    name?: string;
+    rating?: number;
+    reviews?: number;
+    link?: string;
+  };
+  thumbnail?: string;
+}
+
+interface SerpAPIResponse {
+  events_results?: SerpAPIEvent[];
+  error?: string;
+}
+
+async function searchGoogleEvents(query: string, location?: string): Promise<{
+  events: Array<{
+    title: string;
+    date: string;
+    location: string;
+    description: string;
+    link?: string;
+    venue?: string;
+  }>;
+  searchQuery: string;
+  source: string;
+}> {
+  const searchQuery = location ? `${query} in ${location}` : query;
+
+  if (!SERPAPI_KEY) {
+    // Fallback when no API key is configured
+    return {
+      searchQuery,
+      source: 'suggestions',
+      events: [],
+    };
+  }
+
+  try {
+    const params = new URLSearchParams({
+      engine: 'google_events',
+      q: searchQuery,
+      api_key: SERPAPI_KEY,
+      hl: 'en',
+    });
+
+    const response = await fetch(`https://serpapi.com/search?${params.toString()}`);
+
+    if (!response.ok) {
+      console.error('SerpAPI error:', response.status);
+      return {
+        searchQuery,
+        source: 'error',
+        events: [],
+      };
+    }
+
+    const data: SerpAPIResponse = await response.json();
+
+    if (data.error) {
+      console.error('SerpAPI returned error:', data.error);
+      return {
+        searchQuery,
+        source: 'error',
+        events: [],
+      };
+    }
+
+    const events = (data.events_results || []).slice(0, 10).map((event) => ({
+      title: event.title,
+      date: event.date?.when || event.date?.start_date || 'Date TBD',
+      location: event.address?.join(', ') || 'Location TBD',
+      description: event.description || '',
+      link: event.link,
+      venue: event.venue?.name,
+    }));
+
+    return {
+      searchQuery,
+      source: 'google_events',
+      events,
+    };
+  } catch (error) {
+    console.error('Error fetching events from SerpAPI:', error);
+    return {
+      searchQuery,
+      source: 'error',
+      events: [],
+    };
+  }
+}
+
 function ensureApiKeyConfigured() {
   const provider = (process.env.AI_PROVIDER || 'google').toLowerCase();
 
@@ -143,18 +245,29 @@ export async function POST(req: Request) {
       messages,
       tools: {
         searchEvents: tool({
-          description: 'Search for local events, activities, concerts, festivals, or things to do in a specific area. Use this when the user asks about events, activities, or things to do.',
+          description: 'Search for local events, activities, concerts, festivals, or things to do in a specific area. Use this when the user asks about events, activities, or things to do. Always try to use this tool when the user is looking for events or activities.',
           parameters: z.object({
-            query: z.string().describe('The search query for events (e.g., "concerts in San Francisco", "outdoor activities near me")'),
-            location: z.string().optional().describe('The location to search for events (e.g., "San Francisco", "Bay Area")'),
+            query: z.string().describe('The search query for events (e.g., "concerts", "outdoor activities", "art exhibitions", "food festivals")'),
+            location: z.string().optional().describe('The location to search for events (e.g., "San Francisco", "New York", "Los Angeles")'),
           }),
           execute: async ({ query, location }) => {
-            // Return a structured response with event suggestions
-            // In a production app, this would call a real events API like Eventbrite, Meetup, or Google Events
-            const searchQuery = location ? `${query} in ${location}` : query;
+            const result = await searchGoogleEvents(query, location);
+
+            if (result.source === 'google_events' && result.events.length > 0) {
+              return {
+                searchQuery: result.searchQuery,
+                source: 'Google Events',
+                events: result.events,
+                note: 'Here are real events I found. You can add any of these to your calendar!',
+              };
+            }
+
+            // Fallback when no API key or no results
             return {
-              searchQuery,
-              note: 'Based on the search query, here are some suggestions. For real-time event data, users should check local event websites.',
+              searchQuery: result.searchQuery,
+              source: 'suggestions',
+              events: [],
+              note: 'I couldn\'t find specific events, but here are some suggestions for finding events:',
               suggestions: [
                 'Check Eventbrite for local events and festivals',
                 'Look at Meetup.com for group activities',
