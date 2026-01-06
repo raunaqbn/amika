@@ -667,8 +667,8 @@ export function ChatInterface() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-full gap-4">
-      <aside className="md:w-64 md:max-w-xs w-full md:flex-shrink-0 border border-[#A8C5A8]/30 rounded-2xl p-4 bg-white/60 shadow-sm">
+    <div className="flex flex-col md:flex-row h-full gap-6">
+      <aside className="md:w-72 lg:w-80 md:max-w-sm w-full md:flex-shrink-0 border border-[#A8C5A8]/30 rounded-2xl p-4 bg-white/60 shadow-sm">
         <div className="flex items-center justify-between mb-4 gap-2">
           <div>
             <h3 className="font-semibold text-gray-900">Chat history</h3>
@@ -687,7 +687,7 @@ export function ChatInterface() {
         {sortedHistory.length === 0 ? (
           <p className="text-sm text-gray-500">Start chatting to build your history.</p>
         ) : (
-          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
             {sortedHistory.map((session) => (
               <div
                 key={session.id}
@@ -1049,8 +1049,8 @@ export function ChatInterface() {
                 value={input}
                 onChange={handleCustomInputChange}
                 placeholder="Share your thoughts... (use @ to mention friends)"
-                rows={2}
-                className="flex-1 resize-none w-full"
+                rows={3}
+                className="flex-1 resize-none w-full min-h-[80px]"
                 onKeyDown={handleMentionKeyDown}
               />
               {showMentions && filteredFriends.length > 0 && (
