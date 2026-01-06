@@ -7,6 +7,45 @@ import { z } from 'zod';
 
 const SERPAPI_KEY = process.env.SERPAPI_API_KEY;
 const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY;
+const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
+
+// Geocode a location string to GPS coordinates for more precise SerpAPI searches
+async function geocodeLocation(location: string): Promise<{ lat: number; lng: number } | null> {
+  if (!GOOGLE_PLACES_API_KEY) {
+    console.log('[geocodeLocation] No Google API key configured');
+    return null;
+  }
+
+  try {
+    const params = new URLSearchParams({
+      address: location,
+      key: GOOGLE_PLACES_API_KEY,
+    });
+
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`
+    );
+
+    if (!response.ok) {
+      console.error('[geocodeLocation] Google Geocoding API error:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.results?.[0]?.geometry?.location) {
+      const { lat, lng } = data.results[0].geometry.location;
+      console.log('[geocodeLocation] Resolved location:', location, '→', { lat, lng });
+      return { lat, lng };
+    }
+
+    console.log('[geocodeLocation] No results for:', location);
+    return null;
+  } catch (error) {
+    console.error('[geocodeLocation] Error:', error);
+    return null;
+  }
+}
 
 interface SerpAPIEvent {
   title: string;
@@ -76,7 +115,10 @@ async function searchMovies(query: string, location: string): Promise<{
   location: string;
   source: string;
 }> {
+  console.log('[searchMovies] Starting search:', { query, location, hasApiKey: !!SERPAPI_KEY });
+
   if (!SERPAPI_KEY) {
+    console.log('[searchMovies] No API key configured');
     return {
       searchQuery: query,
       location,
@@ -86,18 +128,34 @@ async function searchMovies(query: string, location: string): Promise<{
   }
 
   try {
+    // First, geocode the location to get precise GPS coordinates
+    const coords = await geocodeLocation(location);
+
     const params = new URLSearchParams({
       engine: 'google_showtimes',
       q: query || 'movies',
-      location,
       api_key: SERPAPI_KEY,
       hl: 'en',
     });
 
-    const response = await fetch(`https://serpapi.com/search?${params.toString()}`);
+    // Use GPS coordinates if available for more precise results
+    if (coords) {
+      params.set('location', `${coords.lat},${coords.lng}`);
+      console.log('[searchMovies] Using GPS coordinates:', `${coords.lat},${coords.lng}`);
+    } else {
+      params.set('location', location);
+      console.log('[searchMovies] Falling back to location string:', location);
+    }
+
+    const url = `https://serpapi.com/search?${params.toString()}`;
+    console.log('[searchMovies] Fetching:', url.replace(SERPAPI_KEY, 'REDACTED'));
+
+    const response = await fetch(url);
+    console.log('[searchMovies] Response status:', response.status);
 
     if (!response.ok) {
-      console.error('SerpAPI showtimes error:', response.status);
+      const errorText = await response.text();
+      console.error('[searchMovies] SerpAPI error:', response.status, errorText);
       return {
         searchQuery: query,
         location,
@@ -107,9 +165,11 @@ async function searchMovies(query: string, location: string): Promise<{
     }
 
     const data: SerpAPIShowtimesResponse = await response.json();
+    console.log('[searchMovies] Response data keys:', Object.keys(data));
+    console.log('[searchMovies] Showtimes count:', data.showtimes?.length || 0);
 
     if (data.error) {
-      console.error('SerpAPI showtimes returned error:', data.error);
+      console.error('[searchMovies] SerpAPI returned error:', data.error);
       return {
         searchQuery: query,
         location,
@@ -131,6 +191,7 @@ async function searchMovies(query: string, location: string): Promise<{
       })),
     }));
 
+    console.log('[searchMovies] Processed movies count:', movies.length);
     return {
       searchQuery: query,
       location,
@@ -138,7 +199,7 @@ async function searchMovies(query: string, location: string): Promise<{
       movies,
     };
   } catch (error) {
-    console.error('Error fetching movies from SerpAPI:', error);
+    console.error('[searchMovies] Error:', error);
     return {
       searchQuery: query,
       location,
@@ -264,7 +325,10 @@ async function searchLocalPlaces(query: string, location: string): Promise<{
   location: string;
   source: string;
 }> {
+  console.log('[searchLocalPlaces] Starting search:', { query, location, hasApiKey: !!SERPAPI_KEY });
+
   if (!SERPAPI_KEY) {
+    console.log('[searchLocalPlaces] No API key configured');
     return {
       searchQuery: query,
       location,
@@ -274,18 +338,36 @@ async function searchLocalPlaces(query: string, location: string): Promise<{
   }
 
   try {
+    // First, geocode the location to get precise GPS coordinates
+    const coords = await geocodeLocation(location);
+
     const params = new URLSearchParams({
       engine: 'google_local',
       q: query,
-      location,
       api_key: SERPAPI_KEY,
       hl: 'en',
     });
 
-    const response = await fetch(`https://serpapi.com/search?${params.toString()}`);
+    // Use GPS coordinates if available for more precise results
+    // Otherwise fall back to location string
+    if (coords) {
+      // ll parameter format: "@lat,lng,zoom" - zoom 14 is good for local searches
+      params.set('ll', `@${coords.lat},${coords.lng},14z`);
+      console.log('[searchLocalPlaces] Using GPS coordinates:', `@${coords.lat},${coords.lng},14z`);
+    } else {
+      params.set('location', location);
+      console.log('[searchLocalPlaces] Falling back to location string:', location);
+    }
+
+    const url = `https://serpapi.com/search?${params.toString()}`;
+    console.log('[searchLocalPlaces] Fetching:', url.replace(SERPAPI_KEY, 'REDACTED'));
+
+    const response = await fetch(url);
+    console.log('[searchLocalPlaces] Response status:', response.status);
 
     if (!response.ok) {
-      console.error('SerpAPI local error:', response.status);
+      const errorText = await response.text();
+      console.error('[searchLocalPlaces] SerpAPI error:', response.status, errorText);
       return {
         searchQuery: query,
         location,
@@ -295,9 +377,11 @@ async function searchLocalPlaces(query: string, location: string): Promise<{
     }
 
     const data: SerpAPILocalResponse = await response.json();
+    console.log('[searchLocalPlaces] Response data keys:', Object.keys(data));
+    console.log('[searchLocalPlaces] Local results count:', data.local_results?.length || 0);
 
     if (data.error) {
-      console.error('SerpAPI local returned error:', data.error);
+      console.error('[searchLocalPlaces] SerpAPI returned error:', data.error);
       return {
         searchQuery: query,
         location,
@@ -318,6 +402,7 @@ async function searchLocalPlaces(query: string, location: string): Promise<{
       hours: place.hours || '',
     }));
 
+    console.log('[searchLocalPlaces] Processed places count:', places.length);
     return {
       searchQuery: query,
       location,
@@ -325,7 +410,7 @@ async function searchLocalPlaces(query: string, location: string): Promise<{
       places,
     };
   } catch (error) {
-    console.error('Error fetching local places from SerpAPI:', error);
+    console.error('[searchLocalPlaces] Error:', error);
     return {
       searchQuery: query,
       location,
@@ -336,6 +421,11 @@ async function searchLocalPlaces(query: string, location: string): Promise<{
 }
 
 // Yelp search for businesses with reviews
+interface SerpAPIYelpCategory {
+  title: string;
+  link?: string;
+}
+
 interface SerpAPIYelpResult {
   position?: number;
   title: string;
@@ -343,8 +433,8 @@ interface SerpAPIYelpResult {
   rating?: number;
   reviews?: number;
   price?: string;
-  categories?: string[];
-  neighborhoods?: string[];
+  categories?: SerpAPIYelpCategory[];
+  neighborhoods?: string | string[];
   snippet?: string;
   phone?: string;
 }
@@ -370,7 +460,10 @@ async function searchYelp(query: string, location: string): Promise<{
   location: string;
   source: string;
 }> {
+  console.log('[searchYelp] Starting search:', { query, location, hasApiKey: !!SERPAPI_KEY });
+
   if (!SERPAPI_KEY) {
+    console.log('[searchYelp] No API key configured');
     return {
       searchQuery: query,
       location,
@@ -380,17 +473,33 @@ async function searchYelp(query: string, location: string): Promise<{
   }
 
   try {
+    // Geocode for more precise location (Yelp works well with city names but coordinates are more precise)
+    const coords = await geocodeLocation(location);
+
     const params = new URLSearchParams({
       engine: 'yelp',
       find_desc: query,
-      find_loc: location,
       api_key: SERPAPI_KEY,
     });
 
-    const response = await fetch(`https://serpapi.com/search?${params.toString()}`);
+    // Yelp's find_loc works with both location names and coordinates
+    if (coords) {
+      params.set('find_loc', `${coords.lat},${coords.lng}`);
+      console.log('[searchYelp] Using GPS coordinates:', `${coords.lat},${coords.lng}`);
+    } else {
+      params.set('find_loc', location);
+      console.log('[searchYelp] Falling back to location string:', location);
+    }
+
+    const url = `https://serpapi.com/search?${params.toString()}`;
+    console.log('[searchYelp] Fetching:', url.replace(SERPAPI_KEY, 'REDACTED'));
+
+    const response = await fetch(url);
+    console.log('[searchYelp] Response status:', response.status);
 
     if (!response.ok) {
-      console.error('SerpAPI Yelp error:', response.status);
+      const errorText = await response.text();
+      console.error('[searchYelp] SerpAPI Yelp error:', response.status, errorText);
       return {
         searchQuery: query,
         location,
@@ -400,9 +509,11 @@ async function searchYelp(query: string, location: string): Promise<{
     }
 
     const data: SerpAPIYelpResponse = await response.json();
+    console.log('[searchYelp] Response data keys:', Object.keys(data));
+    console.log('[searchYelp] Organic results count:', data.organic_results?.length || 0);
 
     if (data.error) {
-      console.error('SerpAPI Yelp returned error:', data.error);
+      console.error('[searchYelp] SerpAPI Yelp returned error:', data.error);
       return {
         searchQuery: query,
         location,
@@ -411,18 +522,35 @@ async function searchYelp(query: string, location: string): Promise<{
       };
     }
 
-    const businesses = (data.organic_results || []).slice(0, 10).map((biz) => ({
-      name: biz.title,
-      rating: biz.rating || null,
-      reviews: biz.reviews || null,
-      price: biz.price || '',
-      categories: biz.categories?.join(', ') || '',
-      neighborhood: biz.neighborhoods?.join(', ') || '',
-      snippet: biz.snippet || '',
-      phone: biz.phone || '',
-      link: biz.link || '',
-    }));
+    const businesses = (data.organic_results || []).slice(0, 10).map((biz) => {
+      // Handle categories - can be array of objects or strings
+      let categoriesStr = '';
+      if (biz.categories) {
+        categoriesStr = biz.categories.map(c => typeof c === 'string' ? c : c.title).join(', ');
+      }
 
+      // Handle neighborhoods - can be string or array
+      let neighborhoodStr = '';
+      if (biz.neighborhoods) {
+        neighborhoodStr = Array.isArray(biz.neighborhoods)
+          ? biz.neighborhoods.join(', ')
+          : biz.neighborhoods;
+      }
+
+      return {
+        name: biz.title,
+        rating: biz.rating || null,
+        reviews: biz.reviews || null,
+        price: biz.price || '',
+        categories: categoriesStr,
+        neighborhood: neighborhoodStr,
+        snippet: biz.snippet || '',
+        phone: biz.phone || '',
+        link: biz.link || '',
+      };
+    });
+
+    console.log('[searchYelp] Processed businesses count:', businesses.length);
     return {
       searchQuery: query,
       location,
@@ -430,7 +558,7 @@ async function searchYelp(query: string, location: string): Promise<{
       businesses,
     };
   } catch (error) {
-    console.error('Error fetching from Yelp via SerpAPI:', error);
+    console.error('[searchYelp] Error fetching from Yelp via SerpAPI:', error);
     return {
       searchQuery: query,
       location,
@@ -809,9 +937,9 @@ export async function POST(req: Request) {
           },
         }),
         searchPlaces: tool({
-          description: 'Search for local places like restaurants, bars, cafes, parks, bowling alleys, or any other type of business or activity venue. Use this when the user asks for recommendations on where to eat, drink, or do activities.',
+          description: 'Search for local places like parks, bowling alleys, movie theaters, gyms, museums, or other activity venues using Google Local. DO NOT use this for restaurants, bars, cafes, or food - use searchYelpReviews instead for all food and dining queries.',
           parameters: z.object({
-            query: z.string().describe('What to search for (e.g., "sushi restaurants", "cocktail bars", "bowling alleys", "coffee shops", "hiking trails")'),
+            query: z.string().describe('What to search for (e.g., "bowling alleys", "hiking trails", "museums", "gyms", "parks")'),
             location: z.string().describe('The location to search in (e.g., "Campbell, CA", "San Francisco", "Downtown San Jose")'),
           }),
           execute: async ({ query, location }) => {
@@ -837,10 +965,10 @@ export async function POST(req: Request) {
           },
         }),
         searchYelpReviews: tool({
-          description: 'Search Yelp for businesses with detailed reviews and ratings. Use this when the user wants recommendations with reviews, or specifically mentions Yelp, or wants to find highly-rated places.',
+          description: 'ALWAYS use this tool for restaurants, bars, cafes, food, and dining recommendations. Search Yelp for businesses with detailed reviews, ratings, and snippets. This is the PRIMARY tool for any food-related or restaurant queries.',
           parameters: z.object({
-            query: z.string().describe('What to search for (e.g., "best pizza", "romantic restaurants", "happy hour spots")'),
-            location: z.string().describe('The location to search in (e.g., "Campbell, CA", "San Francisco Bay Area")'),
+            query: z.string().describe('What to search for (e.g., "indian restaurants", "best pizza", "sushi", "cocktail bars", "coffee shops", "brunch spots", "happy hour")'),
+            location: z.string().describe('The location to search in (e.g., "San Jose, CA", "Campbell, CA", "San Francisco")'),
           }),
           execute: async ({ query, location }) => {
             const result = await searchYelp(query, location);
