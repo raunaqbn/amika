@@ -14,11 +14,13 @@ import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Send, MapPin, Calendar, Users, Video, Sparkles, Plus, ExternalLink, Star, Clock, Ticket, X, UserPlus, CalendarPlus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { formatInterestsForAI, parseInterests } from '@/lib/interests';
 
 interface Friend {
   id: string;
   name: string;
   notes?: string | null;
+  interests?: string | null;
 }
 
 interface FindEventsDialogProps {
@@ -62,8 +64,13 @@ export function FindEventsDialog({
   const friendContext = selectedFriends.length > 0
     ? selectedFriends.map(f => {
         let context = f.name;
+        // Include interests for personalized suggestions
+        const interestsList = parseInterests(f.interests);
+        if (interestsList.length > 0) {
+          context += ` enjoys: ${formatInterestsForAI(interestsList)}`;
+        }
         if (f.notes) {
-          context += `: ${f.notes}`;
+          context += `. Notes: ${f.notes}`;
         }
         return context;
       }).join('\n')
@@ -299,9 +306,9 @@ export function FindEventsDialog({
                   );
                 })}
               </div>
-              {selectedFriends.length > 0 && selectedFriends.some(f => f.notes) && (
+              {selectedFriends.length > 0 && selectedFriends.some(f => f.notes || f.interests) && (
                 <p className="text-xs text-gray-500 mt-2">
-                  Suggestions will be based on their interests and notes.
+                  Suggestions will be personalized based on their interests and notes.
                 </p>
               )}
             </div>
@@ -394,7 +401,7 @@ export function FindEventsDialog({
                                             event.date,
                                             'experiences'
                                           )}
-                                          className="inline-flex items-center gap-1 text-xs text-[#D4A5A5] hover:text-[#D4A5A5]/80 font-medium"
+                                          className="inline-flex items-center gap-1 text-xs text-rose-500 hover:text-rose-600 font-medium"
                                         >
                                           <CalendarPlus className="w-3 h-3" />
                                           Create Event
@@ -445,7 +452,7 @@ export function FindEventsDialog({
                                       undefined,
                                       'experiences'
                                     )}
-                                    className="inline-flex items-center gap-1 text-xs text-[#D4A5A5] hover:text-[#D4A5A5]/80 font-medium mt-2"
+                                    className="inline-flex items-center gap-1 text-xs text-rose-500 hover:text-rose-600 font-medium mt-2"
                                   >
                                     <CalendarPlus className="w-3 h-3" />
                                     Create Event
@@ -500,7 +507,7 @@ export function FindEventsDialog({
                                         undefined,
                                         'places'
                                       )}
-                                      className="inline-flex items-center gap-1 text-xs text-[#D4A5A5] hover:text-[#D4A5A5]/80 font-medium"
+                                      className="inline-flex items-center gap-1 text-xs text-rose-500 hover:text-rose-600 font-medium"
                                     >
                                       <CalendarPlus className="w-3 h-3" />
                                       Create Event
@@ -552,7 +559,7 @@ export function FindEventsDialog({
                                         undefined,
                                         'restaurants'
                                       )}
-                                      className="inline-flex items-center gap-1 text-xs text-[#D4A5A5] hover:text-[#D4A5A5]/80 font-medium"
+                                      className="inline-flex items-center gap-1 text-xs text-rose-500 hover:text-rose-600 font-medium"
                                     >
                                       <CalendarPlus className="w-3 h-3" />
                                       Create Event

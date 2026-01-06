@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, birthday, howWeMet, notes, lastContact } = body;
+    const { name, birthday, howWeMet, notes, interests, lastContact } = body;
 
     const friend = await prisma.friend.create({
       data: {
@@ -49,8 +49,9 @@ export async function POST(request: NextRequest) {
         birthday: parseLocalDate(birthday),
         howWeMet: howWeMet || null,
         notes: notes || null,
+        interests: interests || null,
         lastContact: parseLocalDate(lastContact),
-      },
+      } as any,
     });
 
     return NextResponse.json(friend);
@@ -68,7 +69,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, name, birthday, howWeMet, notes, lastContact, profileImage } = body;
+    const { id, name, birthday, howWeMet, notes, interests, lastContact, profileImage } = body;
 
     const friend = await prisma.friend.update({
       where: { id, userId },
@@ -77,9 +78,10 @@ export async function PUT(request: NextRequest) {
         ...(birthday !== undefined && { birthday: parseLocalDate(birthday) }),
         ...(howWeMet !== undefined && { howWeMet: howWeMet || null }),
         ...(notes !== undefined && { notes: notes || null }),
+        ...(interests !== undefined && { interests: interests || null }),
         ...(lastContact !== undefined && { lastContact: parseLocalDate(lastContact) }),
         ...(profileImage !== undefined && { profileImage }),
-      },
+      } as any,
     });
 
     return NextResponse.json(friend);

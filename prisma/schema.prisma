@@ -42,6 +42,7 @@ model Friend {
   birthday     DateTime?
   howWeMet     String?
   notes        String?
+  interests    String?   // JSON array of interest IDs like ["hiking", "wine", "live-music"]
   lastContact  DateTime?
   profileImage String?
   createdAt    DateTime  @default(now())

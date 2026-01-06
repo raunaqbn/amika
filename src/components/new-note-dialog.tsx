@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Sparkles, Mic, Phone, Settings } from 'lucide-react';
+import { ArrowLeft, Sparkles, Settings, X, Image as ImageIcon } from 'lucide-react';
 import { useChat } from 'ai/react';
 import type { Message } from 'ai';
 import ReactMarkdown from 'react-markdown';
@@ -28,7 +28,7 @@ interface NewNoteDialogProps {
   onNoteCreated?: () => void;
 }
 
-type NoteMode = 'select' | 'freeform' | 'mirror';
+type NoteMode = 'select' | 'freeform' | 'amika-chat';
 
 // Markdown renderer for chat messages
 function MarkdownMessage({ content, isUser }: { content: string; isUser: boolean }) {
@@ -60,8 +60,11 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Mirror chat state
   const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages, setInput } = useChat({
@@ -78,10 +81,105 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
       setTitle('');
       setContent('');
       setSelectedFriends([]);
+      setSelectedImage(null);
+      setImagePreview(null);
       setMessages([]);
       setInput('');
     }
   }, [open, setMessages, setInput]);
+
+  // Image compression helper
+  const compressImage = async (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          const maxSize = 1920;
+          if (width > height && width > maxSize) {
+            height = (height / width) * maxSize;
+            width = maxSize;
+          } else if (height > maxSize) {
+            width = (width / height) * maxSize;
+            height = maxSize;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const compressedFile = new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                });
+                resolve(compressedFile);
+              } else {
+                reject(new Error('Compression failed'));
+              }
+            },
+            'image/jpeg',
+            0.85
+          );
+        };
+
+        img.onerror = () => reject(new Error('Failed to load image'));
+      };
+
+      reader.onerror = () => reject(new Error('Failed to read file'));
+    });
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+
+      const compressedFile = await compressImage(file);
+
+      if (compressedFile.size > 4 * 1024 * 1024) {
+        alert('Image is still too large after compression. Please use a smaller image.');
+        return;
+      }
+
+      setSelectedImage(compressedFile);
+
+      const imageReader = new FileReader();
+      imageReader.onloadend = () => {
+        setImagePreview(imageReader.result as string);
+      };
+      imageReader.readAsDataURL(compressedFile);
+    } catch (error) {
+      console.error('Error processing image:', error);
+      alert('Failed to process image. Please try again.');
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+  };
 
   // Auto-scroll chat
   useEffect(() => {
@@ -95,12 +193,31 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
 
     setSaving(true);
     try {
+      let imageUrl = null;
+
+      // Upload image if one was selected
+      if (selectedImage) {
+        const formData = new FormData();
+        formData.append('file', selectedImage);
+
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (uploadRes.ok) {
+          const data = await uploadRes.json();
+          imageUrl = data.url;
+        }
+      }
+
       const response = await fetch('/api/diary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: title.trim() || null,
           content: content.trim(),
+          imageUrl,
           friendIds: selectedFriends,
         }),
       });
@@ -122,17 +239,17 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
     }
   };
 
-  const handleSaveMirrorChat = async () => {
+  const handleSaveAmikaChat = async () => {
     if (messages.length === 0) return;
 
     setSaving(true);
     try {
       // Convert chat messages to diary content
       const chatContent = messages
-        .map((msg) => `${msg.role === 'user' ? 'Me' : 'Mirror'}: ${msg.content}`)
+        .map((msg) => `${msg.role === 'user' ? 'Me' : 'Amika'}: ${msg.content}`)
         .join('\n\n');
 
-      const chatTitle = title.trim() || `Mirror Chat - ${new Date().toLocaleDateString()}`;
+      const chatTitle = title.trim() || `Amika Chat - ${new Date().toLocaleDateString()}`;
 
       const response = await fetch('/api/diary', {
         method: 'POST',
@@ -189,7 +306,7 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
         setContent('');
         setTitle('');
       }
-    } else if (mode === 'mirror' && messages.length > 0) {
+    } else if (mode === 'amika-chat' && messages.length > 0) {
       if (confirm('Discard this chat?')) {
         setMode('freeform');
         setMessages([]);
@@ -201,7 +318,7 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg max-w-[95vw] max-h-[90vh] flex flex-col p-0 gap-0 bg-white">
+      <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] flex flex-col p-0 gap-0 bg-white">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
           <div className="flex items-center gap-2">
@@ -211,7 +328,7 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
               </button>
             )}
             <span className="font-medium text-gray-900">
-              {mode === 'freeform' ? 'New entry' : mode === 'mirror' ? 'Chat with Mirror' : 'New entry'}
+              {mode === 'freeform' ? 'New entry' : mode === 'amika-chat' ? 'Amika Chat' : 'New entry'}
             </span>
           </div>
           <button className="p-1 text-gray-500 hover:text-gray-700">
@@ -224,6 +341,17 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Free-form note content */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Title field */}
+              <div>
+                <label className="text-sm font-medium text-gray-700">Title</label>
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Optional"
+                  className="mt-1"
+                />
+              </div>
+
               <div>
                 <p className="text-[#5B8FB9] font-medium mb-2">What&apos;s on your mind?</p>
                 <Textarea
@@ -235,28 +363,57 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
                 />
               </div>
 
-              {/* Audio options */}
-              <div className="flex gap-4 py-2">
-                <button className="p-2 text-gray-500 hover:text-gray-700">
-                  <Mic className="w-5 h-5" />
-                </button>
-                <button className="p-2 text-gray-500 hover:text-gray-700">
-                  <Phone className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Mirror chat option */}
+              {/* Amika chat option */}
               <div className="pt-4 border-t border-gray-100">
                 <button
-                  onClick={() => setMode('mirror')}
+                  onClick={() => setMode('amika-chat')}
                   className="flex items-center gap-3 w-full p-3 rounded-lg border border-[#D4A5A5]/30 bg-[#D4A5A5]/5 hover:bg-[#D4A5A5]/10 transition-colors"
                 >
                   <Sparkles className="w-5 h-5 text-[#D4A5A5]" />
                   <div className="text-left">
-                    <p className="font-medium text-gray-900">Chat with Mirror</p>
+                    <p className="font-medium text-gray-900">Chat with Amika</p>
                     <p className="text-xs text-gray-500">Talk through your thoughts with your AI coach</p>
                   </div>
                 </button>
+              </div>
+
+              {/* Image upload */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Image (optional)</label>
+                {imagePreview && (
+                  <div className="relative inline-block w-full">
+                    <img
+                      src={imagePreview}
+                      alt="Note preview"
+                      className="w-full max-h-48 object-cover rounded-lg border border-gray-200"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleRemoveImage}
+                      className="absolute top-2 right-2 bg-white/90 hover:bg-white text-gray-700"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-[#A8C5A8]/60 text-[#A8C5A8]"
+                >
+                  <ImageIcon className="w-4 h-4 mr-2" />
+                  {imagePreview ? 'Change Image' : 'Add Image'}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="hidden"
+                />
               </div>
 
               {/* Friend tagging */}
@@ -295,14 +452,14 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
           </div>
         )}
 
-        {mode === 'mirror' && (
+        {mode === 'amika-chat' && (
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Chat messages */}
             <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.length === 0 && (
                 <div className="text-center py-8">
                   <Sparkles className="w-12 h-12 text-[#D4A5A5] mx-auto mb-4" />
-                  <h3 className="font-semibold text-gray-900 mb-2">Hi, I&apos;m Mirror</h3>
+                  <h3 className="font-semibold text-gray-900 mb-2">Hi, I&apos;m Amika</h3>
                   <p className="text-sm text-gray-600">
                     Your relationship coach. What would you like to talk about?
                   </p>
@@ -383,7 +540,7 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
               {/* Save chat button */}
               {messages.length > 0 && (
                 <Button
-                  onClick={handleSaveMirrorChat}
+                  onClick={handleSaveAmikaChat}
                   disabled={saving}
                   variant="outline"
                   className="w-full mt-2 border-[#A8C5A8]/60 text-[#A8C5A8]"
