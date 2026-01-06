@@ -827,7 +827,7 @@ export async function POST(req: Request) {
       });
     }
 
-    const { messages, sessionId } = await req.json();
+    const { messages, sessionId, friendContext } = await req.json();
 
     if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: 'Invalid request body: messages must be an array' }), {
@@ -840,7 +840,12 @@ export async function POST(req: Request) {
 
     // Build enhanced system prompt with contextual information for this user
     const contextualInfo = await buildContextualPrompt(userId);
-    const enhancedSystemPrompt = systemPrompt + contextualInfo;
+    let enhancedSystemPrompt = systemPrompt + contextualInfo;
+
+    // If friend context is provided (from Find Events dialog), add it to help personalize suggestions
+    if (friendContext && typeof friendContext === 'string' && friendContext.trim()) {
+      enhancedSystemPrompt += `\n\n---PLANNING CONTEXT---\nThe user is planning activities with specific friends. Use their interests and notes to suggest relevant activities:\n${friendContext}\n\nWhen suggesting activities, consider these friends' interests and preferences. Prioritize suggestions that would appeal to them based on the notes provided.\n---END PLANNING CONTEXT---\n`;
+    }
 
     // Store chat transcript if sessionId is provided
     if (sessionId) {

@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, Search, Plus, X, MoreVertical, Share2, Image as ImageIcon } from 'lucide-react';
+import { Heart, Search, Plus, X, MoreVertical, Share2, Image as ImageIcon, ArrowLeft } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -369,8 +369,8 @@ function DiaryPageContent() {
     <div className="h-screen md:mt-16 md:h-[calc(100vh-4rem)] flex flex-col bg-gray-50">
       {/* Main container with two-column layout - centered on desktop */}
       <div className="flex-1 flex overflow-hidden md:max-w-6xl md:mx-auto md:w-full md:border-x md:border-gray-200">
-        {/* Left Sidebar */}
-        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+        {/* Left Sidebar - Hidden on mobile */}
+        <div className="hidden md:flex w-80 bg-white border-r border-gray-200 flex-col">
           {/* Search bar and New Note button */}
           <div className="p-4 border-b border-gray-200 space-y-3">
             <Button
@@ -448,23 +448,105 @@ function DiaryPageContent() {
 
         {/* Right main content area */}
         <div className="flex-1 flex flex-col bg-white overflow-hidden">
+          {/* Mobile List View - shown when no note selected on mobile */}
+          <div className={`md:hidden flex-1 flex flex-col ${selectedNote ? 'hidden' : ''}`}>
+            {/* Mobile header with new note button and search */}
+            <div className="p-4 border-b border-gray-200 space-y-3 bg-white">
+              <Button
+                onClick={openCreateDialog}
+                className="w-full bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                New note
+              </Button>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search"
+                  className="pl-9 bg-gray-50 border-gray-200"
+                />
+              </div>
+            </div>
+
+            {/* Mobile entries list */}
+            <div className="flex-1 overflow-y-auto pb-32">
+              {sortedNotes.length === 0 ? (
+                <div className="p-4 text-center">
+                  <p className="text-sm text-gray-500 mb-4">No diary notes yet</p>
+                  <Button
+                    onClick={openCreateDialog}
+                    size="sm"
+                    className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    New note
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {Object.entries(groupedNotes).map(([groupName, groupNotes]) => (
+                    <div key={groupName} className="mb-4">
+                      <div className="px-4 py-2">
+                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                          {groupName}
+                        </h3>
+                      </div>
+                      <div className="space-y-1">
+                        {groupNotes.map((note) => (
+                          <button
+                            key={note.id}
+                            onClick={() => setSelectedNote(note)}
+                            className="w-full text-left px-4 py-3 transition-colors hover:bg-gray-50"
+                          >
+                            <div className="flex items-start gap-2">
+                              <Heart className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-medium text-gray-900 truncate">
+                                  {note.title?.trim() || 'Untitled'}
+                                </h4>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  {format(new Date(note.updatedAt), 'MMM do')} @ {format(new Date(note.updatedAt), 'h:mm a')}
+                                </p>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Detail View - Desktop: always visible when note selected, Mobile: only when note selected */}
+          <div className={`flex-1 flex flex-col overflow-hidden ${selectedNote ? '' : 'hidden md:flex'}`}>
           {selectedNote ? (
             <>
               {/* Header */}
-              <div className="border-b border-gray-200 px-8 py-6">
+              <div className="border-b border-gray-200 px-4 md:px-8 py-4 md:py-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3">
-                    <Heart className="w-6 h-6 text-red-400 mt-1" />
-                    <div>
-                      <h1 className="text-xl font-semibold text-gray-900">
+                    {/* Back button for mobile */}
+                    <button
+                      onClick={() => setSelectedNote(null)}
+                      className="md:hidden -ml-1 mr-1 p-1 text-gray-500 hover:text-gray-700"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                    </button>
+                    <Heart className="w-5 h-5 md:w-6 md:h-6 text-red-400 mt-0.5 md:mt-1" />
+                    <div className="flex-1 min-w-0">
+                      <h1 className="text-lg md:text-xl font-semibold text-gray-900 truncate">
                         {selectedNote.title?.trim() || 'Untitled'}
                       </h1>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="text-xs md:text-sm text-gray-500 mt-1">
                         {format(new Date(selectedNote.updatedAt), 'EEEE, MMMM do')} @ {format(new Date(selectedNote.updatedAt), 'h:mm a')}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 md:gap-2">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -484,7 +566,7 @@ function DiaryPageContent() {
                 </div>
 
                 {/* Tabs */}
-                <div className="mt-6">
+                <div className="mt-4 md:mt-6">
                   <Tabs value={activeTab} onValueChange={setActiveTab}>
                     <TabsList>
                       <TabsTrigger value="entry">Entry</TabsTrigger>
@@ -495,9 +577,9 @@ function DiaryPageContent() {
               </div>
 
               {/* Content */}
-              <div className="flex-1 overflow-y-auto px-8 py-6 bg-gray-50">
+              <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6 bg-gray-50 pb-32 md:pb-6">
                 {/* Page-like container */}
-                <div className="max-w-3xl mx-auto bg-white shadow-sm rounded-lg p-8 mb-8">
+                <div className="max-w-3xl mx-auto bg-white shadow-sm rounded-lg p-4 md:p-8 mb-8">
                   <Tabs value={activeTab} onValueChange={setActiveTab}>
                     <TabsContent value="analysis" className="space-y-6">
                       {/* Analysis */}
@@ -601,16 +683,19 @@ function DiaryPageContent() {
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
 
-      {/* Floating action button for mobile */}
-      <Button
-        onClick={openCreateDialog}
-        className="fixed bottom-24 right-6 h-14 w-14 rounded-full bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white shadow-lg md:hidden"
-      >
-        <Plus className="w-6 h-6" />
-      </Button>
+      {/* Floating action button for mobile - hidden when viewing a note */}
+      {!selectedNote && (
+        <Button
+          onClick={openCreateDialog}
+          className="fixed bottom-24 right-6 h-14 w-14 rounded-full bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white shadow-lg md:hidden"
+        >
+          <Plus className="w-6 h-6" />
+        </Button>
+      )}
 
       {/* Edit/Create Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
