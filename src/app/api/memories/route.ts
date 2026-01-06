@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { friendId, content, imageUrl } = body;
+    const { friendId, content, imageUrl, sharedWithFriend } = body;
 
     if (!friendId || !content) {
       return NextResponse.json(
@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
         friendId,
         content,
         imageUrl: imageUrl || null,
+        sharedWithFriend: sharedWithFriend || false,
       },
     });
 
@@ -47,6 +48,32 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating memory:', error);
     return NextResponse.json({ error: 'Failed to create memory' }, { status: 500 });
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { id, sharedWithFriend } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Memory ID required' }, { status: 400 });
+    }
+
+    await prisma.memory.updateSharing({
+      where: { id, userId },
+      sharedWithFriend: sharedWithFriend,
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error updating memory:', error);
+    return NextResponse.json({ error: 'Failed to update memory' }, { status: 500 });
   }
 }
 

@@ -3,30 +3,38 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { ShareItemDialog } from '@/components/share-item-dialog';
 import { useState, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Trash2, Image as ImageIcon, X, Share2 } from 'lucide-react';
+import { Trash2, Image as ImageIcon, X, Share2, Eye, EyeOff } from 'lucide-react';
 
 interface Memory {
   id: string;
   content: string;
   imageUrl?: string | null;
+  sharedWithFriend?: boolean;
   createdAt: Date;
 }
 
 interface MemoryListProps {
   friendId: string;
+  friendName?: string;
+  linkedUserId?: string | null; // If set, this friend is an Amika user
   memories: Memory[];
   onUpdate: () => void;
 }
 
-export function MemoryList({ friendId, memories, onUpdate }: MemoryListProps) {
+export function MemoryList({ friendId, friendName, linkedUserId, memories, onUpdate }: MemoryListProps) {
   const [newMemory, setNewMemory] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [shareWithFriend, setShareWithFriend] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isAmikaFriend = Boolean(linkedUserId);
 
   const compressImage = async (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
@@ -148,7 +156,8 @@ export function MemoryList({ friendId, memories, onUpdate }: MemoryListProps) {
         body: JSON.stringify({
           friendId,
           content: newMemory,
-          imageUrl
+          imageUrl,
+          sharedWithFriend: isAmikaFriend ? shareWithFriend : false,
         }),
       });
 
@@ -156,6 +165,7 @@ export function MemoryList({ friendId, memories, onUpdate }: MemoryListProps) {
         setNewMemory('');
         setSelectedImage(null);
         setImagePreview(null);
+        setShareWithFriend(false);
         onUpdate();
       }
     } catch (error) {
@@ -179,6 +189,25 @@ export function MemoryList({ friendId, memories, onUpdate }: MemoryListProps) {
       }
     } catch (error) {
       console.error('Error deleting memory:', error);
+    }
+  };
+
+  const handleToggleSharing = async (memoryId: string, currentShared: boolean) => {
+    try {
+      const response = await fetch('/api/memories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: memoryId,
+          sharedWithFriend: !currentShared,
+        }),
+      });
+
+      if (response.ok) {
+        onUpdate();
+      }
+    } catch (error) {
+      console.error('Error updating memory sharing:', error);
     }
   };
 
@@ -209,6 +238,19 @@ export function MemoryList({ friendId, memories, onUpdate }: MemoryListProps) {
             >
               <X className="w-4 h-4" />
             </Button>
+          </div>
+        )}
+
+        {isAmikaFriend && (
+          <div className="flex items-center gap-2 p-2 bg-[#A8C5A8]/10 rounded-lg">
+            <Switch
+              id="share-memory"
+              checked={shareWithFriend}
+              onCheckedChange={setShareWithFriend}
+            />
+            <Label htmlFor="share-memory" className="text-sm">
+              Share with {friendName || 'friend'}
+            </Label>
           </div>
         )}
 
@@ -260,20 +302,33 @@ export function MemoryList({ friendId, memories, onUpdate }: MemoryListProps) {
                   </p>
                 </div>
                 <div className="flex gap-1">
-                  <ShareItemDialog
-                    itemType="memory"
-                    itemId={memory.id}
-                    itemTitle={memory.content.slice(0, 50)}
-                    trigger={
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-gray-400 hover:text-[#A8C5A8]"
-                      >
-                        <Share2 className="w-4 h-4" />
-                      </Button>
-                    }
-                  />
+                  {isAmikaFriend && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleToggleSharing(memory.id, memory.sharedWithFriend || false)}
+                      className={memory.sharedWithFriend ? 'text-[#A8C5A8]' : 'text-gray-400'}
+                      title={memory.sharedWithFriend ? 'Shared' : 'Not shared'}
+                    >
+                      {memory.sharedWithFriend ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    </Button>
+                  )}
+                  {!isAmikaFriend && (
+                    <ShareItemDialog
+                      itemType="memory"
+                      itemId={memory.id}
+                      itemTitle={memory.content.slice(0, 50)}
+                      trigger={
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-gray-400 hover:text-[#A8C5A8]"
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </Button>
+                      }
+                    />
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"

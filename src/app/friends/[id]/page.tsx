@@ -42,6 +42,7 @@ interface Friend {
   interests?: string | null;
   lastContact?: Date | null;
   profileImage?: string | null;
+  linkedUserId?: string | null; // If set, this friend is an Amika user
   memories: Memory[];
 }
 
@@ -49,6 +50,7 @@ interface Memory {
   id: string;
   content: string;
   imageUrl?: string | null;
+  sharedWithFriend?: boolean;
   createdAt: Date;
 }
 
@@ -900,9 +902,18 @@ export default function FriendProfilePage() {
         />
 
         <Card className="p-6 border-[#A8C5A8]/20 mt-6">
-          <h2 className="text-xl font-semibold mb-4">Memories</h2>
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-xl font-semibold">Memories</h2>
+            {friend.linkedUserId && (
+              <span className="text-xs px-2 py-0.5 bg-[#A8C5A8]/20 text-[#A8C5A8] rounded-full">
+                Amika Friend
+              </span>
+            )}
+          </div>
           <MemoryList
             friendId={friend.id}
+            friendName={friend.name}
+            linkedUserId={friend.linkedUserId}
             memories={friend.memories}
             onUpdate={fetchFriend}
           />

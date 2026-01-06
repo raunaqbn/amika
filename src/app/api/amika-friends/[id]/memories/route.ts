@@ -90,7 +90,7 @@ export async function PUT(
 
     await prisma.memory.updateSharing({
       where: { id: memoryId, userId },
-      sharedWithAmikaFriend,
+      sharedWithFriend: sharedWithAmikaFriend,
     });
 
     return NextResponse.json({ success: true });
