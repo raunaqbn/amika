@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useRef, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { format, formatDistanceToNow, isThisWeek, isToday, startOfWeek, endOfWeek } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, Search, Plus, X, MoreVertical, Share2, Image as ImageIcon, ArrowLeft } from 'lucide-react';
+import { Heart, Search, Plus, X, MoreVertical, Share2, Image as ImageIcon, ArrowLeft, Compass } from 'lucide-react';
 import { NewNoteDialog } from '@/components/new-note-dialog';
 import { ShareItemDialog } from '@/components/share-item-dialog';
 
@@ -37,6 +37,7 @@ interface DiaryNote {
 }
 
 function DiaryPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [notes, setNotes] = useState<DiaryNote[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -379,13 +380,22 @@ function DiaryPageContent() {
         <div className="hidden md:flex w-80 bg-white border-r border-gray-200 flex-col">
           {/* Search bar and New Note button */}
           <div className="p-4 border-b border-gray-200 space-y-3">
-            <Button
-              onClick={openCreateDialog}
-              className="w-full bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New note
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={openCreateDialog}
+                className="flex-1 bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                New note
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push('/explore')}
+                className="border-[#A8C5A8] text-[#A8C5A8] hover:bg-[#A8C5A8]/10"
+              >
+                <Compass className="w-4 h-4" />
+              </Button>
+            </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
@@ -458,13 +468,22 @@ function DiaryPageContent() {
           <div className={`md:hidden flex-1 flex flex-col ${selectedNote ? 'hidden' : ''}`}>
             {/* Mobile header with new note button and search */}
             <div className="p-4 border-b border-gray-200 space-y-3 bg-white">
-              <Button
-                onClick={openCreateDialog}
-                className="w-full bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New note
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={openCreateDialog}
+                  className="flex-1 bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  New note
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/explore')}
+                  className="border-[#A8C5A8] text-[#A8C5A8] hover:bg-[#A8C5A8]/10"
+                >
+                  <Compass className="w-4 h-4" />
+                </Button>
+              </div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
