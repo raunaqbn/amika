@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         notes: notes || null,
         interests: interests || null,
         lastContact: parseLocalDate(lastContact),
-      },
+      } as any,
     });
 
     return NextResponse.json(friend);
@@ -81,7 +81,7 @@ export async function PUT(request: NextRequest) {
         ...(interests !== undefined && { interests: interests || null }),
         ...(lastContact !== undefined && { lastContact: parseLocalDate(lastContact) }),
         ...(profileImage !== undefined && { profileImage }),
-      },
+      } as any,
     });
 
     return NextResponse.json(friend);
