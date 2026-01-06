@@ -235,7 +235,7 @@ export function getInterestCategory(interestId: string): string | null {
 }
 
 // Parse interests from JSON string (from database)
-export function parseInterests(interestsJson: string | null): string[] {
+export function parseInterests(interestsJson: string | null | undefined): string[] {
   if (!interestsJson) return [];
   try {
     const parsed = JSON.parse(interestsJson);
