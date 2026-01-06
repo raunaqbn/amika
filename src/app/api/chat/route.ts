@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { formatDistanceToNow } from 'date-fns';
 import { getUserId } from '@/lib/auth';
 import { z } from 'zod';
+import { formatInterestsForAI, parseInterests } from '@/lib/interests';
 
 const SERPAPI_KEY = process.env.SERPAPI_API_KEY;
 const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY;
@@ -782,6 +783,13 @@ async function buildContextualPrompt(userId: string): Promise<string> {
         }
         if (friend.notes) {
           contextPrompt += `- Notes: ${friend.notes}\n`;
+        }
+        // Include interests for activity suggestions
+        if (friend.interests) {
+          const interestsList = parseInterests(friend.interests);
+          if (interestsList.length > 0) {
+            contextPrompt += `- Interests: ${formatInterestsForAI(interestsList)}\n`;
+          }
         }
 
         if ('memories' in friend && Array.isArray(friend.memories) && friend.memories.length > 0) {

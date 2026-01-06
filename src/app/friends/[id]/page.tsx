@@ -9,9 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FriendAvatar } from '@/components/friend-avatar';
 import { MemoryList } from '@/components/memory-list';
-import { ArrowLeft, Edit, Trash2, Check, X, Plus, Calendar, BarChart3, Clock, BookOpen, Heart, Sparkles, Utensils, MapPin, Dumbbell } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Check, X, Plus, Calendar, BarChart3, Clock, BookOpen, Heart, Sparkles, Utensils, MapPin, Dumbbell, Star } from 'lucide-react';
 import { EventCard } from '@/components/event-card';
 import { AddEventDialog } from '@/components/add-event-dialog';
+import { InterestSelector } from '@/components/interest-selector';
+import { parseInterests, stringifyInterests } from '@/lib/interests';
 import { format, formatDistanceToNow } from 'date-fns';
 
 interface Friend {
@@ -20,6 +22,7 @@ interface Friend {
   birthday?: Date | null;
   howWeMet?: string | null;
   notes?: string | null;
+  interests?: string | null;
   lastContact?: Date | null;
   profileImage?: string | null;
   memories: Memory[];
@@ -83,6 +86,7 @@ export default function FriendProfilePage() {
     birthday: '',
     howWeMet: '',
     notes: '',
+    interests: [] as string[],
     lastContact: '',
   });
   const [taggedNotes, setTaggedNotes] = useState<DiaryNote[]>([]);
@@ -153,6 +157,7 @@ export default function FriendProfilePage() {
             : '',
           howWeMet: foundFriend.howWeMet || '',
           notes: foundFriend.notes || '',
+          interests: parseInterests(foundFriend.interests),
           lastContact: foundFriend.lastContact
             ? format(new Date(foundFriend.lastContact), 'yyyy-MM-dd')
             : '',
@@ -198,7 +203,15 @@ export default function FriendProfilePage() {
       const response = await fetch('/api/friends', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: params.id, ...formData }),
+        body: JSON.stringify({
+          id: params.id,
+          name: formData.name,
+          birthday: formData.birthday,
+          howWeMet: formData.howWeMet,
+          notes: formData.notes,
+          interests: stringifyInterests(formData.interests),
+          lastContact: formData.lastContact,
+        }),
       });
 
       if (response.ok) {
@@ -480,6 +493,24 @@ export default function FriendProfilePage() {
               )}
             </div>
           </div>
+        </Card>
+
+        {/* Interests Section */}
+        <Card className="p-6 mb-6 border-[#A8C5A8]/20">
+          <div className="flex items-center gap-2 mb-4">
+            <Star className="w-5 h-5 text-[#A8C5A8]" />
+            <h2 className="text-xl font-semibold">Interests</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            What does {friend.name} enjoy? Use this to find activities you both love.
+          </p>
+          <InterestSelector
+            selectedInterests={formData.interests}
+            onInterestsChange={(interests) =>
+              setFormData({ ...formData, interests })
+            }
+            editing={editing}
+          />
         </Card>
 
         {/* Metrics Section */}
