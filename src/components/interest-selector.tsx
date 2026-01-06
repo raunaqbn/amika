@@ -16,16 +16,19 @@ interface InterestSelectorProps {
   selectedInterests: string[];
   onInterestsChange: (interests: string[]) => void;
   editing?: boolean;
+  onSave?: (interests: string[]) => Promise<void>;
 }
 
 export function InterestSelector({
   selectedInterests,
   onInterestsChange,
   editing = false,
+  onSave,
 }: InterestSelectorProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [tempSelectedInterests, setTempSelectedInterests] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
 
   const toggleCategory = (categoryKey: string) => {
     setExpandedCategories((prev) =>
@@ -48,13 +51,25 @@ export function InterestSelector({
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     onInterestsChange(tempSelectedInterests);
+    if (onSave) {
+      setSaving(true);
+      try {
+        await onSave(tempSelectedInterests);
+      } finally {
+        setSaving(false);
+      }
+    }
     setDialogOpen(false);
   };
 
-  const handleRemoveInterest = (interestId: string) => {
-    onInterestsChange(selectedInterests.filter((id) => id !== interestId));
+  const handleRemoveInterest = async (interestId: string) => {
+    const newInterests = selectedInterests.filter((id) => id !== interestId);
+    onInterestsChange(newInterests);
+    if (onSave) {
+      await onSave(newInterests);
+    }
   };
 
   return (
@@ -194,9 +209,10 @@ export function InterestSelector({
               <Button
                 type="button"
                 onClick={handleSave}
+                disabled={saving}
                 className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
               >
-                Save Interests
+                {saving ? 'Saving...' : 'Save Interests'}
               </Button>
             </div>
           </DialogFooter>
