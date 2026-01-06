@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, eventDate, location, friendId, friendIds } = body;
+    const { title, description, eventDate, location, category, friendId, friendIds } = body;
 
     // Support both single friendId and multiple friendIds
     const allFriendIds: string[] = friendIds || (friendId ? [friendId] : []);
@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
         description: description || null,
         eventDate: new Date(eventDate),
         location: location || null,
+        category: category || null,
         friendId: primaryFriendId,
         friendIds: allFriendIds,
       },
@@ -82,7 +83,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, title, description, eventDate, location, completed, friendId, friendIds } = body;
+    const { id, title, description, eventDate, location, category, completed, friendId, friendIds } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -97,6 +98,7 @@ export async function PUT(request: NextRequest) {
     if (description !== undefined) updateData.description = description;
     if (eventDate !== undefined) updateData.eventDate = new Date(eventDate);
     if (location !== undefined) updateData.location = location;
+    if (category !== undefined) updateData.category = category;
     if (completed !== undefined) updateData.completed = completed;
     if (friendId !== undefined) updateData.friendId = friendId;
     if (friendIds !== undefined) updateData.friendIds = friendIds;
