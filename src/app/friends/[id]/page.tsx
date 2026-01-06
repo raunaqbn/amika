@@ -9,7 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FriendAvatar } from '@/components/friend-avatar';
 import { MemoryList } from '@/components/memory-list';
-import { ArrowLeft, Edit, Trash2, Check, X } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Check, X, Plus, Calendar } from 'lucide-react';
+import { EventCard } from '@/components/event-card';
+import { AddEventDialog } from '@/components/add-event-dialog';
 import { format, formatDistanceToNow } from 'date-fns';
 
 interface Friend {
@@ -43,8 +45,12 @@ interface DiaryNote {
 
 interface Event {
   id: string;
-  friendId: string;
+  title: string;
+  description: string | null;
   eventDate: Date;
+  location: string | null;
+  friendId: string;
+  completed?: boolean;
 }
 
 export default function FriendProfilePage() {
@@ -64,6 +70,7 @@ export default function FriendProfilePage() {
   const [notesLoading, setNotesLoading] = useState(false);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchFriend();
@@ -209,6 +216,34 @@ export default function FriendProfilePage() {
       alert(message);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      const response = await fetch(`/api/events?id=${eventId}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        fetchEvents();
+      }
+    } catch (error) {
+      console.error('Error deleting event:', error);
+    }
+  };
+
+  const handleToggleEventComplete = async (eventId: string, completed: boolean) => {
+    try {
+      const response = await fetch('/api/events', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: eventId, completed }),
+      });
+      if (response.ok) {
+        fetchEvents();
+      }
+    } catch (error) {
+      console.error('Error updating event:', error);
     }
   };
 
@@ -392,7 +427,48 @@ export default function FriendProfilePage() {
           </div>
         </Card>
 
-        <Card className="p-6 border-[#A8C5A8]/20">
+        <Card className="p-6 border-[#A8C5A8]/20 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-[#A8C5A8]" />
+              <h2 className="text-xl font-semibold">Planned Events</h2>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setAddEventDialogOpen(true)}
+              className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Add Event
+            </Button>
+          </div>
+
+          {upcomingEvents.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              No planned events with {friend.name}.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {upcomingEvents.map((event) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  onDelete={handleDeleteEvent}
+                  onToggleComplete={handleToggleEventComplete}
+                />
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <AddEventDialog
+          open={addEventDialogOpen}
+          onOpenChange={setAddEventDialogOpen}
+          friends={[{ id: friend.id, name: friend.name }]}
+          onEventAdded={fetchEvents}
+        />
+
+        <Card className="p-6 border-[#A8C5A8]/20 mt-6">
           <h2 className="text-xl font-semibold mb-4">Memories</h2>
           <MemoryList
             friendId={friend.id}

@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { FriendCard } from '@/components/friend-card';
 import { EventCard } from '@/components/event-card';
 import { AddEventDialog } from '@/components/add-event-dialog';
+import { FindEventsDialog } from '@/components/find-events-dialog';
 import { Timeline } from '@/components/timeline';
 import { differenceInDays, format, isBefore, addDays } from 'date-fns';
-import { Cake, Clock, Calendar, Plus, TrendingUp } from 'lucide-react';
+import { Cake, Clock, Calendar, Plus, TrendingUp, Sparkles } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -26,6 +27,7 @@ interface Event {
   eventDate: Date;
   location: string | null;
   friendId: string;
+  completed?: boolean;
 }
 
 export default function Home() {
@@ -33,6 +35,7 @@ export default function Home() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
+  const [findEventsDialogOpen, setFindEventsDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchFriends();
@@ -72,6 +75,24 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Error deleting event:', error);
+    }
+  };
+
+  const handleToggleComplete = async (eventId: string, completed: boolean) => {
+    try {
+      const response = await fetch('/api/events', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: eventId, completed }),
+      });
+
+      if (response.ok) {
+        setEvents(events.map((e) =>
+          e.id === eventId ? { ...e, completed } : e
+        ));
+      }
+    } catch (error) {
+      console.error('Error updating event:', error);
     }
   };
 
@@ -138,6 +159,20 @@ export default function Home() {
         <p className="text-gray-600">Nurture your friendships</p>
       </div>
 
+      {/* Find Fun Events Button */}
+      <section className="mb-6">
+        <Button
+          onClick={() => setFindEventsDialogOpen(true)}
+          className="w-full bg-gradient-to-r from-[#A8C5A8] to-[#D4A5A5] hover:from-[#A8C5A8]/90 hover:to-[#D4A5A5]/90 text-white py-6"
+        >
+          <Sparkles className="w-5 h-5 mr-2" />
+          Find Fun Events
+        </Button>
+        <p className="text-xs text-gray-500 text-center mt-2">
+          Discover activities to do with friends - locally or remotely
+        </p>
+      </section>
+
       {/* Upcoming Events Section */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-4">
@@ -165,6 +200,7 @@ export default function Home() {
                   event={event}
                   friendName={friend?.name}
                   onDelete={handleDeleteEvent}
+                  onToggleComplete={handleToggleComplete}
                 />
               );
             })}
@@ -282,6 +318,15 @@ export default function Home() {
         onOpenChange={setAddEventDialogOpen}
         friends={friends.map((f) => ({ id: f.id, name: f.name }))}
         onEventAdded={() => {
+          fetchEvents();
+        }}
+      />
+
+      <FindEventsDialog
+        open={findEventsDialogOpen}
+        onOpenChange={setFindEventsDialogOpen}
+        friends={friends.map((f) => ({ id: f.id, name: f.name }))}
+        onEventCreated={() => {
           fetchEvents();
         }}
       />

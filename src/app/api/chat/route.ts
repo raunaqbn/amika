@@ -1,8 +1,9 @@
-import { streamText } from 'ai';
+import { streamText, tool } from 'ai';
 import { getModel, systemPrompt } from '@/lib/ai';
 import { prisma } from '@/lib/db';
 import { formatDistanceToNow } from 'date-fns';
 import { getUserId } from '@/lib/auth';
+import { z } from 'zod';
 
 function ensureApiKeyConfigured() {
   const provider = (process.env.AI_PROVIDER || 'google').toLowerCase();
@@ -140,6 +141,31 @@ export async function POST(req: Request) {
       model: getModel(),
       system: enhancedSystemPrompt,
       messages,
+      tools: {
+        searchEvents: tool({
+          description: 'Search for local events, activities, concerts, festivals, or things to do in a specific area. Use this when the user asks about events, activities, or things to do.',
+          parameters: z.object({
+            query: z.string().describe('The search query for events (e.g., "concerts in San Francisco", "outdoor activities near me")'),
+            location: z.string().optional().describe('The location to search for events (e.g., "San Francisco", "Bay Area")'),
+          }),
+          execute: async ({ query, location }) => {
+            // Return a structured response with event suggestions
+            // In a production app, this would call a real events API like Eventbrite, Meetup, or Google Events
+            const searchQuery = location ? `${query} in ${location}` : query;
+            return {
+              searchQuery,
+              note: 'Based on the search query, here are some suggestions. For real-time event data, users should check local event websites.',
+              suggestions: [
+                'Check Eventbrite for local events and festivals',
+                'Look at Meetup.com for group activities',
+                'Search Facebook Events for community gatherings',
+                'Visit local venue websites for concerts and shows',
+              ],
+            };
+          },
+        }),
+      },
+      maxSteps: 3,
     });
 
     return result.toDataStreamResponse({

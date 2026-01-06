@@ -68,6 +68,7 @@ type Event = {
   eventDate: Date;
   location: string | null;
   friendId: string;
+  completed: boolean;
   createdAt: Date;
 };
 
@@ -205,6 +206,7 @@ async function ensureTablesExist() {
         eventDate TEXT NOT NULL,
         location TEXT,
         friendId TEXT NOT NULL,
+        completed INTEGER DEFAULT 0,
         createdAt TEXT NOT NULL,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (friendId) REFERENCES friends(id) ON DELETE CASCADE
@@ -268,6 +270,12 @@ async function ensureTablesExist() {
 
     try {
       await client.execute(`ALTER TABLE events ADD COLUMN userId TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
+
+    try {
+      await client.execute(`ALTER TABLE events ADD COLUMN completed INTEGER DEFAULT 0`);
     } catch (e) {
       // Column might already exist
     }
@@ -1005,10 +1013,11 @@ export const prisma = {
         eventDate: new Date(row.eventDate as string),
         location: row.location as string | null,
         friendId: row.friendId as string,
+        completed: Boolean(row.completed),
         createdAt: new Date(row.createdAt as string),
       }));
     },
-    create: async ({ data }: { data: { userId: string; title: string; description?: string | null; eventDate: Date; location?: string | null; friendId: string } }) => {
+    create: async ({ data }: { data: { userId: string; title: string; description?: string | null; eventDate: Date; location?: string | null; friendId: string; completed?: boolean } }) => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -1020,11 +1029,12 @@ export const prisma = {
         eventDate: data.eventDate,
         location: data.location ?? null,
         friendId: data.friendId,
+        completed: data.completed ?? false,
         createdAt: new Date(),
       };
 
       await client.execute({
-        sql: 'INSERT INTO events (id, userId, title, description, eventDate, location, friendId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        sql: 'INSERT INTO events (id, userId, title, description, eventDate, location, friendId, completed, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         args: [
           event.id,
           event.userId,
@@ -1033,6 +1043,7 @@ export const prisma = {
           event.eventDate.toISOString(),
           event.location,
           event.friendId,
+          event.completed ? 1 : 0,
           event.createdAt.toISOString(),
         ],
       });
@@ -1065,16 +1076,18 @@ export const prisma = {
         eventDate: data.eventDate ?? new Date(existing.eventDate as string),
         location: (data.location !== undefined ? data.location : existing.location) as string | null,
         friendId: (data.friendId ?? existing.friendId) as string,
+        completed: data.completed !== undefined ? data.completed : Boolean(existing.completed),
         createdAt: new Date(existing.createdAt as string),
       };
 
       await client.execute({
-        sql: 'UPDATE events SET title = ?, description = ?, eventDate = ?, location = ? WHERE id = ?',
+        sql: 'UPDATE events SET title = ?, description = ?, eventDate = ?, location = ?, completed = ? WHERE id = ?',
         args: [
           updated.title,
           updated.description,
           updated.eventDate.toISOString(),
           updated.location,
+          updated.completed ? 1 : 0,
           where.id,
         ],
       });
