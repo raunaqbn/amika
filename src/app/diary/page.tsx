@@ -16,7 +16,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, Search, Plus, X, MoreVertical, Share2, Image as ImageIcon, ArrowLeft } from 'lucide-react';
+import { Heart, Search, Plus, X, MoreVertical, Share2, Image as ImageIcon, ArrowLeft, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 
 interface Friend {
   id: string;
@@ -671,7 +672,7 @@ function DiaryPageContent() {
               <div className="text-center">
                 <h2 className="text-xl font-semibold text-gray-900 mb-2">Diary</h2>
                 <p className="text-gray-600 mb-6">
-                  Save reflections from Mirror and tag the friends involved.
+                  Save reflections from Amika and tag the friends involved.
                 </p>
                 <Button
                   onClick={openCreateDialog}
@@ -720,9 +721,25 @@ function DiaryPageContent() {
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 rows={6}
-                placeholder="What did you and Mirror talk about?"
+                placeholder="What's on your mind?"
               />
             </div>
+
+            {/* Chat with Amika link - only show for new notes */}
+            {!editingNote && (
+              <Link
+                href="/mirror"
+                className="flex items-center gap-3 p-3 rounded-lg border border-[#A8C5A8]/30 bg-[#A8C5A8]/5 hover:bg-[#A8C5A8]/10 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full bg-[#A8C5A8]/20 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-[#A8C5A8]" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 text-sm">Chat with Amika</p>
+                  <p className="text-xs text-gray-500">Talk through your thoughts with your AI coach</p>
+                </div>
+              </Link>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Image (optional)</label>

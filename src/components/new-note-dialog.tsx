@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Sparkles, Mic, Phone, Settings } from 'lucide-react';
+import { ArrowLeft, Sparkles, Settings } from 'lucide-react';
 import { useChat } from 'ai/react';
 import type { Message } from 'ai';
 import ReactMarkdown from 'react-markdown';
@@ -129,10 +129,10 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
     try {
       // Convert chat messages to diary content
       const chatContent = messages
-        .map((msg) => `${msg.role === 'user' ? 'Me' : 'Mirror'}: ${msg.content}`)
+        .map((msg) => `${msg.role === 'user' ? 'Me' : 'Amika'}: ${msg.content}`)
         .join('\n\n');
 
-      const chatTitle = title.trim() || `Mirror Chat - ${new Date().toLocaleDateString()}`;
+      const chatTitle = title.trim() || `Amika Chat - ${new Date().toLocaleDateString()}`;
 
       const response = await fetch('/api/diary', {
         method: 'POST',
@@ -211,7 +211,7 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
               </button>
             )}
             <span className="font-medium text-gray-900">
-              {mode === 'freeform' ? 'New entry' : mode === 'mirror' ? 'Chat with Mirror' : 'New entry'}
+              {mode === 'freeform' ? 'New entry' : mode === 'mirror' ? 'Chat with Amika' : 'New entry'}
             </span>
           </div>
           <button className="p-1 text-gray-500 hover:text-gray-700">
@@ -235,17 +235,7 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
                 />
               </div>
 
-              {/* Audio options */}
-              <div className="flex gap-4 py-2">
-                <button className="p-2 text-gray-500 hover:text-gray-700">
-                  <Mic className="w-5 h-5" />
-                </button>
-                <button className="p-2 text-gray-500 hover:text-gray-700">
-                  <Phone className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Mirror chat option */}
+              {/* Amika chat option */}
               <div className="pt-4 border-t border-gray-100">
                 <button
                   onClick={() => setMode('mirror')}
@@ -253,7 +243,7 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
                 >
                   <Sparkles className="w-5 h-5 text-[#D4A5A5]" />
                   <div className="text-left">
-                    <p className="font-medium text-gray-900">Chat with Mirror</p>
+                    <p className="font-medium text-gray-900">Chat with Amika</p>
                     <p className="text-xs text-gray-500">Talk through your thoughts with your AI coach</p>
                   </div>
                 </button>
@@ -302,7 +292,7 @@ export function NewNoteDialog({ open, onOpenChange, friends, onNoteCreated }: Ne
               {messages.length === 0 && (
                 <div className="text-center py-8">
                   <Sparkles className="w-12 h-12 text-[#D4A5A5] mx-auto mb-4" />
-                  <h3 className="font-semibold text-gray-900 mb-2">Hi, I&apos;m Mirror</h3>
+                  <h3 className="font-semibold text-gray-900 mb-2">Hi, I&apos;m Amika</h3>
                   <p className="text-sm text-gray-600">
                     Your relationship coach. What would you like to talk about?
                   </p>
