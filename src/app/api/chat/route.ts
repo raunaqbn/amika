@@ -785,8 +785,8 @@ async function buildContextualPrompt(userId: string): Promise<string> {
           contextPrompt += `- Notes: ${friend.notes}\n`;
         }
         // Include interests for activity suggestions
-        if (friend.interests) {
-          const interestsList = parseInterests(friend.interests);
+        if ('interests' in friend && friend.interests) {
+          const interestsList = parseInterests(friend.interests as string);
           if (interestsList.length > 0) {
             contextPrompt += `- Interests: ${formatInterestsForAI(interestsList)}\n`;
           }
