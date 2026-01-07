@@ -31,6 +31,7 @@ type Friend = {
   id: string;
   userId: string;
   name: string;
+  email: string | null; // Email for calendar invites
   birthday: Date | null;
   howWeMet: string | null;
   notes: string | null;
@@ -141,6 +142,17 @@ export type WishlistItem = {
   priority: number;
   imageUrl: string | null;
   purchased: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type GoogleAccount = {
+  id: string;
+  userId: string;
+  googleEmail: string;
+  accessToken: string;
+  refreshToken: string;
+  tokenExpiry: Date;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -352,6 +364,21 @@ async function ensureTablesExist() {
       )
     `);
 
+    // Google accounts for Calendar integration
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS google_accounts (
+        id TEXT PRIMARY KEY,
+        userId TEXT UNIQUE NOT NULL,
+        googleEmail TEXT NOT NULL,
+        accessToken TEXT NOT NULL,
+        refreshToken TEXT NOT NULL,
+        tokenExpiry TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
     // Add migrations for existing tables
     try {
       await client.execute(`ALTER TABLE friends ADD COLUMN profileImage TEXT`);
@@ -442,6 +469,13 @@ async function ensureTablesExist() {
     // Add customProfileImage to friends table for custom profile picture override
     try {
       await client.execute(`ALTER TABLE friends ADD COLUMN customProfileImage TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
+
+    // Add email to friends table for calendar invites
+    try {
+      await client.execute(`ALTER TABLE friends ADD COLUMN email TEXT`);
     } catch (e) {
       // Column might already exist
     }
@@ -849,6 +883,7 @@ export const prisma = {
         id: row.id as string,
         userId: row.userId as string,
         name: row.name as string,
+        email: row.email as string | null,
         birthday: row.birthday ? new Date(row.birthday as string) : null,
         howWeMet: row.howWeMet as string | null,
         notes: row.notes as string | null,
@@ -898,6 +933,7 @@ export const prisma = {
         id: randomUUID(),
         userId: data.userId,
         name: data.name ?? "",
+        email: data.email ?? null,
         birthday: data.birthday ?? null,
         howWeMet: data.howWeMet ?? null,
         notes: data.notes ?? null,
@@ -910,11 +946,12 @@ export const prisma = {
       };
 
       await client.execute({
-        sql: 'INSERT INTO friends (id, userId, name, birthday, howWeMet, notes, interests, lastContact, profileImage, customProfileImage, linkedUserId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        sql: 'INSERT INTO friends (id, userId, name, email, birthday, howWeMet, notes, interests, lastContact, profileImage, customProfileImage, linkedUserId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         args: [
           newFriend.id,
           newFriend.userId,
           newFriend.name,
+          newFriend.email,
           newFriend.birthday ? newFriend.birthday.toISOString() : null,
           newFriend.howWeMet,
           newFriend.notes,
@@ -929,7 +966,7 @@ export const prisma = {
 
       return newFriend;
     },
-    update: async ({ where, data }: { where: { id: string; userId?: string }; data: Partial<Friend> }) => {
+    update: async ({ where, data }: { where: { id: string; userId?: string }; data: Partial<Friend> & { email?: string | null } }) => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -951,6 +988,7 @@ export const prisma = {
         id: existing.id as string,
         userId: existing.userId as string,
         name: (data.name ?? existing.name) as string,
+        email: (data.email !== undefined ? data.email : existing.email) as string | null,
         birthday: data.birthday !== undefined ? data.birthday : (existing.birthday ? new Date(existing.birthday as string) : null),
         howWeMet: (data.howWeMet !== undefined ? data.howWeMet : existing.howWeMet) as string | null,
         notes: (data.notes !== undefined ? data.notes : existing.notes) as string | null,
@@ -963,9 +1001,10 @@ export const prisma = {
       };
 
       await client.execute({
-        sql: 'UPDATE friends SET name = ?, birthday = ?, howWeMet = ?, notes = ?, interests = ?, lastContact = ?, profileImage = ?, customProfileImage = ? WHERE id = ?',
+        sql: 'UPDATE friends SET name = ?, email = ?, birthday = ?, howWeMet = ?, notes = ?, interests = ?, lastContact = ?, profileImage = ?, customProfileImage = ? WHERE id = ?',
         args: [
           updated.name,
+          updated.email,
           updated.birthday ? updated.birthday.toISOString() : null,
           updated.howWeMet,
           updated.notes,
@@ -1281,6 +1320,7 @@ export const prisma = {
             id: row.id as string,
             userId: args?.userId || '',
             name: row.name as string,
+            email: row.email as string | null,
             birthday: null,
             howWeMet: null,
             notes: null,
@@ -3121,6 +3161,138 @@ export const prisma = {
       const publicItems = items.filter(item => !item.purchased);
 
       return { items: publicItems, user };
+    },
+  },
+
+  // Google Account operations for Calendar integration
+  googleAccount: {
+    findByUserId: async (userId: string): Promise<GoogleAccount | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: 'SELECT * FROM google_accounts WHERE userId = ?',
+        args: [userId],
+      });
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+      return {
+        id: row.id as string,
+        userId: row.userId as string,
+        googleEmail: row.googleEmail as string,
+        accessToken: row.accessToken as string,
+        refreshToken: row.refreshToken as string,
+        tokenExpiry: new Date(row.tokenExpiry as string),
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: new Date(row.updatedAt as string),
+      };
+    },
+
+    create: async (data: {
+      userId: string;
+      googleEmail: string;
+      accessToken: string;
+      refreshToken: string;
+      tokenExpiry: Date;
+    }): Promise<GoogleAccount> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const now = new Date();
+      const account: GoogleAccount = {
+        id: randomUUID(),
+        userId: data.userId,
+        googleEmail: data.googleEmail,
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        tokenExpiry: data.tokenExpiry,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await client.execute({
+        sql: 'INSERT INTO google_accounts (id, userId, googleEmail, accessToken, refreshToken, tokenExpiry, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [
+          account.id,
+          account.userId,
+          account.googleEmail,
+          account.accessToken,
+          account.refreshToken,
+          account.tokenExpiry.toISOString(),
+          account.createdAt.toISOString(),
+          account.updatedAt.toISOString(),
+        ],
+      });
+
+      return account;
+    },
+
+    update: async (userId: string, data: {
+      googleEmail?: string;
+      accessToken?: string;
+      refreshToken?: string;
+      tokenExpiry?: Date;
+    }): Promise<GoogleAccount | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await prisma.googleAccount.findByUserId(userId);
+      if (!existing) return null;
+
+      const updated: GoogleAccount = {
+        ...existing,
+        googleEmail: data.googleEmail ?? existing.googleEmail,
+        accessToken: data.accessToken ?? existing.accessToken,
+        refreshToken: data.refreshToken ?? existing.refreshToken,
+        tokenExpiry: data.tokenExpiry ?? existing.tokenExpiry,
+        updatedAt: new Date(),
+      };
+
+      await client.execute({
+        sql: 'UPDATE google_accounts SET googleEmail = ?, accessToken = ?, refreshToken = ?, tokenExpiry = ?, updatedAt = ? WHERE userId = ?',
+        args: [
+          updated.googleEmail,
+          updated.accessToken,
+          updated.refreshToken,
+          updated.tokenExpiry.toISOString(),
+          updated.updatedAt.toISOString(),
+          userId,
+        ],
+      });
+
+      return updated;
+    },
+
+    upsert: async (data: {
+      userId: string;
+      googleEmail: string;
+      accessToken: string;
+      refreshToken: string;
+      tokenExpiry: Date;
+    }): Promise<GoogleAccount> => {
+      const existing = await prisma.googleAccount.findByUserId(data.userId);
+      if (existing) {
+        const updated = await prisma.googleAccount.update(data.userId, data);
+        return updated!;
+      }
+      return prisma.googleAccount.create(data);
+    },
+
+    delete: async (userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await prisma.googleAccount.findByUserId(userId);
+      if (!existing) return false;
+
+      await client.execute({
+        sql: 'DELETE FROM google_accounts WHERE userId = ?',
+        args: [userId],
+      });
+
+      return true;
     },
   },
 };

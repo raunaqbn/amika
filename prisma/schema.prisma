@@ -25,12 +25,26 @@ model User {
   events       Event[]
   chatTranscripts ChatTranscript[]
   wishlistItems WishlistItem[]
+  googleAccount GoogleAccount?
   // User connections (friend requests between Amika users)
   connectionsSent     UserConnection[] @relation("ConnectionRequester")
   connectionsReceived UserConnection[] @relation("ConnectionAddressee")
   // Shared items
   itemsShared    SharedItem[] @relation("SharedByUser")
   itemsReceived  SharedItem[] @relation("SharedWithUser")
+}
+
+// Google OAuth account for Calendar integration
+model GoogleAccount {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  googleEmail  String   // Google account email
+  accessToken  String   // OAuth access token
+  refreshToken String   // OAuth refresh token for obtaining new access tokens
+  tokenExpiry  DateTime // When the access token expires
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Session {
@@ -47,6 +61,7 @@ model Friend {
   userId       String
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   name         String
+  email        String?   // Email address for calendar invites (for non-Amika friends)
   birthday     DateTime?
   howWeMet     String?
   notes        String?

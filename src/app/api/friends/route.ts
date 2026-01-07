@@ -160,12 +160,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, birthday, howWeMet, notes, interests, lastContact } = body;
+    const { name, email, birthday, howWeMet, notes, interests, lastContact } = body;
 
     const friend = await prisma.friend.create({
       data: {
         userId,
         name,
+        email: email || null,
         birthday: parseLocalDate(birthday),
         howWeMet: howWeMet || null,
         notes: notes || null,
@@ -189,7 +190,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, name, birthday, howWeMet, notes, interests, lastContact, profileImage, customProfileImage, resetToDefault } = body;
+    const { id, name, email, birthday, howWeMet, notes, interests, lastContact, profileImage, customProfileImage, resetToDefault } = body;
 
     // If resetToDefault is true, clear the customProfileImage
     // For regular friends (no linkedUserId), also clear profileImage
@@ -217,6 +218,7 @@ export async function PUT(request: NextRequest) {
       where: { id, userId },
       data: {
         ...(name !== undefined && { name }),
+        ...(email !== undefined && { email: email || null }),
         ...(birthday !== undefined && { birthday: parseLocalDate(birthday) }),
         ...(howWeMet !== undefined && { howWeMet: howWeMet || null }),
         ...(notes !== undefined && { notes: notes || null }),
