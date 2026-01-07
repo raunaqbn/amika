@@ -475,12 +475,12 @@ export default function AmikaFriendProfilePage() {
         </Card>
 
         {/* Interests Section */}
-        {interests.length > 0 && (
-          <Card className="p-6 border-[#A8C5A8]/20 mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="w-5 h-5 text-[#A8C5A8]" />
-              <h2 className="text-xl font-semibold">{friend.name}&apos;s Interests</h2>
-            </div>
+        <Card className="p-6 border-[#A8C5A8]/20 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles className="w-5 h-5 text-[#A8C5A8]" />
+            <h2 className="text-xl font-semibold">{friend.name}&apos;s Interests</h2>
+          </div>
+          {interests.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {interests.map((interestId) => (
                 <span
@@ -491,16 +491,18 @@ export default function AmikaFriendProfilePage() {
                 </span>
               ))}
             </div>
-          </Card>
-        )}
+          ) : (
+            <p className="text-sm text-gray-500">{friend.name} hasn&apos;t added any interests yet.</p>
+          )}
+        </Card>
 
         {/* Wishlist Section */}
-        {wishlist.length > 0 && (
-          <Card className="p-6 border-[#A8C5A8]/20 mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Gift className="w-5 h-5 text-[#D4A5A5]" />
-              <h2 className="text-xl font-semibold">{friend.name}&apos;s Wishlist</h2>
-            </div>
+        <Card className="p-6 border-[#A8C5A8]/20 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Gift className="w-5 h-5 text-[#D4A5A5]" />
+            <h2 className="text-xl font-semibold">{friend.name}&apos;s Wishlist</h2>
+          </div>
+          {wishlist.length > 0 ? (
             <div className="space-y-3">
               {wishlist.map((item) => (
                 <div
@@ -557,8 +559,10 @@ export default function AmikaFriendProfilePage() {
                 </div>
               ))}
             </div>
-          </Card>
-        )}
+          ) : (
+            <p className="text-sm text-gray-500">{friend.name} hasn&apos;t added any wishlist items yet.</p>
+          )}
+        </Card>
 
         {/* Events Section */}
         <Card className="p-6 border-[#A8C5A8]/20 mb-6">
