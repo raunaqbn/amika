@@ -44,6 +44,19 @@ export default function FriendsPage() {
     setRefreshKey((k) => k + 1);
   };
 
+  const handleRemoveFriend = async (friendId: string) => {
+    try {
+      const response = await fetch(`/api/friends?id=${friendId}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        setFriends((prev) => prev.filter((f) => f.id !== friendId));
+      }
+    } catch (error) {
+      console.error('Error removing friend:', error);
+    }
+  };
+
   const filteredFriends = friends.filter((friend) =>
     friend.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -152,7 +165,7 @@ export default function FriendsPage() {
             </div>
             <div className="space-y-3">
               {amikaFriends.map((friend) => (
-                <FriendCard key={friend.id} friend={friend} isAmikaFriend />
+                <FriendCard key={friend.id} friend={friend} isAmikaFriend onRemove={handleRemoveFriend} />
               ))}
             </div>
           </div>
@@ -169,7 +182,7 @@ export default function FriendsPage() {
             )}
             <div className="space-y-3">
               {regularFriends.map((friend) => (
-                <FriendCard key={friend.id} friend={friend} />
+                <FriendCard key={friend.id} friend={friend} onRemove={handleRemoveFriend} />
               ))}
             </div>
           </div>
