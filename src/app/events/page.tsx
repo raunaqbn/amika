@@ -340,6 +340,9 @@ export default function EventsPage() {
             fetchEvents();
             setEventToEdit(null);
           }}
+          onFriendsUpdated={() => {
+            fetchFriends();
+          }}
         />
 
         <FindEventsDialog
