@@ -684,45 +684,20 @@ export default function FriendProfilePage() {
           </div>
         </Card>
 
-        {/* Interests Section */}
+        {/* Combined Interests Section */}
         <Card className="p-6 mb-6 border-[#A8C5A8]/20">
           <div className="flex items-center gap-2 mb-4">
             <Star className="w-5 h-5 text-[#A8C5A8]" />
-            <h2 className="text-xl font-semibold">Interests</h2>
+            <h2 className="text-xl font-semibold">{friend.name}&apos;s Interests</h2>
           </div>
-          <p className="text-sm text-gray-500 mb-4">
-            What does {friend.name} enjoy? Use this to find activities you both love.
-          </p>
-          <InterestSelector
-            selectedInterests={formData.interests}
-            onInterestsChange={(interests) =>
-              setFormData({ ...formData, interests })
-            }
-            editing={true}
-            onSave={async (interests) => {
-              await fetch('/api/friends', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  id: params.id,
-                  interests: stringifyInterests(interests),
-                }),
-              });
-            }}
-          />
-        </Card>
 
-        {/* Friend's Actual Interests Section - only for Amika friends */}
-        {friend.linkedUserId && (
-          <Card className="p-6 border-[#A8C5A8]/20 mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="w-5 h-5 text-[#A8C5A8]" />
-              <h2 className="text-xl font-semibold">{friend.name}&apos;s Interests</h2>
-              <span className="text-xs px-2 py-0.5 bg-[#A8C5A8]/20 text-[#A8C5A8] rounded-full">
-                From their profile
-              </span>
-            </div>
-            {friendActualInterests.length > 0 ? (
+          {/* Friend's Profile Interests - only for Amika friends */}
+          {friend.linkedUserId && friendActualInterests.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="w-4 h-4 text-[#A8C5A8]" />
+                <span className="text-sm font-medium text-gray-600">From their profile</span>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {friendActualInterests.map((interestId) => (
                   <span
@@ -733,11 +708,40 @@ export default function FriendProfilePage() {
                   </span>
                 ))}
               </div>
-            ) : (
-              <p className="text-sm text-gray-500">{friend.name} hasn&apos;t added any interests yet.</p>
+            </div>
+          )}
+
+          {/* User-added Interests */}
+          <div>
+            {(friend.linkedUserId && friendActualInterests.length > 0) && (
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-sm font-medium text-gray-600">Added by you</span>
+              </div>
             )}
-          </Card>
-        )}
+            {(!friend.linkedUserId || friendActualInterests.length === 0) && (
+              <p className="text-sm text-gray-500 mb-4">
+                What does {friend.name} enjoy? Use this to find activities you both love.
+              </p>
+            )}
+            <InterestSelector
+              selectedInterests={formData.interests}
+              onInterestsChange={(interests) =>
+                setFormData({ ...formData, interests })
+              }
+              editing={true}
+              onSave={async (interests) => {
+                await fetch('/api/friends', {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    id: params.id,
+                    interests: stringifyInterests(interests),
+                  }),
+                });
+              }}
+            />
+          </div>
+        </Card>
 
         {/* Friend's Wishlist Section - only for Amika friends */}
         {friend.linkedUserId && (
