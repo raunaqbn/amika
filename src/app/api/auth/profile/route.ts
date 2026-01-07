@@ -11,7 +11,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, birthday, profileImage } = body;
+    const { name, birthday, profileImage, phone, location } = body;
 
     // Parse birthday if provided
     let birthdayDate: Date | null | undefined = undefined;
@@ -28,6 +28,8 @@ export async function PUT(request: NextRequest) {
       ...(name !== undefined && { name }),
       ...(birthdayDate !== undefined && { birthday: birthdayDate }),
       ...(profileImage !== undefined && { profileImage }),
+      ...(phone !== undefined && { phone }),
+      ...(location !== undefined && { location }),
     });
 
     return NextResponse.json({
@@ -37,6 +39,9 @@ export async function PUT(request: NextRequest) {
         name: updatedUser.name,
         birthday: updatedUser.birthday,
         profileImage: updatedUser.profileImage,
+        phone: updatedUser.phone,
+        location: updatedUser.location,
+        isTemporary: updatedUser.isTemporary,
         createdAt: updatedUser.createdAt,
       },
     });
