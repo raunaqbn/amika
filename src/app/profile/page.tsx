@@ -15,6 +15,7 @@ import {
   Calendar,
   Heart
 } from 'lucide-react';
+import { WishlistSection } from '@/components/wishlist-section';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -167,6 +168,11 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Wishlist */}
+      <div className="mb-6">
+        <WishlistSection userId={user.id} userName={user.name} />
+      </div>
 
       {/* Edit Profile */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
