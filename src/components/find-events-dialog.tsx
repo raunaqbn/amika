@@ -52,6 +52,7 @@ export function FindEventsDialog({
   const [selectedEventFriendIds, setSelectedEventFriendIds] = useState<string[]>([]);
   const [creatingEvent, setCreatingEvent] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const createEventRef = useRef<HTMLDivElement>(null);
 
   // Friend selection for event planning
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
@@ -139,6 +140,15 @@ export function FindEventsDialog({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Auto-scroll to create event panel when it appears
+  useEffect(() => {
+    if (showCreateEvent) {
+      setTimeout(() => {
+        createEventRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [showCreateEvent]);
 
   const handleFriendToggle = (friendId: string) => {
     setSelectedFriendIds(prev =>
@@ -652,7 +662,7 @@ export function FindEventsDialog({
 
           {/* Create event panel */}
           {showCreateEvent && (
-            <Card className="p-4 mt-4 border-[#A8C5A8]/30 bg-[#A8C5A8]/5">
+            <Card ref={createEventRef} className="p-4 mt-4 border-[#A8C5A8]/30 bg-[#A8C5A8]/5">
               <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-[#A8C5A8]" />
                 Quick Create Event
