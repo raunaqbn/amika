@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Search, UserPlus, Check, Loader2, ArrowLeft, UserRoundPlus } from 'lucide-react';
+import { Plus, Search, UserPlus, Check, Loader2, ArrowLeft, UserRoundPlus, Link2, Copy, CheckCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 type User = {
@@ -26,7 +26,7 @@ type ConnectionStatus = {
   [userId: string]: 'none' | 'pending' | 'sent' | 'accepted';
 };
 
-type Mode = 'search' | 'manual';
+type Mode = 'search' | 'manual' | 'invite';
 
 export function AddFriendDialog({ onAdd }: { onAdd: () => void }) {
   const [open, setOpen] = useState(false);
@@ -50,6 +50,13 @@ export function AddFriendDialog({ onAdd }: { onAdd: () => void }) {
     lastContact: '',
   });
 
+  // Invite link state
+  const [inviteeName, setInviteeName] = useState('');
+  const [inviteeEmail, setInviteeEmail] = useState('');
+  const [generatingInvite, setGeneratingInvite] = useState(false);
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
   // Reset state when dialog closes
   useEffect(() => {
     if (!open) {
@@ -64,6 +71,10 @@ export function AddFriendDialog({ onAdd }: { onAdd: () => void }) {
         notes: '',
         lastContact: '',
       });
+      setInviteeName('');
+      setInviteeEmail('');
+      setInviteUrl(null);
+      setCopied(false);
     }
   }, [open]);
 
@@ -181,6 +192,53 @@ export function AddFriendDialog({ onAdd }: { onAdd: () => void }) {
       setFormData(prev => ({ ...prev, name: searchQuery }));
     }
     setMode('manual');
+  };
+
+  const switchToInvite = () => {
+    // Pre-fill name from search query if provided
+    if (searchQuery && searchQuery.length >= 2) {
+      setInviteeName(searchQuery);
+    }
+    setMode('invite');
+  };
+
+  const generateInviteLink = async () => {
+    setGeneratingInvite(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/invites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inviteeName: inviteeName || undefined,
+          inviteeEmail: inviteeEmail || undefined,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setInviteUrl(data.inviteUrl);
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Failed to create invite');
+      }
+    } catch (err) {
+      setError('Failed to create invite link');
+    } finally {
+      setGeneratingInvite(false);
+    }
+  };
+
+  const copyToClipboard = async () => {
+    if (inviteUrl) {
+      try {
+        await navigator.clipboard.writeText(inviteUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        setError('Failed to copy link');
+      }
+    }
   };
 
   const getStatusButton = (user: User) => {
@@ -301,8 +359,18 @@ export function AddFriendDialog({ onAdd }: { onAdd: () => void }) {
                 )}
               </div>
 
-              {/* Add Manually Option */}
-              <div className="border-t pt-4">
+              {/* Add Manually and Invite Link Options */}
+              <div className="border-t pt-4 space-y-3">
+                <button
+                  onClick={switchToInvite}
+                  className="w-full flex items-center justify-center gap-2 p-3 bg-[#D4A5A5]/10 border-2 border-dashed border-[#D4A5A5] text-[#D4A5A5] hover:bg-[#D4A5A5]/20 hover:border-solid rounded-lg transition-all font-medium"
+                >
+                  <Link2 className="w-5 h-5" />
+                  <span>Create invite link</span>
+                </button>
+                <p className="text-xs text-center text-muted-foreground -mt-1">
+                  Share a link so your friend can join and connect with you
+                </p>
                 <button
                   onClick={switchToManual}
                   className="w-full flex items-center justify-center gap-2 p-3 bg-[#A8C5A8]/10 border-2 border-dashed border-[#A8C5A8] text-[#A8C5A8] hover:bg-[#A8C5A8]/20 hover:border-solid rounded-lg transition-all font-medium"
@@ -310,13 +378,13 @@ export function AddFriendDialog({ onAdd }: { onAdd: () => void }) {
                   <UserRoundPlus className="w-5 h-5" />
                   <span>Add friend manually</span>
                 </button>
-                <p className="text-xs text-center text-muted-foreground mt-2">
+                <p className="text-xs text-center text-muted-foreground -mt-1">
                   For friends who aren&apos;t on Amika yet
                 </p>
               </div>
             </div>
           </>
-        ) : (
+        ) : mode === 'manual' ? (
           <>
             <DialogHeader>
               <div className="flex items-center gap-2">
@@ -384,6 +452,117 @@ export function AddFriendDialog({ onAdd }: { onAdd: () => void }) {
                 {loading ? 'Adding...' : 'Add Friend'}
               </Button>
             </form>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setMode('search')}
+                  className="p-1 hover:bg-muted rounded-md transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <DialogTitle>Create Invite Link</DialogTitle>
+              </div>
+              <DialogDescription>
+                Generate a link to invite a friend to Amika. They&apos;ll automatically become your friend when they sign up.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {error && (
+                <div className="p-2 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+                  {error}
+                </div>
+              )}
+
+              {!inviteUrl ? (
+                <>
+                  <div>
+                    <label className="text-sm font-medium">Friend&apos;s Name (optional)</label>
+                    <Input
+                      value={inviteeName}
+                      onChange={(e) => setInviteeName(e.target.value)}
+                      placeholder="Their name"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Helps you remember who you sent this invite to
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Friend&apos;s Email (optional)</label>
+                    <Input
+                      type="email"
+                      value={inviteeEmail}
+                      onChange={(e) => setInviteeEmail(e.target.value)}
+                      placeholder="friend@example.com"
+                    />
+                  </div>
+                  <Button
+                    onClick={generateInviteLink}
+                    disabled={generatingInvite}
+                    className="w-full bg-[#D4A5A5] hover:bg-[#D4A5A5]/90 text-white"
+                  >
+                    {generatingInvite ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Link2 className="w-4 h-4 mr-2" />
+                        Generate Invite Link
+                      </>
+                    )}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Your invite link:</p>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        readOnly
+                        value={inviteUrl}
+                        className="text-sm font-mono"
+                      />
+                      <Button
+                        onClick={copyToClipboard}
+                        variant="outline"
+                        className="shrink-0"
+                      >
+                        {copied ? (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                    {copied && (
+                      <p className="text-xs text-green-600 mt-2">Link copied to clipboard!</p>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Share this link with your friend. When they sign up using this link, they&apos;ll automatically be added as your friend with their profile picture.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    This link expires in 7 days.
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setInviteUrl(null);
+                      setInviteeName('');
+                      setInviteeEmail('');
+                    }}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    Create Another Invite
+                  </Button>
+                </>
+              )}
+            </div>
           </>
         )}
       </DialogContent>
