@@ -1041,9 +1041,15 @@ export const prisma = {
         args: [where.id],
       });
 
-      // Delete related events
+      // Delete related events where this friend is the primary friend
       await client.execute({
         sql: 'DELETE FROM events WHERE friendId = ?',
+        args: [where.id],
+      });
+
+      // Delete event_friends entries where this friend is an additional participant
+      await client.execute({
+        sql: 'DELETE FROM event_friends WHERE friendId = ?',
         args: [where.id],
       });
 
