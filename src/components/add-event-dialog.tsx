@@ -13,7 +13,7 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Switch } from './ui/switch';
 import { Label } from './ui/label';
-import { Phone, MessageSquare, Calendar, Coffee, Utensils, MapPin, Sparkles, Dumbbell, Video, Share2, Mail, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { Phone, MessageSquare, Calendar, Coffee, Utensils, MapPin, Sparkles, Dumbbell, Video, Share2, Mail, Check, AlertCircle, Loader2, Plus, ArrowLeft } from 'lucide-react';
 import { LocationAutocomplete } from './location-autocomplete';
 import { format } from 'date-fns';
 
@@ -67,6 +67,7 @@ interface AddEventDialogProps {
   onEventAdded?: () => void;
   eventToEdit?: EventToEdit | null;
   onEventUpdated?: () => void;
+  onFriendsUpdated?: () => void;
 }
 
 export function AddEventDialog({
@@ -76,6 +77,7 @@ export function AddEventDialog({
   onEventAdded,
   eventToEdit,
   onEventUpdated,
+  onFriendsUpdated,
 }: AddEventDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -99,6 +101,18 @@ export function AddEventDialog({
   const [calendarInviteStatus, setCalendarInviteStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [calendarInviteMessage, setCalendarInviteMessage] = useState<string | null>(null);
   const [eventDuration, setEventDuration] = useState(60); // Duration in minutes
+
+  // Add friend inline state
+  const [showAddFriend, setShowAddFriend] = useState(false);
+  const [addingFriend, setAddingFriend] = useState(false);
+  const [addFriendData, setAddFriendData] = useState({
+    name: '',
+    email: '',
+    birthday: '',
+    howWeMet: '',
+    notes: '',
+    lastContact: '',
+  });
 
   const isEditMode = !!eventToEdit;
 
@@ -232,6 +246,65 @@ export function AddEventDialog({
     setCalendarInviteStatus('idle');
     setCalendarInviteMessage(null);
     setEventDuration(60);
+    setShowAddFriend(false);
+    setAddingFriend(false);
+    setAddFriendData({
+      name: '',
+      email: '',
+      birthday: '',
+      howWeMet: '',
+      notes: '',
+      lastContact: '',
+    });
+  };
+
+  const resetAddFriendForm = () => {
+    setAddFriendData({
+      name: '',
+      email: '',
+      birthday: '',
+      howWeMet: '',
+      notes: '',
+      lastContact: '',
+    });
+  };
+
+  const handleAddFriendSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addFriendData.name.trim()) {
+      setError('Friend name is required');
+      return;
+    }
+
+    setAddingFriend(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/friends', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(addFriendData),
+      });
+
+      if (response.ok) {
+        const newFriend = await response.json();
+        // Auto-select the newly added friend
+        setSelectedFriendIds([...selectedFriendIds, newFriend.id]);
+        // Reset and hide the add friend form
+        resetAddFriendForm();
+        setShowAddFriend(false);
+        // Notify parent to refresh friends list
+        onFriendsUpdated?.();
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Failed to add friend');
+      }
+    } catch (err) {
+      console.error('Error adding friend:', err);
+      setError('Failed to add friend. Please try again.');
+    } finally {
+      setAddingFriend(false);
+    }
   };
 
   // Send calendar invite helper
@@ -372,11 +445,106 @@ export function AddEventDialog({
     }}>
       <DialogContent className="sm:max-w-md max-h-[85vh] max-h-[85dvh] flex flex-col overflow-hidden">
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle>{isEditMode ? 'Edit Event' : 'Plan an Event'}</DialogTitle>
+          {showAddFriend ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setShowAddFriend(false);
+                  resetAddFriendForm();
+                  setError(null);
+                }}
+                className="p-1 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <DialogTitle>Add Friend Manually</DialogTitle>
+            </div>
+          ) : (
+            <DialogTitle>{isEditMode ? 'Edit Event' : 'Plan an Event'}</DialogTitle>
+          )}
         </DialogHeader>
 
         {/* Scrollable content area */}
         <div className="flex-1 overflow-y-auto min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>
+
+        {/* Add Friend Form */}
+        {showAddFriend ? (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-500">Add someone who isn&apos;t on Amika yet.</p>
+
+            <form onSubmit={handleAddFriendSubmit} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Name *</label>
+                <Input
+                  required
+                  value={addFriendData.name}
+                  onChange={(e) => setAddFriendData({ ...addFriendData, name: e.target.value })}
+                  placeholder="John Doe"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Email</label>
+                <Input
+                  type="email"
+                  value={addFriendData.email}
+                  onChange={(e) => setAddFriendData({ ...addFriendData, email: e.target.value })}
+                  placeholder="john@example.com"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Add email to send calendar invites
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Birthday</label>
+                <Input
+                  type="date"
+                  value={addFriendData.birthday}
+                  onChange={(e) => setAddFriendData({ ...addFriendData, birthday: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">How We Met</label>
+                <Input
+                  value={addFriendData.howWeMet}
+                  onChange={(e) => setAddFriendData({ ...addFriendData, howWeMet: e.target.value })}
+                  placeholder="College, work, etc."
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Last Contact</label>
+                <Input
+                  type="date"
+                  value={addFriendData.lastContact}
+                  onChange={(e) => setAddFriendData({ ...addFriendData, lastContact: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Notes</label>
+                <Textarea
+                  value={addFriendData.notes}
+                  onChange={(e) => setAddFriendData({ ...addFriendData, notes: e.target.value })}
+                  placeholder="Any additional notes..."
+                  rows={3}
+                />
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-800">{error}</p>
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                disabled={addingFriend}
+                className="w-full bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
+              >
+                {addingFriend ? 'Adding...' : 'Add Friend'}
+              </Button>
+            </form>
+          </div>
+        ) : (
+        <>
         {/* Quick event type buttons - only show when not editing */}
         {!isEditMode && (
         <div className="grid grid-cols-4 gap-2 pb-4 border-b">
@@ -427,6 +595,14 @@ export function AddEventDialog({
                   </label>
                 ))}
               </div>
+              <button
+                type="button"
+                onClick={() => setShowAddFriend(true)}
+                className="flex items-center gap-2 text-sm text-[#A8C5A8] hover:text-[#A8C5A8]/80 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Friend</span>
+              </button>
             </div>
 
             <div className="space-y-2">
@@ -526,6 +702,14 @@ export function AddEventDialog({
                   <p className="text-sm text-gray-500 p-2">No friends available</p>
                 )}
               </div>
+              <button
+                type="button"
+                onClick={() => setShowAddFriend(true)}
+                className="flex items-center gap-2 text-sm text-[#A8C5A8] hover:text-[#A8C5A8]/80 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Friend</span>
+              </button>
             </div>
 
             <div className="space-y-2">
@@ -744,6 +928,8 @@ export function AddEventDialog({
               </Button>
             </DialogFooter>
           </form>
+        )}
+        </>
         )}
         </div>
       </DialogContent>
