@@ -15,6 +15,7 @@ export type User = {
   location: string | null;
   googleId: string | null;
   isTemporary: boolean;
+  interests: string | null; // JSON array of interest IDs
   createdAt: Date;
 };
 
@@ -36,6 +37,7 @@ type Friend = {
   interests: string | null;
   lastContact: Date | null;
   profileImage: string | null;
+  customProfileImage: string | null; // User-uploaded custom image that overrides the default
   linkedUserId: string | null; // If set, this friend is an Amika user
   createdAt: Date;
 };
@@ -126,6 +128,21 @@ export type FriendInvite = {
   acceptedByUserId: string | null;
   expiresAt: Date;
   createdAt: Date;
+};
+
+export type WishlistItem = {
+  id: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  link: string | null;
+  price: string | null;
+  category: string | null;
+  priority: number;
+  imageUrl: string | null;
+  purchased: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 let clientInstance: Client | null = null;
@@ -316,6 +333,25 @@ async function ensureTablesExist() {
       )
     `);
 
+    // Wishlist items
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS wishlist_items (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        link TEXT,
+        price TEXT,
+        category TEXT,
+        priority INTEGER DEFAULT 0,
+        imageUrl TEXT,
+        purchased INTEGER DEFAULT 0,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
     // Add migrations for existing tables
     try {
       await client.execute(`ALTER TABLE friends ADD COLUMN profileImage TEXT`);
@@ -389,9 +425,23 @@ async function ensureTablesExist() {
       // Column might already exist
     }
 
+    // Add interests to users table for user's own interests
+    try {
+      await client.execute(`ALTER TABLE users ADD COLUMN interests TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
+
     // Add linkedUserId to friends table for Amika friend unification
     try {
       await client.execute(`ALTER TABLE friends ADD COLUMN linkedUserId TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
+
+    // Add customProfileImage to friends table for custom profile picture override
+    try {
+      await client.execute(`ALTER TABLE friends ADD COLUMN customProfileImage TEXT`);
     } catch (e) {
       // Column might already exist
     }
@@ -529,6 +579,7 @@ export const prisma = {
         location: row.location as string | null,
         googleId: row.googleId as string | null,
         isTemporary: Boolean(row.isTemporary),
+        interests: row.interests as string | null,
         createdAt: new Date(row.createdAt as string),
       };
     },
@@ -556,6 +607,7 @@ export const prisma = {
         location: row.location as string | null,
         googleId: row.googleId as string | null,
         isTemporary: Boolean(row.isTemporary),
+        interests: row.interests as string | null,
         createdAt: new Date(row.createdAt as string),
       };
     },
@@ -583,6 +635,7 @@ export const prisma = {
         location: row.location as string | null,
         googleId: row.googleId as string | null,
         isTemporary: Boolean(row.isTemporary),
+        interests: row.interests as string | null,
         createdAt: new Date(row.createdAt as string),
       };
     },
@@ -615,11 +668,12 @@ export const prisma = {
         location: null,
         googleId: data.googleId ?? null,
         isTemporary: data.isTemporary ?? false,
+        interests: null,
         createdAt: new Date(),
       };
 
       await client.execute({
-        sql: 'INSERT INTO users (id, email, passwordHash, name, birthday, profileImage, phone, location, googleId, isTemporary, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        sql: 'INSERT INTO users (id, email, passwordHash, name, birthday, profileImage, phone, location, googleId, isTemporary, interests, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         args: [
           user.id,
           user.email,
@@ -631,6 +685,7 @@ export const prisma = {
           user.location,
           user.googleId,
           user.isTemporary ? 1 : 0,
+          user.interests,
           user.createdAt.toISOString(),
         ],
       });
@@ -646,6 +701,7 @@ export const prisma = {
       location?: string | null;
       googleId?: string | null;
       isTemporary?: boolean;
+      interests?: string | null;
     }): Promise<User> => {
       await ensureTablesExist();
       const client = getClient();
@@ -664,10 +720,11 @@ export const prisma = {
         location: data.location !== undefined ? data.location : existing.location,
         googleId: data.googleId !== undefined ? data.googleId : existing.googleId,
         isTemporary: data.isTemporary !== undefined ? data.isTemporary : existing.isTemporary,
+        interests: data.interests !== undefined ? data.interests : existing.interests,
       };
 
       await client.execute({
-        sql: 'UPDATE users SET name = ?, birthday = ?, profileImage = ?, phone = ?, location = ?, googleId = ?, isTemporary = ? WHERE id = ?',
+        sql: 'UPDATE users SET name = ?, birthday = ?, profileImage = ?, phone = ?, location = ?, googleId = ?, isTemporary = ?, interests = ? WHERE id = ?',
         args: [
           updated.name,
           updated.birthday ? updated.birthday.toISOString() : null,
@@ -676,6 +733,7 @@ export const prisma = {
           updated.location,
           updated.googleId,
           updated.isTemporary ? 1 : 0,
+          updated.interests,
           id,
         ],
       });
@@ -797,6 +855,7 @@ export const prisma = {
         interests: row.interests as string | null,
         lastContact: row.lastContact ? new Date(row.lastContact as string) : null,
         profileImage: row.profileImage as string | null,
+        customProfileImage: row.customProfileImage as string | null,
         linkedUserId: row.linkedUserId as string | null,
         createdAt: new Date(row.createdAt as string),
       }));
@@ -845,12 +904,13 @@ export const prisma = {
         interests: data.interests ?? null,
         lastContact: data.lastContact ?? null,
         profileImage: data.profileImage ?? null,
+        customProfileImage: data.customProfileImage ?? null,
         linkedUserId: data.linkedUserId ?? null,
         createdAt: new Date(),
       };
 
       await client.execute({
-        sql: 'INSERT INTO friends (id, userId, name, birthday, howWeMet, notes, interests, lastContact, profileImage, linkedUserId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        sql: 'INSERT INTO friends (id, userId, name, birthday, howWeMet, notes, interests, lastContact, profileImage, customProfileImage, linkedUserId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         args: [
           newFriend.id,
           newFriend.userId,
@@ -861,6 +921,7 @@ export const prisma = {
           newFriend.interests,
           newFriend.lastContact ? newFriend.lastContact.toISOString() : null,
           newFriend.profileImage,
+          newFriend.customProfileImage,
           newFriend.linkedUserId,
           newFriend.createdAt.toISOString(),
         ],
@@ -896,12 +957,13 @@ export const prisma = {
         interests: (data.interests !== undefined ? data.interests : existing.interests) as string | null,
         lastContact: data.lastContact !== undefined ? data.lastContact : (existing.lastContact ? new Date(existing.lastContact as string) : null),
         profileImage: (data.profileImage !== undefined ? data.profileImage : existing.profileImage) as string | null,
+        customProfileImage: (data.customProfileImage !== undefined ? data.customProfileImage : existing.customProfileImage) as string | null,
         linkedUserId: (data.linkedUserId !== undefined ? data.linkedUserId : existing.linkedUserId) as string | null,
         createdAt: new Date(existing.createdAt as string),
       };
 
       await client.execute({
-        sql: 'UPDATE friends SET name = ?, birthday = ?, howWeMet = ?, notes = ?, interests = ?, lastContact = ?, profileImage = ? WHERE id = ?',
+        sql: 'UPDATE friends SET name = ?, birthday = ?, howWeMet = ?, notes = ?, interests = ?, lastContact = ?, profileImage = ?, customProfileImage = ? WHERE id = ?',
         args: [
           updated.name,
           updated.birthday ? updated.birthday.toISOString() : null,
@@ -910,6 +972,7 @@ export const prisma = {
           updated.interests,
           updated.lastContact ? updated.lastContact.toISOString() : null,
           updated.profileImage,
+          updated.customProfileImage,
           where.id,
         ],
       });
@@ -1224,6 +1287,7 @@ export const prisma = {
             interests: null,
             lastContact: null,
             profileImage: null,
+            customProfileImage: null,
             linkedUserId: row.linkedUserId as string | null,
             createdAt: new Date(),
           },
@@ -2862,6 +2926,201 @@ export const prisma = {
       });
 
       return { success: true };
+    },
+  },
+
+  // Wishlist operations
+  wishlist: {
+    findByUserId: async (userId: string): Promise<WishlistItem[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: 'SELECT * FROM wishlist_items WHERE userId = ? ORDER BY priority DESC, createdAt DESC',
+        args: [userId],
+      });
+
+      return result.rows.map((row: any) => ({
+        id: row.id as string,
+        userId: row.userId as string,
+        title: row.title as string,
+        description: row.description as string | null,
+        link: row.link as string | null,
+        price: row.price as string | null,
+        category: row.category as string | null,
+        priority: Number(row.priority) || 0,
+        imageUrl: row.imageUrl as string | null,
+        purchased: Boolean(row.purchased),
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: new Date(row.updatedAt as string),
+      }));
+    },
+
+    findById: async (id: string): Promise<WishlistItem | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: 'SELECT * FROM wishlist_items WHERE id = ?',
+        args: [id],
+      });
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+      return {
+        id: row.id as string,
+        userId: row.userId as string,
+        title: row.title as string,
+        description: row.description as string | null,
+        link: row.link as string | null,
+        price: row.price as string | null,
+        category: row.category as string | null,
+        priority: Number(row.priority) || 0,
+        imageUrl: row.imageUrl as string | null,
+        purchased: Boolean(row.purchased),
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: new Date(row.updatedAt as string),
+      };
+    },
+
+    create: async (data: {
+      userId: string;
+      title: string;
+      description?: string | null;
+      link?: string | null;
+      price?: string | null;
+      category?: string | null;
+      priority?: number;
+      imageUrl?: string | null;
+    }): Promise<WishlistItem> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const now = new Date();
+      const item: WishlistItem = {
+        id: randomUUID(),
+        userId: data.userId,
+        title: data.title,
+        description: data.description ?? null,
+        link: data.link ?? null,
+        price: data.price ?? null,
+        category: data.category ?? null,
+        priority: data.priority ?? 0,
+        imageUrl: data.imageUrl ?? null,
+        purchased: false,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await client.execute({
+        sql: 'INSERT INTO wishlist_items (id, userId, title, description, link, price, category, priority, imageUrl, purchased, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [
+          item.id,
+          item.userId,
+          item.title,
+          item.description,
+          item.link,
+          item.price,
+          item.category,
+          item.priority,
+          item.imageUrl,
+          item.purchased ? 1 : 0,
+          item.createdAt.toISOString(),
+          item.updatedAt.toISOString(),
+        ],
+      });
+
+      return item;
+    },
+
+    update: async (id: string, userId: string, data: {
+      title?: string;
+      description?: string | null;
+      link?: string | null;
+      price?: string | null;
+      category?: string | null;
+      priority?: number;
+      imageUrl?: string | null;
+      purchased?: boolean;
+    }): Promise<WishlistItem | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await prisma.wishlist.findById(id);
+      if (!existing || existing.userId !== userId) return null;
+
+      const updated: WishlistItem = {
+        ...existing,
+        title: data.title ?? existing.title,
+        description: data.description !== undefined ? data.description : existing.description,
+        link: data.link !== undefined ? data.link : existing.link,
+        price: data.price !== undefined ? data.price : existing.price,
+        category: data.category !== undefined ? data.category : existing.category,
+        priority: data.priority !== undefined ? data.priority : existing.priority,
+        imageUrl: data.imageUrl !== undefined ? data.imageUrl : existing.imageUrl,
+        purchased: data.purchased !== undefined ? data.purchased : existing.purchased,
+        updatedAt: new Date(),
+      };
+
+      await client.execute({
+        sql: 'UPDATE wishlist_items SET title = ?, description = ?, link = ?, price = ?, category = ?, priority = ?, imageUrl = ?, purchased = ?, updatedAt = ? WHERE id = ?',
+        args: [
+          updated.title,
+          updated.description,
+          updated.link,
+          updated.price,
+          updated.category,
+          updated.priority,
+          updated.imageUrl,
+          updated.purchased ? 1 : 0,
+          updated.updatedAt.toISOString(),
+          id,
+        ],
+      });
+
+      return updated;
+    },
+
+    delete: async (id: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await prisma.wishlist.findById(id);
+      if (!existing || existing.userId !== userId) return false;
+
+      await client.execute({
+        sql: 'DELETE FROM wishlist_items WHERE id = ?',
+        args: [id],
+      });
+
+      return true;
+    },
+
+    getPublicWishlist: async (userId: string): Promise<{ items: WishlistItem[]; user: { id: string; name: string; profileImage: string | null } | null }> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const userResult = await client.execute({
+        sql: 'SELECT id, name, profileImage FROM users WHERE id = ?',
+        args: [userId],
+      });
+
+      if (userResult.rows.length === 0) {
+        return { items: [], user: null };
+      }
+
+      const user = {
+        id: userResult.rows[0].id as string,
+        name: userResult.rows[0].name as string,
+        profileImage: userResult.rows[0].profileImage as string | null,
+      };
+
+      const items = await prisma.wishlist.findByUserId(userId);
+      // Only return non-purchased items for public view
+      const publicItems = items.filter(item => !item.purchased);
+
+      return { items: publicItems, user };
     },
   },
 };

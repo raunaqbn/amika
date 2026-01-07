@@ -13,6 +13,7 @@ interface Friend {
   lastContact?: Date | null;
   notes?: string | null;
   profileImage?: string | null;
+  customProfileImage?: string | null;
   linkedUserId?: string | null;
   friendshipPoints?: number;
 }
@@ -30,6 +31,7 @@ export function FriendCard({ friend, isAmikaFriend }: FriendCardProps) {
           <FriendAvatar
             name={friend.name}
             profileImage={friend.profileImage}
+            customProfileImage={friend.customProfileImage}
             size="sm"
           />
           <div className="flex-1 min-w-0">

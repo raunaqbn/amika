@@ -11,6 +11,7 @@ type User = {
   phone: string | null;
   location: string | null;
   isTemporary: boolean;
+  interests: string[];
   createdAt: Date | string;
 };
 
@@ -29,7 +30,7 @@ type AuthContextType = {
   signUp: (email: string, password: string, name: string, birthday?: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
-  updateProfile: (data: { name?: string; birthday?: string | null; profileImage?: string | null; phone?: string | null; location?: string | null }) => Promise<{ success: boolean; error?: string }>;
+  updateProfile: (data: { name?: string; birthday?: string | null; profileImage?: string | null; phone?: string | null; location?: string | null; interests?: string[] }) => Promise<{ success: boolean; error?: string }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -120,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateProfile = async (data: { name?: string; birthday?: string | null; profileImage?: string | null; phone?: string | null; location?: string | null }) => {
+  const updateProfile = async (data: { name?: string; birthday?: string | null; profileImage?: string | null; phone?: string | null; location?: string | null; interests?: string[] }) => {
     try {
       const response = await fetch('/api/auth/profile', {
         method: 'PUT',

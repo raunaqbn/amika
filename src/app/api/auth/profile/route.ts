@@ -11,7 +11,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, birthday, profileImage, phone, location } = body;
+    const { name, birthday, profileImage, phone, location, interests } = body;
 
     // Parse birthday if provided
     let birthdayDate: Date | null | undefined = undefined;
@@ -24,13 +24,34 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // Handle interests - convert array to JSON string
+    let interestsJson: string | null | undefined = undefined;
+    if (interests !== undefined) {
+      if (interests === null || (Array.isArray(interests) && interests.length === 0)) {
+        interestsJson = null;
+      } else if (Array.isArray(interests)) {
+        interestsJson = JSON.stringify(interests);
+      }
+    }
+
     const updatedUser = await prisma.user.update(session.user.id, {
       ...(name !== undefined && { name }),
       ...(birthdayDate !== undefined && { birthday: birthdayDate }),
       ...(profileImage !== undefined && { profileImage }),
       ...(phone !== undefined && { phone }),
       ...(location !== undefined && { location }),
+      ...(interestsJson !== undefined && { interests: interestsJson }),
     });
+
+    // Parse interests back to array for response
+    let parsedInterests: string[] = [];
+    if (updatedUser.interests) {
+      try {
+        parsedInterests = JSON.parse(updatedUser.interests);
+      } catch {
+        parsedInterests = [];
+      }
+    }
 
     return NextResponse.json({
       user: {
@@ -42,6 +63,7 @@ export async function PUT(request: NextRequest) {
         phone: updatedUser.phone,
         location: updatedUser.location,
         isTemporary: updatedUser.isTemporary,
+        interests: parsedInterests,
         createdAt: updatedUser.createdAt,
       },
     });

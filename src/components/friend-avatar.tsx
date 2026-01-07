@@ -1,6 +1,6 @@
 'use client';
 
-import { Calendar, Eye, ImagePlus, User, Image as ImageIcon, Camera, FolderOpen, X } from 'lucide-react';
+import { Calendar, Eye, ImagePlus, User, Image as ImageIcon, Camera, FolderOpen, X, RotateCcw } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
@@ -9,11 +9,13 @@ import { useRouter } from 'next/navigation';
 
 interface FriendAvatarProps {
   name: string;
-  profileImage?: string | null;
+  profileImage?: string | null;  // Default/synced profile image
+  customProfileImage?: string | null;  // User-uploaded custom image
   hasUpcomingEvent?: boolean;
   size?: 'sm' | 'md' | 'lg';
   editable?: boolean;
   onImageUpload?: (file: File) => void;
+  onResetToDefault?: () => void;  // Callback to reset to default image
   linkedUserId?: string | null;
   friendId?: string;
 }
@@ -21,10 +23,12 @@ interface FriendAvatarProps {
 export function FriendAvatar({
   name,
   profileImage,
+  customProfileImage,
   hasUpcomingEvent = false,
   size = 'md',
   editable = false,
   onImageUpload,
+  onResetToDefault,
   linkedUserId,
   friendId,
 }: FriendAvatarProps) {
@@ -34,6 +38,15 @@ export function FriendAvatar({
   const [menuOpen, setMenuOpen] = useState(false);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [changeImageMenuOpen, setChangeImageMenuOpen] = useState(false);
+
+  // Display custom image if set, otherwise fall back to default/synced image
+  const displayImage = customProfileImage || profileImage;
+
+  // Determine if there's a default image to reset to
+  // For Amika friends: the default is the linked user's profile image (profileImage)
+  // For regular friends: the default is no image (initials)
+  const hasDefaultImage = linkedUserId ? !!profileImage : false;
+  const isUsingCustomImage = !!customProfileImage;
 
   const getInitials = (name: string) => {
     return name
@@ -156,13 +169,20 @@ export function FriendAvatar({
     fileInputRef.current?.click();
   };
 
+  const handleResetToDefault = () => {
+    setMenuOpen(false);
+    if (onResetToDefault) {
+      onResetToDefault();
+    }
+  };
+
   return (
     <div className="relative inline-block">
       <Avatar
         className={`${sizeClasses[size]} bg-[#A8C5A8] text-white ${editable ? 'cursor-pointer' : ''}`}
         onClick={editable ? () => setMenuOpen(true) : undefined}
       >
-        {profileImage && <AvatarImage src={profileImage} alt={name} />}
+        {displayImage && <AvatarImage src={displayImage} alt={name} />}
         <AvatarFallback className="bg-[#A8C5A8] text-white">
           {getInitials(name)}
         </AvatarFallback>
@@ -198,22 +218,8 @@ export function FriendAvatar({
       <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
         <DialogContent className="sm:max-w-sm p-0 rounded-2xl overflow-hidden" showCloseButton={false}>
           <div className="bg-white">
-            {/* View Image Option */}
-            {profileImage && (
-              <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  setImageViewerOpen(true);
-                }}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
-              >
-                <Eye className="w-5 h-5 text-gray-600" />
-                <span className="text-gray-900">View Image</span>
-              </button>
-            )}
-
-            {/* Change Image Option - Not available for Amika friends (their profile is managed by themselves) */}
-            {onImageUpload && !linkedUserId && (
+            {/* 1. Upload Picture Option - Available for all friends */}
+            {onImageUpload && (
               <button
                 onClick={() => {
                   setMenuOpen(false);
@@ -222,7 +228,35 @@ export function FriendAvatar({
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
               >
                 <ImagePlus className="w-5 h-5 text-gray-600" />
-                <span className="text-gray-900">Change Image</span>
+                <span className="text-gray-900">Upload Picture</span>
+              </button>
+            )}
+
+            {/* 2. Use Default Option - Available for all friends */}
+            {onResetToDefault && (isUsingCustomImage || (!linkedUserId && displayImage)) && (
+              <button
+                onClick={handleResetToDefault}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
+              >
+                <RotateCcw className="w-5 h-5 text-gray-600" />
+                <span className="text-gray-900">Use Default</span>
+                {linkedUserId && hasDefaultImage && (
+                  <span className="text-xs text-gray-400 ml-auto">Friend&apos;s photo</span>
+                )}
+              </button>
+            )}
+
+            {/* 3. View Picture Option */}
+            {displayImage && (
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  setImageViewerOpen(true);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
+              >
+                <Eye className="w-5 h-5 text-gray-600" />
+                <span className="text-gray-900">View Picture</span>
               </button>
             )}
 
@@ -297,9 +331,9 @@ export function FriendAvatar({
             >
               <X className="w-5 h-5" />
             </button>
-            {profileImage && (
+            {displayImage && (
               <img
-                src={profileImage}
+                src={displayImage}
                 alt={name}
                 className="w-full h-auto max-h-[80vh] object-contain"
               />

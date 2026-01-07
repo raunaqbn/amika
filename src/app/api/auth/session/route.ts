@@ -13,6 +13,16 @@ export async function GET() {
     // Get user stats
     const stats = await prisma.getUserStats(session.user.id);
 
+    // Parse interests from JSON string
+    let interests: string[] = [];
+    if (session.user.interests) {
+      try {
+        interests = JSON.parse(session.user.interests);
+      } catch {
+        interests = [];
+      }
+    }
+
     return NextResponse.json({
       user: {
         id: session.user.id,
@@ -23,6 +33,7 @@ export async function GET() {
         phone: session.user.phone,
         location: session.user.location,
         isTemporary: session.user.isTemporary,
+        interests,
         createdAt: session.user.createdAt,
       },
       stats,

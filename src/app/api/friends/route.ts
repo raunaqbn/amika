@@ -189,7 +189,29 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, name, birthday, howWeMet, notes, interests, lastContact, profileImage } = body;
+    const { id, name, birthday, howWeMet, notes, interests, lastContact, profileImage, customProfileImage, resetToDefault } = body;
+
+    // If resetToDefault is true, clear the customProfileImage
+    // For regular friends (no linkedUserId), also clear profileImage
+    if (resetToDefault) {
+      // First, get the friend to check if it's an Amika friend
+      const friends = await prisma.friend.findMany({ userId });
+      const existingFriend = friends.find((f: { id: string }) => f.id === id);
+
+      if (existingFriend) {
+        const updateData: { customProfileImage: null; profileImage?: null } = { customProfileImage: null };
+        // For regular friends, reset profileImage to null as well
+        if (!existingFriend.linkedUserId) {
+          updateData.profileImage = null;
+        }
+
+        const friend = await prisma.friend.update({
+          where: { id, userId },
+          data: updateData,
+        });
+        return NextResponse.json(friend);
+      }
+    }
 
     const friend = await prisma.friend.update({
       where: { id, userId },
@@ -201,6 +223,7 @@ export async function PUT(request: NextRequest) {
         ...(interests !== undefined && { interests: interests || null }),
         ...(lastContact !== undefined && { lastContact: parseLocalDate(lastContact) }),
         ...(profileImage !== undefined && { profileImage }),
+        ...(customProfileImage !== undefined && { customProfileImage }),
       } as any,
     });
 

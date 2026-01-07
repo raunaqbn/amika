@@ -12,6 +12,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://amika.vercel.app"),
   title: "Amika - Nurture Your Friendships",
   description: "A beautiful app to help you stay connected with the people who matter most",
   applicationName: "Amika",
@@ -26,6 +27,11 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "Amika",
+    title: "Amika - Nurture Your Friendships",
+    description: "A beautiful app to help you stay connected with the people who matter most",
+  },
+  twitter: {
+    card: "summary_large_image",
     title: "Amika - Nurture Your Friendships",
     description: "A beautiful app to help you stay connected with the people who matter most",
   },
