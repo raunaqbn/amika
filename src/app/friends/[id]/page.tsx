@@ -9,12 +9,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FriendAvatar } from '@/components/friend-avatar';
 import { MemoryList } from '@/components/memory-list';
-import { ArrowLeft, Edit, Trash2, Check, X, Plus, Calendar, BarChart3, Clock, BookOpen, Heart, Sparkles, Utensils, MapPin, Dumbbell, Star, Trophy, CheckCircle2, Search, Video } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Check, X, Plus, Calendar, BarChart3, Clock, BookOpen, Heart, Sparkles, Utensils, MapPin, Dumbbell, Star, Trophy, CheckCircle2, Search, Video, Gift, ExternalLink } from 'lucide-react';
 import { EventCard } from '@/components/event-card';
 import { AddEventDialog } from '@/components/add-event-dialog';
 import { FindEventsDialog } from '@/components/find-events-dialog';
 import { InterestSelector } from '@/components/interest-selector';
-import { parseInterests, stringifyInterests } from '@/lib/interests';
+import { parseInterests, stringifyInterests, getInterestLabel } from '@/lib/interests';
 import { format, formatDistanceToNow } from 'date-fns';
 
 // Point system for events based on bonding potential and time/energy investment
@@ -97,6 +97,41 @@ interface FriendStats {
   daysSinceLastContact: number | null;
 }
 
+interface SharedItem {
+  id: string;
+  itemType: 'memory' | 'event' | 'note';
+  sharedByUserId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: string;
+  sharedBy: {
+    id: string;
+    name: string;
+    email: string;
+    profileImage: string | null;
+  };
+  item: {
+    id: string;
+    content?: string;
+    title?: string;
+    description?: string;
+    imageUrl?: string | null;
+    eventDate?: string;
+    createdAt?: string;
+  };
+}
+
+interface WishlistItem {
+  id: string;
+  title: string;
+  description: string | null;
+  link: string | null;
+  price: string | null;
+  category: string | null;
+  priority: number;
+  imageUrl: string | null;
+  createdAt: string;
+}
+
 export default function FriendProfilePage() {
   const params = useParams();
   const router = useRouter();
@@ -125,6 +160,9 @@ export default function FriendProfilePage() {
   const [stats, setStats] = useState<FriendStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [allFriends, setAllFriends] = useState<{ id: string; name: string; interests?: string | null; notes?: string | null; linkedUserId?: string | null }[]>([]);
+  const [sharedByFriend, setSharedByFriend] = useState<SharedItem[]>([]);
+  const [friendActualInterests, setFriendActualInterests] = useState<string[]>([]);
+  const [friendWishlist, setFriendWishlist] = useState<WishlistItem[]>([]);
 
   useEffect(() => {
     fetchFriend();
@@ -156,7 +194,53 @@ export default function FriendProfilePage() {
     };
 
     loadNotes();
+
+    // If this is an Amika friend, fetch shared items and their profile data
+    if (friend.linkedUserId) {
+      fetchSharedByFriend(friend.linkedUserId);
+      fetchFriendInterests(friend.linkedUserId);
+      fetchFriendWishlist(friend.linkedUserId);
+    }
   }, [friend]);
+
+  const fetchSharedByFriend = async (linkedUserId: string) => {
+    try {
+      const response = await fetch('/api/shared-items?type=received&status=accepted');
+      if (!response.ok) return;
+      const data = await response.json();
+      // Filter to only show items shared by this specific friend
+      const fromThisFriend = data.filter(
+        (item: SharedItem) => item.sharedByUserId === linkedUserId
+      );
+      setSharedByFriend(fromThisFriend);
+    } catch (error) {
+      console.error('Error fetching shared items:', error);
+    }
+  };
+
+  const fetchFriendInterests = async (linkedUserId: string) => {
+    try {
+      const response = await fetch(`/api/amika-friends/${linkedUserId}/interests`);
+      if (response.ok) {
+        const data = await response.json();
+        setFriendActualInterests(data.interests || []);
+      }
+    } catch (error) {
+      console.error('Error fetching friend interests:', error);
+    }
+  };
+
+  const fetchFriendWishlist = async (linkedUserId: string) => {
+    try {
+      const response = await fetch(`/api/amika-friends/${linkedUserId}/wishlist`);
+      if (response.ok) {
+        const data = await response.json();
+        setFriendWishlist(data);
+      }
+    } catch (error) {
+      console.error('Error fetching friend wishlist:', error);
+    }
+  };
 
   const fetchFriend = async () => {
     try {
@@ -627,6 +711,106 @@ export default function FriendProfilePage() {
             }}
           />
         </Card>
+
+        {/* Friend's Actual Interests Section - only for Amika friends */}
+        {friend.linkedUserId && (
+          <Card className="p-6 border-[#A8C5A8]/20 mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="w-5 h-5 text-[#A8C5A8]" />
+              <h2 className="text-xl font-semibold">{friend.name}&apos;s Interests</h2>
+              <span className="text-xs px-2 py-0.5 bg-[#A8C5A8]/20 text-[#A8C5A8] rounded-full">
+                From their profile
+              </span>
+            </div>
+            {friendActualInterests.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {friendActualInterests.map((interestId) => (
+                  <span
+                    key={interestId}
+                    className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-[#A8C5A8]/20 text-[#6B8E6B] border border-[#A8C5A8]/30"
+                  >
+                    {getInterestLabel(interestId)}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">{friend.name} hasn&apos;t added any interests yet.</p>
+            )}
+          </Card>
+        )}
+
+        {/* Friend's Wishlist Section - only for Amika friends */}
+        {friend.linkedUserId && (
+          <Card className="p-6 border-[#A8C5A8]/20 mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Gift className="w-5 h-5 text-[#D4A5A5]" />
+              <h2 className="text-xl font-semibold">{friend.name}&apos;s Wishlist</h2>
+              <span className="text-xs px-2 py-0.5 bg-[#D4A5A5]/20 text-[#D4A5A5] rounded-full">
+                From their profile
+              </span>
+            </div>
+            {friendWishlist.length > 0 ? (
+              <div className="space-y-3">
+                {friendWishlist.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-4 bg-white border border-gray-100 rounded-lg shadow-sm hover:border-[#A8C5A8]/40 transition-colors"
+                  >
+                    <div className="flex items-start gap-3">
+                      {item.imageUrl && (
+                        <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                          <img
+                            src={item.imageUrl}
+                            alt={item.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-medium text-gray-900">{item.title}</h3>
+                          {item.priority > 0 && (
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              item.priority === 2
+                                ? 'bg-red-100 text-red-600'
+                                : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {item.priority === 2 ? 'Top Priority' : 'High Priority'}
+                            </span>
+                          )}
+                        </div>
+                        {item.description && (
+                          <p className="text-sm text-gray-500 mt-1 line-clamp-2">{item.description}</p>
+                        )}
+                        <div className="flex items-center gap-3 mt-2">
+                          {item.price && (
+                            <span className="text-sm font-medium text-[#A8C5A8]">{item.price}</span>
+                          )}
+                          {item.category && (
+                            <span className="text-xs text-gray-400 capitalize">{item.category}</span>
+                          )}
+                          {item.link && (
+                            <a
+                              href={item.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-[#A8C5A8] hover:underline"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              View Item
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">{friend.name} hasn&apos;t added any wishlist items yet.</p>
+            )}
+          </Card>
+        )}
 
         {/* Metrics Section */}
         <Card className="p-6 border-[#A8C5A8]/20 mt-6">
