@@ -273,11 +273,13 @@ export function AddEventDialog({
       if (!isOpen) resetForm();
       onOpenChange(isOpen);
     }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md max-h-[85vh] max-h-[85dvh] flex flex-col overflow-hidden">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>{isEditMode ? 'Edit Event' : 'Plan an Event'}</DialogTitle>
         </DialogHeader>
 
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>
         {/* Quick event type buttons - only show when not editing */}
         {!isEditMode && (
         <div className="grid grid-cols-4 gap-2 pb-4 border-b">
@@ -533,6 +535,7 @@ export function AddEventDialog({
             </DialogFooter>
           </form>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );
