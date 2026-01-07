@@ -261,7 +261,7 @@ export function FindEventsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-w-[95vw] h-[85vh] flex flex-col">
+      <DialogContent className="sm:max-w-4xl max-w-[95vw] h-[85vh] h-[85dvh] max-h-[85vh] max-h-[85dvh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-[#D4A5A5]" />
@@ -269,7 +269,9 @@ export function FindEventsDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* Scrollable content area */}
+          <div className="flex-1 overflow-y-auto min-h-0 pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
           {/* Friend Selector */}
           {showFriendSelector && friends.length > 0 && (
             <div className="mb-4 p-3 bg-[#A8C5A8]/5 rounded-lg border border-[#A8C5A8]/20">
@@ -331,7 +333,7 @@ export function FindEventsDialog({
           )}
 
           {/* Chat messages */}
-          <div className="flex-1 overflow-y-auto space-y-4 pr-2 min-h-0">
+          <div className="space-y-4 pr-2">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -743,12 +745,13 @@ export function FindEventsDialog({
               </div>
             </Card>
           )}
+          </div>
 
-          {/* Input form */}
+          {/* Input form - fixed at bottom */}
           <form
             id="find-events-form"
             onSubmit={handleSubmit}
-            className="flex gap-2 mt-4 pt-4 border-t"
+            className="flex gap-2 pt-4 border-t bg-white flex-shrink-0"
           >
             <Input
               value={input}
