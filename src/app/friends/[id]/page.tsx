@@ -42,6 +42,7 @@ interface Friend {
   interests?: string | null;
   lastContact?: Date | null;
   profileImage?: string | null;
+  customProfileImage?: string | null; // User-uploaded custom image
   linkedUserId?: string | null; // If set, this friend is an Amika user
   memories: Memory[];
 }
@@ -338,12 +339,13 @@ export default function FriendProfilePage() {
 
       const { url } = await uploadRes.json();
 
+      // Save to customProfileImage so it overrides the default
       const updateRes = await fetch('/api/friends', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: friend.id,
-          profileImage: url,
+          customProfileImage: url,
         }),
       });
 
@@ -355,6 +357,34 @@ export default function FriendProfilePage() {
     } catch (error) {
       console.error('Error uploading image:', error);
       const message = error instanceof Error ? error.message : 'Failed to upload image. Please try again.';
+      alert(message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleResetToDefault = async () => {
+    if (!friend) return;
+
+    setUploading(true);
+    try {
+      const updateRes = await fetch('/api/friends', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: friend.id,
+          resetToDefault: true,
+        }),
+      });
+
+      if (updateRes.ok) {
+        await fetchFriend();
+      } else {
+        throw new Error('Failed to reset to default');
+      }
+    } catch (error) {
+      console.error('Error resetting to default:', error);
+      const message = error instanceof Error ? error.message : 'Failed to reset image. Please try again.';
       alert(message);
     } finally {
       setUploading(false);
@@ -431,10 +461,12 @@ export default function FriendProfilePage() {
               <FriendAvatar
                 name={friend.name}
                 profileImage={friend.profileImage}
+                customProfileImage={friend.customProfileImage}
                 hasUpcomingEvent={upcomingEvents.length > 0}
                 size="md"
                 editable={!editing}
                 onImageUpload={handleImageUpload}
+                onResetToDefault={handleResetToDefault}
                 linkedUserId={friend.linkedUserId}
                 friendId={friend.id}
               />

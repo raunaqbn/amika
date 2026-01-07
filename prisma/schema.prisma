@@ -50,7 +50,9 @@ model Friend {
   notes        String?
   interests    String?   // JSON array of interest IDs like ["hiking", "wine", "live-music"]
   lastContact  DateTime?
-  profileImage String?
+  profileImage String?   // Default profile image (synced for Amika friends, user-set for regular friends)
+  customProfileImage String?  // User-uploaded custom image that overrides the default
+  linkedUserId String?   // If set, this friend is linked to an Amika user
   createdAt    DateTime  @default(now())
   memories     Memory[]
   events       Event[]

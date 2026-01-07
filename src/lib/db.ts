@@ -32,6 +32,7 @@ type Friend = {
   interests: string | null;
   lastContact: Date | null;
   profileImage: string | null;
+  customProfileImage: string | null; // User-uploaded custom image that overrides the default
   linkedUserId: string | null; // If set, this friend is an Amika user
   createdAt: Date;
 };
@@ -380,6 +381,13 @@ async function ensureTablesExist() {
       // Column might already exist
     }
 
+    // Add customProfileImage to friends table for custom profile picture override
+    try {
+      await client.execute(`ALTER TABLE friends ADD COLUMN customProfileImage TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
+
     // Add sharedWithFriend to memories table
     try {
       await client.execute(`ALTER TABLE memories ADD COLUMN sharedWithFriend INTEGER DEFAULT 0`);
@@ -672,6 +680,7 @@ export const prisma = {
         interests: row.interests as string | null,
         lastContact: row.lastContact ? new Date(row.lastContact as string) : null,
         profileImage: row.profileImage as string | null,
+        customProfileImage: row.customProfileImage as string | null,
         linkedUserId: row.linkedUserId as string | null,
         createdAt: new Date(row.createdAt as string),
       }));
@@ -720,12 +729,13 @@ export const prisma = {
         interests: data.interests ?? null,
         lastContact: data.lastContact ?? null,
         profileImage: data.profileImage ?? null,
+        customProfileImage: data.customProfileImage ?? null,
         linkedUserId: data.linkedUserId ?? null,
         createdAt: new Date(),
       };
 
       await client.execute({
-        sql: 'INSERT INTO friends (id, userId, name, birthday, howWeMet, notes, interests, lastContact, profileImage, linkedUserId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        sql: 'INSERT INTO friends (id, userId, name, birthday, howWeMet, notes, interests, lastContact, profileImage, customProfileImage, linkedUserId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         args: [
           newFriend.id,
           newFriend.userId,
@@ -736,6 +746,7 @@ export const prisma = {
           newFriend.interests,
           newFriend.lastContact ? newFriend.lastContact.toISOString() : null,
           newFriend.profileImage,
+          newFriend.customProfileImage,
           newFriend.linkedUserId,
           newFriend.createdAt.toISOString(),
         ],
@@ -771,12 +782,13 @@ export const prisma = {
         interests: (data.interests !== undefined ? data.interests : existing.interests) as string | null,
         lastContact: data.lastContact !== undefined ? data.lastContact : (existing.lastContact ? new Date(existing.lastContact as string) : null),
         profileImage: (data.profileImage !== undefined ? data.profileImage : existing.profileImage) as string | null,
+        customProfileImage: (data.customProfileImage !== undefined ? data.customProfileImage : existing.customProfileImage) as string | null,
         linkedUserId: (data.linkedUserId !== undefined ? data.linkedUserId : existing.linkedUserId) as string | null,
         createdAt: new Date(existing.createdAt as string),
       };
 
       await client.execute({
-        sql: 'UPDATE friends SET name = ?, birthday = ?, howWeMet = ?, notes = ?, interests = ?, lastContact = ?, profileImage = ? WHERE id = ?',
+        sql: 'UPDATE friends SET name = ?, birthday = ?, howWeMet = ?, notes = ?, interests = ?, lastContact = ?, profileImage = ?, customProfileImage = ? WHERE id = ?',
         args: [
           updated.name,
           updated.birthday ? updated.birthday.toISOString() : null,
@@ -785,6 +797,7 @@ export const prisma = {
           updated.interests,
           updated.lastContact ? updated.lastContact.toISOString() : null,
           updated.profileImage,
+          updated.customProfileImage,
           where.id,
         ],
       });
@@ -1099,6 +1112,7 @@ export const prisma = {
             interests: null,
             lastContact: null,
             profileImage: null,
+            customProfileImage: null,
             linkedUserId: row.linkedUserId as string | null,
             createdAt: new Date(),
           },
