@@ -1251,6 +1251,26 @@ export default function FriendProfilePage() {
             </div>
           )}
         </Card>
+
+        {/* Remove Friend Section */}
+        <Card className="p-6 border-red-200 bg-red-50/30 mt-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-red-700">Remove Friend</h3>
+              <p className="text-sm text-red-600/80 mt-1">
+                Remove {friend.name} from your friends list. This will also delete all associated memories, events, and diary tags.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={handleDelete}
+              className="border-red-300 text-red-600 hover:bg-red-100 hover:text-red-700"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Remove Friend
+            </Button>
+          </div>
+        </Card>
       </div>
     </div>
   );
