@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { Gift, Loader2, ExternalLink, DollarSign, Star } from 'lucide-react';
+import Link from 'next/link';
+import { Gift, Loader2, ExternalLink, DollarSign, Star, UserPlus } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/lib/auth-context';
 
 interface WishlistItemData {
   id: string;
@@ -21,6 +24,7 @@ interface WishlistItemData {
 interface PublicWishlistData {
   items: WishlistItemData[];
   user: {
+    id: string;
     name: string;
     profileImage: string | null;
   } | null;
@@ -39,10 +43,14 @@ const CATEGORY_LABELS: Record<string, string> = {
 export default function PublicWishlistPage() {
   const params = useParams();
   const userId = params.userId as string;
+  const { user: currentUser, loading: authLoading } = useAuth();
 
   const [data, setData] = useState<PublicWishlistData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Check if viewing own wishlist
+  const isOwnWishlist = currentUser?.id === userId;
 
   useEffect(() => {
     async function fetchWishlist() {
@@ -207,6 +215,38 @@ export default function PublicWishlistPage() {
           </div>
         )}
 
+        {/* Join Amika CTA - Show only to non-logged in users or users who aren't viewing their own wishlist */}
+        {!authLoading && !isOwnWishlist && (
+          <Card className="mt-8 p-6 border border-[#A8C5A8]/30 bg-gradient-to-r from-[#A8C5A8]/10 to-[#A8C5A8]/5">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-[#A8C5A8]/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                <UserPlus className="w-6 h-6 text-[#A8C5A8]" />
+              </div>
+              <h3 className="font-semibold text-gray-900 mb-1">
+                {currentUser ? `Connect with ${data.user.name.split(' ')[0]}` : 'Join Amika'}
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                {currentUser
+                  ? `Send a friend request to stay connected and see updates.`
+                  : `Create your own wishlist and connect with ${data.user.name.split(' ')[0]} on Amika.`}
+              </p>
+              {currentUser ? (
+                <SendFriendRequestButton
+                  addresseeId={userId}
+                  addresseeName={data.user.name.split(' ')[0]}
+                />
+              ) : (
+                <Link href={`/signup?friendRequest=${userId}`}>
+                  <Button className="bg-[#A8C5A8] hover:bg-[#97B497] text-white">
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Join Amika
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </Card>
+        )}
+
         {/* Footer */}
         <div className="mt-12 text-center">
           <p className="text-sm text-gray-400">
@@ -221,5 +261,90 @@ export default function PublicWishlistPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Component for logged-in users to send friend request
+function SendFriendRequestButton({ addresseeId, addresseeName }: { addresseeId: string; addresseeName: string }) {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'sent' | 'error' | 'already_connected'>('idle');
+
+  useEffect(() => {
+    // Check existing connection status
+    async function checkConnectionStatus() {
+      try {
+        const res = await fetch('/api/connections?type=all');
+        if (res.ok) {
+          const connections = await res.json();
+          const existingConnection = connections.find(
+            (conn: { requesterId: string; addresseeId: string; status: string }) =>
+              conn.addresseeId === addresseeId || conn.requesterId === addresseeId
+          );
+          if (existingConnection) {
+            if (existingConnection.status === 'accepted') {
+              setStatus('already_connected');
+            } else if (existingConnection.status === 'pending') {
+              setStatus('sent');
+            }
+          }
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
+    checkConnectionStatus();
+  }, [addresseeId]);
+
+  const handleSendRequest = async () => {
+    setStatus('loading');
+    try {
+      const res = await fetch('/api/connections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addresseeId }),
+      });
+      if (res.ok) {
+        setStatus('sent');
+      } else {
+        setStatus('error');
+      }
+    } catch {
+      setStatus('error');
+    }
+  };
+
+  if (status === 'already_connected') {
+    return (
+      <p className="text-sm text-[#A8C5A8] font-medium">
+        You&apos;re already connected with {addresseeName}!
+      </p>
+    );
+  }
+
+  if (status === 'sent') {
+    return (
+      <p className="text-sm text-[#A8C5A8] font-medium">
+        Friend request sent to {addresseeName}!
+      </p>
+    );
+  }
+
+  return (
+    <Button
+      onClick={handleSendRequest}
+      disabled={status === 'loading'}
+      className="bg-[#A8C5A8] hover:bg-[#97B497] text-white"
+    >
+      {status === 'loading' ? (
+        <>
+          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          Sending...
+        </>
+      ) : (
+        <>
+          <UserPlus className="w-4 h-4 mr-2" />
+          Send Friend Request
+        </>
+      )}
+    </Button>
   );
 }
