@@ -96,29 +96,6 @@ interface FriendStats {
   daysSinceLastContact: number | null;
 }
 
-interface SharedItem {
-  id: string;
-  itemType: 'memory' | 'event' | 'note';
-  sharedByUserId: string;
-  status: 'pending' | 'accepted' | 'rejected';
-  createdAt: string;
-  sharedBy: {
-    id: string;
-    name: string;
-    email: string;
-    profileImage: string | null;
-  };
-  item: {
-    id: string;
-    content?: string;
-    title?: string;
-    description?: string;
-    imageUrl?: string | null;
-    eventDate?: string;
-    createdAt?: string;
-  };
-}
-
 export default function FriendProfilePage() {
   const params = useParams();
   const router = useRouter();
@@ -146,7 +123,6 @@ export default function FriendProfilePage() {
   const [stats, setStats] = useState<FriendStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [allFriends, setAllFriends] = useState<{ id: string; name: string; interests?: string | null; notes?: string | null; linkedUserId?: string | null }[]>([]);
-  const [sharedByFriend, setSharedByFriend] = useState<SharedItem[]>([]);
 
   useEffect(() => {
     fetchFriend();
@@ -178,27 +154,7 @@ export default function FriendProfilePage() {
     };
 
     loadNotes();
-
-    // If this is an Amika friend, fetch shared items from them
-    if (friend.linkedUserId) {
-      fetchSharedByFriend(friend.linkedUserId);
-    }
   }, [friend]);
-
-  const fetchSharedByFriend = async (linkedUserId: string) => {
-    try {
-      const response = await fetch('/api/shared-items?type=received&status=accepted');
-      if (!response.ok) return;
-      const data = await response.json();
-      // Filter to only show items shared by this specific friend
-      const fromThisFriend = data.filter(
-        (item: SharedItem) => item.sharedByUserId === linkedUserId
-      );
-      setSharedByFriend(fromThisFriend);
-    } catch (error) {
-      console.error('Error fetching shared items:', error);
-    }
-  };
 
   const fetchFriend = async () => {
     try {
@@ -1005,86 +961,6 @@ export default function FriendProfilePage() {
             allFriends={allFriends}
           />
         </Card>
-
-        {/* Shared by Friend Section - only shown for Amika friends with shared content */}
-        {friend.linkedUserId && sharedByFriend.length > 0 && (
-          <Card className="p-6 border-[#D4A5A5]/30 mt-6 bg-[#D4A5A5]/5">
-            <div className="flex items-center gap-2 mb-4">
-              <Heart className="w-5 h-5 text-[#D4A5A5]" />
-              <h2 className="text-xl font-semibold">Shared by {friend.name}</h2>
-              <span className="text-xs px-2 py-0.5 bg-[#D4A5A5]/20 text-[#D4A5A5] rounded-full">
-                {sharedByFriend.length}
-              </span>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">
-              Content that {friend.name} has shared with you
-            </p>
-            <div className="space-y-3">
-              {sharedByFriend.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-3 bg-white rounded-lg border border-[#D4A5A5]/20 shadow-sm"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#D4A5A5]/20 flex items-center justify-center">
-                      {item.itemType === 'memory' && <Heart className="w-4 h-4 text-[#D4A5A5]" />}
-                      {item.itemType === 'event' && <Calendar className="w-4 h-4 text-[#A8C5A8]" />}
-                      {item.itemType === 'note' && <BookOpen className="w-4 h-4 text-[#A8C5A8]" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-medium px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full capitalize">
-                          {item.itemType}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
-                        </span>
-                      </div>
-                      {item.itemType === 'memory' && item.item.content && (
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-3">
-                          {item.item.content}
-                        </p>
-                      )}
-                      {item.itemType === 'event' && item.item.title && (
-                        <div>
-                          <p className="font-medium text-gray-900">{item.item.title}</p>
-                          {item.item.eventDate && (
-                            <p className="text-sm text-gray-500">
-                              {format(new Date(item.item.eventDate), 'PPP')}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                      {item.itemType === 'note' && (
-                        <div>
-                          {item.item.title && (
-                            <p className="font-medium text-gray-900">{item.item.title}</p>
-                          )}
-                          {item.item.content && (
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-3">
-                              {item.item.content}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                      {item.item.imageUrl && (
-                        <div className="mt-2 relative w-full max-w-xs h-32 rounded-lg overflow-hidden">
-                          <Image
-                            src={item.item.imageUrl}
-                            alt=""
-                            fill
-                            className="object-cover"
-                            sizes="320px"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
 
         <Card className="p-6 border-[#A8C5A8]/20 mt-6">
           <div className="flex items-center justify-between mb-4">
