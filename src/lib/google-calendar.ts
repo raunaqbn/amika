@@ -3,7 +3,9 @@ import { prisma, type GoogleAccount } from './db';
 // Google OAuth2 configuration
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
-const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || '';
+// Calendar OAuth uses a separate callback from sign-in OAuth
+const GOOGLE_CALENDAR_REDIRECT_URI = process.env.GOOGLE_CALENDAR_REDIRECT_URI ||
+  (process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google-calendar/callback` : '');
 
 // Google Calendar API scopes
 const SCOPES = [
@@ -11,11 +13,11 @@ const SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email',
 ];
 
-// Generate OAuth2 authorization URL
+// Generate OAuth2 authorization URL for Calendar
 export function getGoogleAuthUrl(state: string): string {
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: GOOGLE_REDIRECT_URI,
+    redirect_uri: GOOGLE_CALENDAR_REDIRECT_URI,
     response_type: 'code',
     scope: SCOPES.join(' '),
     access_type: 'offline',
@@ -42,7 +44,7 @@ export async function exchangeCodeForTokens(code: string): Promise<{
       code,
       client_id: GOOGLE_CLIENT_ID,
       client_secret: GOOGLE_CLIENT_SECRET,
-      redirect_uri: GOOGLE_REDIRECT_URI,
+      redirect_uri: GOOGLE_CALENDAR_REDIRECT_URI,
       grant_type: 'authorization_code',
     }),
   });

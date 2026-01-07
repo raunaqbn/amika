@@ -106,7 +106,7 @@ export function AddEventDialog({
   useEffect(() => {
     const checkGoogleConnection = async () => {
       try {
-        const response = await fetch('/api/auth/google?action=status');
+        const response = await fetch('/api/auth/google-calendar?action=status');
         if (response.ok) {
           const data = await response.json();
           setGoogleCalendarConnected(data.connected);

@@ -21,7 +21,7 @@ export function GoogleCalendarConnect({ onConnectionChange }: GoogleCalendarConn
 
   const checkConnectionStatus = async () => {
     try {
-      const response = await fetch('/api/auth/google?action=status');
+      const response = await fetch('/api/auth/google-calendar?action=status');
       if (response.ok) {
         const data = await response.json();
         setIsConnected(data.connected);
@@ -38,7 +38,7 @@ export function GoogleCalendarConnect({ onConnectionChange }: GoogleCalendarConn
   const handleConnect = async () => {
     setConnecting(true);
     try {
-      const response = await fetch('/api/auth/google');
+      const response = await fetch('/api/auth/google-calendar');
       if (response.ok) {
         const data = await response.json();
         // Redirect to Google OAuth
@@ -57,7 +57,7 @@ export function GoogleCalendarConnect({ onConnectionChange }: GoogleCalendarConn
 
     setDisconnecting(true);
     try {
-      const response = await fetch('/api/auth/google', { method: 'DELETE' });
+      const response = await fetch('/api/auth/google-calendar', { method: 'DELETE' });
       if (response.ok) {
         setIsConnected(false);
         setGoogleEmail(null);

@@ -1,62 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserId } from '@/lib/auth';
-import { getGoogleAuthUrl, hasGoogleCalendarConnected } from '@/lib/google-calendar';
-import { prisma } from '@/lib/db';
-import { randomBytes } from 'crypto';
 
-export const dynamic = 'force-dynamic';
-
-// GET /api/auth/google - Start OAuth flow or check connection status
+// Generate Google OAuth URL for Sign-In
 export async function GET(request: NextRequest) {
-  try {
-    const userId = await getUserId();
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const clientId = process.env.GOOGLE_CLIENT_ID;
 
-    const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action');
-
-    // Check connection status
-    if (action === 'status') {
-      const googleAccount = await prisma.googleAccount.findByUserId(userId);
-      return NextResponse.json({
-        connected: googleAccount !== null,
-        email: googleAccount?.googleEmail || null,
-      });
-    }
-
-    // Start OAuth flow
-    // Generate a secure state token that includes the user ID
-    const stateToken = randomBytes(32).toString('hex');
-    const state = Buffer.from(JSON.stringify({ userId, token: stateToken })).toString('base64');
-
-    const authUrl = getGoogleAuthUrl(state);
-    return NextResponse.json({ authUrl });
-  } catch (error) {
-    console.error('Error in Google auth:', error);
+  if (!clientId) {
     return NextResponse.json(
-      { error: 'Failed to initialize Google auth' },
+      { error: 'Google OAuth not configured' },
       { status: 500 }
     );
   }
-}
 
-// DELETE /api/auth/google - Disconnect Google account
-export async function DELETE() {
-  try {
-    const userId = await getUserId();
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const searchParams = request.nextUrl.searchParams;
+  const inviteCode = searchParams.get('invite');
 
-    const deleted = await prisma.googleAccount.delete(userId);
-    return NextResponse.json({ success: deleted });
-  } catch (error) {
-    console.error('Error disconnecting Google account:', error);
-    return NextResponse.json(
-      { error: 'Failed to disconnect Google account' },
-      { status: 500 }
-    );
+  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin}/api/auth/google/callback`;
+
+  // Store invite code in state if provided
+  const state = inviteCode ? JSON.stringify({ inviteCode }) : '';
+
+  const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  googleAuthUrl.searchParams.set('client_id', clientId);
+  googleAuthUrl.searchParams.set('redirect_uri', redirectUri);
+  googleAuthUrl.searchParams.set('response_type', 'code');
+  googleAuthUrl.searchParams.set('scope', 'openid email profile');
+  googleAuthUrl.searchParams.set('access_type', 'offline');
+  googleAuthUrl.searchParams.set('prompt', 'consent');
+  if (state) {
+    googleAuthUrl.searchParams.set('state', state);
   }
+
+  return NextResponse.redirect(googleAuthUrl.toString());
 }

@@ -11,6 +11,10 @@ export type User = {
   name: string;
   birthday: Date | null;
   profileImage: string | null;
+  phone: string | null;
+  location: string | null;
+  googleId: string | null;
+  isTemporary: boolean;
   interests: string | null; // JSON array of interest IDs
   createdAt: Date;
 };
@@ -112,6 +116,18 @@ type SharedItem = {
   itemId: string;
   status: 'pending' | 'accepted' | 'rejected';
   message: string | null;
+  createdAt: Date;
+};
+
+export type FriendInvite = {
+  id: string;
+  inviterId: string;
+  inviteCode: string;
+  inviteeName: string | null;
+  inviteeEmail: string | null;
+  status: 'pending' | 'accepted' | 'expired';
+  acceptedByUserId: string | null;
+  expiresAt: Date;
   createdAt: Date;
 };
 
@@ -523,6 +539,48 @@ async function ensureTablesExist() {
       )
     `);
 
+    // Add phone, location, googleId, and isTemporary columns to users table
+    try {
+      await client.execute(`ALTER TABLE users ADD COLUMN phone TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
+
+    try {
+      await client.execute(`ALTER TABLE users ADD COLUMN location TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
+
+    try {
+      await client.execute(`ALTER TABLE users ADD COLUMN googleId TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
+
+    try {
+      await client.execute(`ALTER TABLE users ADD COLUMN isTemporary INTEGER DEFAULT 0`);
+    } catch (e) {
+      // Column might already exist
+    }
+
+    // Create friend_invites table for invite links
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS friend_invites (
+        id TEXT PRIMARY KEY,
+        inviterId TEXT NOT NULL,
+        inviteCode TEXT UNIQUE NOT NULL,
+        inviteeName TEXT,
+        inviteeEmail TEXT,
+        status TEXT DEFAULT 'pending',
+        acceptedByUserId TEXT,
+        expiresAt TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (inviterId) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (acceptedByUserId) REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+
     tablesInitialized = true;
   } catch (error) {
     console.error('Error initializing tables:', error);
@@ -551,6 +609,10 @@ export const prisma = {
         name: row.name as string,
         birthday: row.birthday ? new Date(row.birthday as string) : null,
         profileImage: row.profileImage as string | null,
+        phone: row.phone as string | null,
+        location: row.location as string | null,
+        googleId: row.googleId as string | null,
+        isTemporary: Boolean(row.isTemporary),
         interests: row.interests as string | null,
         createdAt: new Date(row.createdAt as string),
       };
@@ -575,12 +637,52 @@ export const prisma = {
         name: row.name as string,
         birthday: row.birthday ? new Date(row.birthday as string) : null,
         profileImage: row.profileImage as string | null,
+        phone: row.phone as string | null,
+        location: row.location as string | null,
+        googleId: row.googleId as string | null,
+        isTemporary: Boolean(row.isTemporary),
         interests: row.interests as string | null,
         createdAt: new Date(row.createdAt as string),
       };
     },
 
-    create: async (data: { email: string; password: string; name: string; birthday?: Date | null }): Promise<User> => {
+    findByGoogleId: async (googleId: string): Promise<User | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: 'SELECT * FROM users WHERE googleId = ?',
+        args: [googleId],
+      });
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+      return {
+        id: row.id as string,
+        email: row.email as string,
+        passwordHash: row.passwordHash as string,
+        name: row.name as string,
+        birthday: row.birthday ? new Date(row.birthday as string) : null,
+        profileImage: row.profileImage as string | null,
+        phone: row.phone as string | null,
+        location: row.location as string | null,
+        googleId: row.googleId as string | null,
+        isTemporary: Boolean(row.isTemporary),
+        interests: row.interests as string | null,
+        createdAt: new Date(row.createdAt as string),
+      };
+    },
+
+    create: async (data: {
+      email: string;
+      password: string;
+      name: string;
+      birthday?: Date | null;
+      profileImage?: string | null;
+      googleId?: string | null;
+      isTemporary?: boolean;
+    }): Promise<User> => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -595,13 +697,17 @@ export const prisma = {
         passwordHash: hashPassword(data.password),
         name: data.name,
         birthday: data.birthday ?? null,
-        profileImage: null,
+        profileImage: data.profileImage ?? null,
+        phone: null,
+        location: null,
+        googleId: data.googleId ?? null,
+        isTemporary: data.isTemporary ?? false,
         interests: null,
         createdAt: new Date(),
       };
 
       await client.execute({
-        sql: 'INSERT INTO users (id, email, passwordHash, name, birthday, profileImage, interests, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        sql: 'INSERT INTO users (id, email, passwordHash, name, birthday, profileImage, phone, location, googleId, isTemporary, interests, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         args: [
           user.id,
           user.email,
@@ -609,6 +715,10 @@ export const prisma = {
           user.name,
           user.birthday ? user.birthday.toISOString() : null,
           user.profileImage,
+          user.phone,
+          user.location,
+          user.googleId,
+          user.isTemporary ? 1 : 0,
           user.interests,
           user.createdAt.toISOString(),
         ],
@@ -617,7 +727,16 @@ export const prisma = {
       return user;
     },
 
-    update: async (id: string, data: { name?: string; birthday?: Date | null; profileImage?: string | null; interests?: string | null }): Promise<User> => {
+    update: async (id: string, data: {
+      name?: string;
+      birthday?: Date | null;
+      profileImage?: string | null;
+      phone?: string | null;
+      location?: string | null;
+      googleId?: string | null;
+      isTemporary?: boolean;
+      interests?: string | null;
+    }): Promise<User> => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -631,15 +750,23 @@ export const prisma = {
         name: data.name ?? existing.name,
         birthday: data.birthday !== undefined ? data.birthday : existing.birthday,
         profileImage: data.profileImage !== undefined ? data.profileImage : existing.profileImage,
+        phone: data.phone !== undefined ? data.phone : existing.phone,
+        location: data.location !== undefined ? data.location : existing.location,
+        googleId: data.googleId !== undefined ? data.googleId : existing.googleId,
+        isTemporary: data.isTemporary !== undefined ? data.isTemporary : existing.isTemporary,
         interests: data.interests !== undefined ? data.interests : existing.interests,
       };
 
       await client.execute({
-        sql: 'UPDATE users SET name = ?, birthday = ?, profileImage = ?, interests = ? WHERE id = ?',
+        sql: 'UPDATE users SET name = ?, birthday = ?, profileImage = ?, phone = ?, location = ?, googleId = ?, isTemporary = ?, interests = ? WHERE id = ?',
         args: [
           updated.name,
           updated.birthday ? updated.birthday.toISOString() : null,
           updated.profileImage,
+          updated.phone,
+          updated.location,
+          updated.googleId,
+          updated.isTemporary ? 1 : 0,
           updated.interests,
           id,
         ],
@@ -2608,6 +2735,238 @@ export const prisma = {
       email: row.email as string,
       profileImage: row.profileImage as string | null,
     }));
+  },
+
+  // Friend invites for invite links
+  friendInvite: {
+    create: async (data: { inviterId: string; inviteeName?: string; inviteeEmail?: string }): Promise<FriendInvite> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Generate unique invite code
+      const inviteCode = crypto.randomBytes(16).toString('hex');
+
+      const invite: FriendInvite = {
+        id: randomUUID(),
+        inviterId: data.inviterId,
+        inviteCode,
+        inviteeName: data.inviteeName ?? null,
+        inviteeEmail: data.inviteeEmail ?? null,
+        status: 'pending',
+        acceptedByUserId: null,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        createdAt: new Date(),
+      };
+
+      await client.execute({
+        sql: 'INSERT INTO friend_invites (id, inviterId, inviteCode, inviteeName, inviteeEmail, status, acceptedByUserId, expiresAt, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [
+          invite.id,
+          invite.inviterId,
+          invite.inviteCode,
+          invite.inviteeName,
+          invite.inviteeEmail,
+          invite.status,
+          invite.acceptedByUserId,
+          invite.expiresAt.toISOString(),
+          invite.createdAt.toISOString(),
+        ],
+      });
+
+      return invite;
+    },
+
+    findByCode: async (inviteCode: string): Promise<(FriendInvite & { inviter: { id: string; name: string; profileImage: string | null } }) | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: `SELECT fi.*, u.name as inviterName, u.profileImage as inviterProfileImage
+              FROM friend_invites fi
+              JOIN users u ON fi.inviterId = u.id
+              WHERE fi.inviteCode = ?`,
+        args: [inviteCode],
+      });
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+      return {
+        id: row.id as string,
+        inviterId: row.inviterId as string,
+        inviteCode: row.inviteCode as string,
+        inviteeName: row.inviteeName as string | null,
+        inviteeEmail: row.inviteeEmail as string | null,
+        status: row.status as 'pending' | 'accepted' | 'expired',
+        acceptedByUserId: row.acceptedByUserId as string | null,
+        expiresAt: new Date(row.expiresAt as string),
+        createdAt: new Date(row.createdAt as string),
+        inviter: {
+          id: row.inviterId as string,
+          name: row.inviterName as string,
+          profileImage: row.inviterProfileImage as string | null,
+        },
+      };
+    },
+
+    findMany: async (inviterId: string): Promise<FriendInvite[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: 'SELECT * FROM friend_invites WHERE inviterId = ? ORDER BY createdAt DESC',
+        args: [inviterId],
+      });
+
+      return result.rows.map((row: any) => ({
+        id: row.id as string,
+        inviterId: row.inviterId as string,
+        inviteCode: row.inviteCode as string,
+        inviteeName: row.inviteeName as string | null,
+        inviteeEmail: row.inviteeEmail as string | null,
+        status: row.status as 'pending' | 'accepted' | 'expired',
+        acceptedByUserId: row.acceptedByUserId as string | null,
+        expiresAt: new Date(row.expiresAt as string),
+        createdAt: new Date(row.createdAt as string),
+      }));
+    },
+
+    accept: async (inviteCode: string, acceptedByUserId: string): Promise<FriendInvite> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Find the invite
+      const existing = await client.execute({
+        sql: 'SELECT * FROM friend_invites WHERE inviteCode = ?',
+        args: [inviteCode],
+      });
+
+      if (existing.rows.length === 0) {
+        throw new Error('Invite not found');
+      }
+
+      const row = existing.rows[0];
+
+      // Check if expired
+      if (new Date(row.expiresAt as string) < new Date()) {
+        throw new Error('Invite has expired');
+      }
+
+      // Check if already accepted
+      if (row.status === 'accepted') {
+        throw new Error('Invite has already been accepted');
+      }
+
+      // Check not accepting own invite
+      if (row.inviterId === acceptedByUserId) {
+        throw new Error('Cannot accept your own invite');
+      }
+
+      // Update the invite
+      await client.execute({
+        sql: 'UPDATE friend_invites SET status = ?, acceptedByUserId = ? WHERE inviteCode = ?',
+        args: ['accepted', acceptedByUserId, inviteCode],
+      });
+
+      const inviterId = row.inviterId as string;
+
+      // Get user details for both users
+      const inviterResult = await client.execute({
+        sql: 'SELECT id, name, email, profileImage, birthday FROM users WHERE id = ?',
+        args: [inviterId],
+      });
+      const accepterResult = await client.execute({
+        sql: 'SELECT id, name, email, profileImage, birthday FROM users WHERE id = ?',
+        args: [acceptedByUserId],
+      });
+
+      const inviter = inviterResult.rows[0];
+      const accepter = accepterResult.rows[0];
+
+      // Check if friend records already exist
+      const existingFriendForInviter = await client.execute({
+        sql: 'SELECT id FROM friends WHERE userId = ? AND linkedUserId = ?',
+        args: [inviterId, acceptedByUserId],
+      });
+      const existingFriendForAccepter = await client.execute({
+        sql: 'SELECT id FROM friends WHERE userId = ? AND linkedUserId = ?',
+        args: [acceptedByUserId, inviterId],
+      });
+
+      // Create friend record for inviter
+      if (existingFriendForInviter.rows.length === 0 && accepter) {
+        await prisma.friend.create({
+          data: {
+            userId: inviterId,
+            name: accepter.name as string,
+            birthday: accepter.birthday ? new Date(accepter.birthday as string) : null,
+            profileImage: accepter.profileImage as string | null,
+            linkedUserId: acceptedByUserId,
+          },
+        });
+      }
+
+      // Create friend record for accepter
+      if (existingFriendForAccepter.rows.length === 0 && inviter) {
+        await prisma.friend.create({
+          data: {
+            userId: acceptedByUserId,
+            name: inviter.name as string,
+            birthday: inviter.birthday ? new Date(inviter.birthday as string) : null,
+            profileImage: inviter.profileImage as string | null,
+            linkedUserId: inviterId,
+          },
+        });
+      }
+
+      // Also create a user_connection record if one doesn't exist
+      const existingConnection = await client.execute({
+        sql: `SELECT * FROM user_connections
+              WHERE (requesterId = ? AND addresseeId = ?)
+              OR (requesterId = ? AND addresseeId = ?)`,
+        args: [inviterId, acceptedByUserId, acceptedByUserId, inviterId],
+      });
+
+      if (existingConnection.rows.length === 0) {
+        await client.execute({
+          sql: 'INSERT INTO user_connections (id, requesterId, addresseeId, status, createdAt) VALUES (?, ?, ?, ?, ?)',
+          args: [randomUUID(), inviterId, acceptedByUserId, 'accepted', new Date().toISOString()],
+        });
+      }
+
+      return {
+        id: row.id as string,
+        inviterId: row.inviterId as string,
+        inviteCode: row.inviteCode as string,
+        inviteeName: row.inviteeName as string | null,
+        inviteeEmail: row.inviteeEmail as string | null,
+        status: 'accepted',
+        acceptedByUserId,
+        expiresAt: new Date(row.expiresAt as string),
+        createdAt: new Date(row.createdAt as string),
+      };
+    },
+
+    delete: async (id: string, inviterId: string): Promise<{ success: boolean }> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await client.execute({
+        sql: 'SELECT * FROM friend_invites WHERE id = ? AND inviterId = ?',
+        args: [id, inviterId],
+      });
+
+      if (existing.rows.length === 0) {
+        throw new Error('Invite not found');
+      }
+
+      await client.execute({
+        sql: 'DELETE FROM friend_invites WHERE id = ?',
+        args: [id],
+      });
+
+      return { success: true };
+    },
   },
 
   // Wishlist operations

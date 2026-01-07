@@ -14,6 +14,8 @@ import {
   BookOpen,
   Calendar,
   Heart,
+  Phone,
+  MapPin,
   Sparkles
 } from 'lucide-react';
 import { WishlistSection } from '@/components/wishlist-section';
@@ -60,6 +62,8 @@ export default function ProfilePage() {
 
   const [name, setName] = useState('');
   const [birthday, setBirthday] = useState('');
+  const [phone, setPhone] = useState('');
+  const [location, setLocation] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [interests, setInterests] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -74,6 +78,8 @@ export default function ProfilePage() {
         const date = new Date(user.birthday);
         setBirthday(format(date, 'yyyy-MM-dd'));
       }
+      setPhone(user.phone || '');
+      setLocation(user.location || '');
       setProfileImage(user.profileImage);
       setInterests(user.interests || []);
     }
@@ -109,6 +115,8 @@ export default function ProfilePage() {
     const result = await updateProfile({
       name,
       birthday: birthday || null,
+      phone: phone || null,
+      location: location || null,
       profileImage,
     });
 
@@ -292,6 +300,42 @@ export default function ProfilePage() {
               onChange={(e) => setBirthday(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#A8C5A8]/50 focus:border-[#A8C5A8]"
             />
+          </div>
+
+          <div>
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-[#A8C5A8]" />
+                Phone Number
+              </div>
+            </label>
+            <input
+              id="phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="e.g., +1 (555) 123-4567"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#A8C5A8]/50 focus:border-[#A8C5A8]"
+            />
+            <p className="text-xs text-gray-500 mt-1">Help friends reach you for last-minute plans</p>
+          </div>
+
+          <div>
+            <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-[#A8C5A8]" />
+                Location
+              </div>
+            </label>
+            <input
+              id="location"
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g., San Francisco, CA"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#A8C5A8]/50 focus:border-[#A8C5A8]"
+            />
+            <p className="text-xs text-gray-500 mt-1">Helps us suggest events and activities in your area</p>
           </div>
 
           <button
