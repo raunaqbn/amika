@@ -2724,12 +2724,12 @@ export const prisma = {
       return true;
     },
 
-    getPublicWishlist: async (userId: string): Promise<{ items: WishlistItem[]; user: { name: string; profileImage: string | null } | null }> => {
+    getPublicWishlist: async (userId: string): Promise<{ items: WishlistItem[]; user: { id: string; name: string; profileImage: string | null } | null }> => {
       await ensureTablesExist();
       const client = getClient();
 
       const userResult = await client.execute({
-        sql: 'SELECT name, profileImage FROM users WHERE id = ?',
+        sql: 'SELECT id, name, profileImage FROM users WHERE id = ?',
         args: [userId],
       });
 
@@ -2738,6 +2738,7 @@ export const prisma = {
       }
 
       const user = {
+        id: userResult.rows[0].id as string,
         name: userResult.rows[0].name as string,
         profileImage: userResult.rows[0].profileImage as string | null,
       };
