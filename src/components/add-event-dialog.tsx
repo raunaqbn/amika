@@ -284,6 +284,7 @@ export function AddEventDialog({
     try {
       if (isEditMode && eventToEdit) {
         // Update existing event
+        const eventDateIso = new Date(eventDate).toISOString();
         const response = await fetch('/api/events', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -291,7 +292,7 @@ export function AddEventDialog({
             id: eventToEdit.id,
             title: title.trim(),
             description: description.trim() || null,
-            eventDate: new Date(eventDate).toISOString(),
+            eventDate: eventDateIso,
             location: location.trim() || null,
             category: category,
             friendId: selectedFriendIds[0],
@@ -302,6 +303,16 @@ export function AddEventDialog({
 
         if (!response.ok) {
           throw new Error('Failed to update event');
+        }
+
+        // Send calendar invites if enabled
+        if (sendCalendarInvite && canSendCalendarInvites) {
+          await sendGoogleCalendarInvite(
+            title.trim(),
+            description.trim() || null,
+            location.trim() || null,
+            eventDateIso
+          );
         }
 
         resetForm();
@@ -593,7 +604,7 @@ export function AddEventDialog({
             )}
 
             {/* Google Calendar invite option */}
-            {selectedFriendIds.length > 0 && !isEditMode && (
+            {selectedFriendIds.length > 0 && (
               <div className="space-y-3 p-3 bg-blue-50 rounded-lg">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-blue-600" />
