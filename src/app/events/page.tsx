@@ -13,6 +13,8 @@ interface Friend {
   id: string;
   name: string;
   notes?: string | null;
+  email?: string | null;
+  linkedUserId?: string | null;
 }
 
 interface Event {
@@ -329,7 +331,7 @@ export default function EventsPage() {
             setAddEventDialogOpen(open);
             if (!open) setEventToEdit(null);
           }}
-          friends={friends.map((f) => ({ id: f.id, name: f.name }))}
+          friends={friends.map((f) => ({ id: f.id, name: f.name, email: f.email, linkedUserId: f.linkedUserId }))}
           onEventAdded={() => {
             fetchEvents();
           }}
