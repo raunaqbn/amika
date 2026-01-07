@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, X, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -10,7 +11,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { INTEREST_CATEGORIES, getInterestLabel } from '@/lib/interests';
+import {
+  INTEREST_CATEGORIES,
+  getInterestLabel,
+  isCustomInterest,
+  createCustomInterestId
+} from '@/lib/interests';
 
 interface InterestSelectorProps {
   selectedInterests: string[];
@@ -29,6 +35,12 @@ export function InterestSelector({
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [tempSelectedInterests, setTempSelectedInterests] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [customInterestInput, setCustomInterestInput] = useState('');
+
+  // Get custom interests from the selected interests
+  const getCustomInterests = (interests: string[]) => {
+    return interests.filter(isCustomInterest);
+  };
 
   const toggleCategory = (categoryKey: string) => {
     setExpandedCategories((prev) =>
@@ -48,7 +60,29 @@ export function InterestSelector({
 
   const handleOpenDialog = () => {
     setTempSelectedInterests([...selectedInterests]);
+    setCustomInterestInput('');
     setDialogOpen(true);
+  };
+
+  const handleAddCustomInterest = () => {
+    const trimmedInput = customInterestInput.trim();
+    if (!trimmedInput) return;
+
+    const customId = createCustomInterestId(trimmedInput);
+
+    // Check if this custom interest already exists
+    if (!tempSelectedInterests.includes(customId)) {
+      setTempSelectedInterests((prev) => [...prev, customId]);
+    }
+
+    setCustomInterestInput('');
+  };
+
+  const handleCustomInterestKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddCustomInterest();
+    }
   };
 
   const handleSave = async () => {
@@ -190,6 +224,61 @@ export function InterestSelector({
                   </div>
                 );
               })}
+
+              {/* Custom interests section */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="px-3 py-2 bg-gray-50">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">✨</span>
+                    <span className="font-medium text-gray-900">
+                      Custom Interests
+                    </span>
+                    {getCustomInterests(tempSelectedInterests).length > 0 && (
+                      <span className="px-2 py-0.5 text-xs font-medium bg-[#A8C5A8] text-white rounded-full">
+                        {getCustomInterests(tempSelectedInterests).length}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="p-3 bg-white">
+                  <p className="text-xs text-gray-500 mb-2">
+                    Can&apos;t find what you&apos;re looking for? Add your own interest!
+                  </p>
+                  <div className="flex gap-2 mb-3">
+                    <Input
+                      type="text"
+                      placeholder="Type a custom interest..."
+                      value={customInterestInput}
+                      onChange={(e) => setCustomInterestInput(e.target.value)}
+                      onKeyPress={handleCustomInterestKeyPress}
+                      className="flex-1 text-sm"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleAddCustomInterest}
+                      disabled={!customInterestInput.trim()}
+                      className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  {getCustomInterests(tempSelectedInterests).length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {getCustomInterests(tempSelectedInterests).map((customId) => (
+                        <button
+                          key={customId}
+                          type="button"
+                          onClick={() => toggleInterest(customId)}
+                          className="px-3 py-1.5 rounded-full text-sm bg-[#A8C5A8] text-white transition-colors"
+                        >
+                          {getInterestLabel(customId)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
