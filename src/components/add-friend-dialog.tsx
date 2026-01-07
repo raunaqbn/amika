@@ -44,6 +44,7 @@ export function AddFriendDialog({ onAdd }: { onAdd: () => void }) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
     birthday: '',
     howWeMet: '',
     notes: '',
@@ -59,6 +60,7 @@ export function AddFriendDialog({ onAdd }: { onAdd: () => void }) {
       setError(null);
       setFormData({
         name: '',
+        email: '',
         birthday: '',
         howWeMet: '',
         notes: '',
@@ -342,6 +344,18 @@ export function AddFriendDialog({ onAdd }: { onAdd: () => void }) {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="John Doe"
                 />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Email</label>
+                <Input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="john@example.com"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Add email to send calendar invites
+                </p>
               </div>
               <div>
                 <label className="text-sm font-medium">Birthday</label>

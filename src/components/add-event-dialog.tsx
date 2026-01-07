@@ -13,7 +13,7 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Switch } from './ui/switch';
 import { Label } from './ui/label';
-import { Phone, MessageSquare, Calendar, Coffee, Utensils, MapPin, Sparkles, Dumbbell, Video, Share2 } from 'lucide-react';
+import { Phone, MessageSquare, Calendar, Coffee, Utensils, MapPin, Sparkles, Dumbbell, Video, Share2, Mail, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { LocationAutocomplete } from './location-autocomplete';
 import { format } from 'date-fns';
 
@@ -56,6 +56,7 @@ interface EventToEdit {
 interface FriendWithLinkedUser {
   id: string;
   name: string;
+  email?: string | null;
   linkedUserId?: string | null;
 }
 
@@ -92,7 +93,30 @@ export function AddEventDialog({
   const [quickEventDate, setQuickEventDate] = useState('');
   const [quickTimeOfDay, setQuickTimeOfDay] = useState<string | null>(null);
 
+  // Google Calendar invite state
+  const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false);
+  const [sendCalendarInvite, setSendCalendarInvite] = useState(false);
+  const [calendarInviteStatus, setCalendarInviteStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+  const [calendarInviteMessage, setCalendarInviteMessage] = useState<string | null>(null);
+  const [eventDuration, setEventDuration] = useState(60); // Duration in minutes
+
   const isEditMode = !!eventToEdit;
+
+  // Check Google Calendar connection status
+  useEffect(() => {
+    const checkGoogleConnection = async () => {
+      try {
+        const response = await fetch('/api/auth/google?action=status');
+        if (response.ok) {
+          const data = await response.json();
+          setGoogleCalendarConnected(data.connected);
+        }
+      } catch (error) {
+        console.error('Error checking Google connection:', error);
+      }
+    };
+    checkGoogleConnection();
+  }, []);
 
   // Check if any selected friend is an Amika friend (has linkedUserId)
   const hasAmikaFriends = selectedFriendIds.some(id => {
@@ -104,6 +128,17 @@ export function AddEventDialog({
   const selectedAmikaFriends = selectedFriendIds
     .map(id => friends.find(f => f.id === id))
     .filter(f => f?.linkedUserId) as FriendWithLinkedUser[];
+
+  // Get friends with email addresses (either direct email or Amika friends with linked accounts)
+  const selectedFriendsWithEmail = selectedFriendIds
+    .map(id => friends.find(f => f.id === id))
+    .filter(f => f && (f.email || f.linkedUserId)) as FriendWithLinkedUser[];
+
+  const selectedFriendsWithoutEmail = selectedFriendIds
+    .map(id => friends.find(f => f.id === id))
+    .filter(f => f && !f.email && !f.linkedUserId) as FriendWithLinkedUser[];
+
+  const canSendCalendarInvites = googleCalendarConnected && selectedFriendsWithEmail.length > 0;
 
   // Pre-fill form when editing
   useEffect(() => {
@@ -193,6 +228,46 @@ export function AddEventDialog({
     setQuickTimeOfDay(null);
     setError(null);
     setShareWithFriends(false);
+    setSendCalendarInvite(false);
+    setCalendarInviteStatus('idle');
+    setCalendarInviteMessage(null);
+    setEventDuration(60);
+  };
+
+  // Send calendar invite helper
+  const sendGoogleCalendarInvite = async (eventTitle: string, eventDescription: string | null, eventLocation: string | null, eventDateStr: string) => {
+    if (!sendCalendarInvite || !canSendCalendarInvites) return;
+
+    setCalendarInviteStatus('sending');
+    try {
+      const response = await fetch('/api/google-calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: eventTitle,
+          description: eventDescription,
+          location: eventLocation,
+          eventDate: eventDateStr,
+          friendIds: selectedFriendIds,
+          duration: eventDuration,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setCalendarInviteStatus('success');
+        const invitedNames = data.attendees?.map((a: { name: string }) => a.name).join(', ');
+        setCalendarInviteMessage(`Calendar invites sent to ${invitedNames}`);
+      } else {
+        setCalendarInviteStatus('error');
+        setCalendarInviteMessage(data.error || 'Failed to send calendar invites');
+      }
+    } catch (error) {
+      console.error('Error sending calendar invite:', error);
+      setCalendarInviteStatus('error');
+      setCalendarInviteMessage('Failed to send calendar invites');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -234,13 +309,14 @@ export function AddEventDialog({
         onEventUpdated?.();
       } else {
         // Create new event
+        const eventDateIso = new Date(eventDate).toISOString();
         const response = await fetch('/api/events', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             title: title.trim(),
             description: description.trim() || null,
-            eventDate: new Date(eventDate).toISOString(),
+            eventDate: eventDateIso,
             location: location.trim() || null,
             category: category,
             friendId: selectedFriendIds[0],
@@ -251,6 +327,16 @@ export function AddEventDialog({
 
         if (!response.ok) {
           throw new Error('Failed to create event');
+        }
+
+        // Send calendar invites if enabled
+        if (sendCalendarInvite && canSendCalendarInvites) {
+          await sendGoogleCalendarInvite(
+            title.trim(),
+            description.trim() || null,
+            location.trim() || null,
+            eventDateIso
+          );
         }
 
         resetForm();
@@ -503,6 +589,119 @@ export function AddEventDialog({
                 <p className="text-xs text-gray-500">
                   The event will appear in their Amika app
                 </p>
+              </div>
+            )}
+
+            {/* Google Calendar invite option */}
+            {selectedFriendIds.length > 0 && !isEditMode && (
+              <div className="space-y-3 p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-gray-900">Google Calendar Invite</span>
+                </div>
+
+                {googleCalendarConnected ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="calendar-invite"
+                        checked={sendCalendarInvite}
+                        onCheckedChange={setSendCalendarInvite}
+                        disabled={selectedFriendsWithEmail.length === 0}
+                      />
+                      <Label htmlFor="calendar-invite" className="text-sm text-gray-600">
+                        Send calendar invites to friends
+                      </Label>
+                    </div>
+
+                    {sendCalendarInvite && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="duration" className="text-sm text-gray-600 whitespace-nowrap">
+                            Duration:
+                          </Label>
+                          <select
+                            id="duration"
+                            value={eventDuration}
+                            onChange={(e) => setEventDuration(Number(e.target.value))}
+                            className="text-sm border border-gray-200 rounded px-2 py-1"
+                          >
+                            <option value={30}>30 minutes</option>
+                            <option value={60}>1 hour</option>
+                            <option value={90}>1.5 hours</option>
+                            <option value={120}>2 hours</option>
+                            <option value={180}>3 hours</option>
+                          </select>
+                        </div>
+
+                        {selectedFriendsWithEmail.length > 0 && (
+                          <div className="text-xs text-gray-500">
+                            <div className="flex items-center gap-1 mb-1">
+                              <Mail className="w-3 h-3" />
+                              <span>Invites will be sent to:</span>
+                            </div>
+                            <ul className="ml-4 space-y-0.5">
+                              {selectedFriendsWithEmail.map(f => (
+                                <li key={f.id} className="flex items-center gap-1">
+                                  <Check className="w-3 h-3 text-green-600" />
+                                  {f.name}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {selectedFriendsWithoutEmail.length > 0 && (
+                          <div className="text-xs text-amber-600">
+                            <div className="flex items-center gap-1 mb-1">
+                              <AlertCircle className="w-3 h-3" />
+                              <span>No email available for:</span>
+                            </div>
+                            <ul className="ml-4 space-y-0.5">
+                              {selectedFriendsWithoutEmail.map(f => (
+                                <li key={f.id}>{f.name}</li>
+                              ))}
+                            </ul>
+                            <p className="mt-1 text-gray-500">
+                              Add email addresses in their friend profile to send invites.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {calendarInviteStatus === 'sending' && (
+                      <div className="flex items-center gap-2 text-sm text-blue-600">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Sending calendar invites...
+                      </div>
+                    )}
+
+                    {calendarInviteStatus === 'success' && calendarInviteMessage && (
+                      <div className="flex items-center gap-2 text-sm text-green-600">
+                        <Check className="w-4 h-4" />
+                        {calendarInviteMessage}
+                      </div>
+                    )}
+
+                    {calendarInviteStatus === 'error' && calendarInviteMessage && (
+                      <div className="flex items-center gap-2 text-sm text-red-600">
+                        <AlertCircle className="w-4 h-4" />
+                        {calendarInviteMessage}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-600">
+                    <p className="mb-2">Connect Google Calendar in your profile to send event invites to friends.</p>
+                    <a
+                      href="/profile"
+                      className="text-blue-600 hover:text-blue-700 underline"
+                    >
+                      Go to Profile Settings
+                    </a>
+                  </div>
+                )}
               </div>
             )}
 

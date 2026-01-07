@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useRef, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { format } from 'date-fns';
 import {
@@ -18,6 +18,40 @@ import {
 } from 'lucide-react';
 import { WishlistSection } from '@/components/wishlist-section';
 import { InterestSelector } from '@/components/interest-selector';
+import { GoogleCalendarConnect } from '@/components/google-calendar-connect';
+
+// Component that handles search params (must be wrapped in Suspense)
+function ProfileSearchParamsHandler({
+  setSuccess,
+  setError
+}: {
+  setSuccess: (msg: string) => void;
+  setError: (msg: string) => void;
+}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const googleConnected = searchParams.get('google_connected');
+    const googleError = searchParams.get('google_error');
+
+    if (googleConnected === 'true') {
+      setSuccess('Google Calendar connected successfully!');
+      router.replace('/profile', { scroll: false });
+    } else if (googleError) {
+      const errorMessages: Record<string, string> = {
+        access_denied: 'Google Calendar access was denied',
+        invalid_request: 'Invalid request to Google',
+        invalid_state: 'Invalid authorization state',
+        callback_failed: 'Failed to connect Google Calendar',
+      };
+      setError(errorMessages[googleError] || 'Failed to connect Google Calendar');
+      router.replace('/profile', { scroll: false });
+    }
+  }, [searchParams, router, setSuccess, setError]);
+
+  return null;
+}
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -31,6 +65,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -106,6 +141,11 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
+      {/* Handle Google OAuth callback params */}
+      <Suspense fallback={null}>
+        <ProfileSearchParamsHandler setSuccess={setSuccess} setError={setError} />
+      </Suspense>
+
       <h1 className="text-2xl font-semibold text-gray-800 mb-6">Profile</h1>
 
       {/* Profile Picture */}
@@ -197,6 +237,17 @@ export default function ProfilePage() {
               await refreshSession();
             }
           }}
+        />
+      </div>
+
+      {/* Google Calendar Integration */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Calendar className="w-5 h-5 text-[#A8C5A8]" />
+          <h3 className="text-lg font-semibold text-gray-800">Calendar Integration</h3>
+        </div>
+        <GoogleCalendarConnect
+          onConnectionChange={(connected) => setGoogleCalendarConnected(connected)}
         />
       </div>
 

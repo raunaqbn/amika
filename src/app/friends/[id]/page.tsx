@@ -36,6 +36,7 @@ const getEventPoints = (event: Event, isAttended: boolean): number => {
 interface Friend {
   id: string;
   name: string;
+  email?: string | null;
   birthday?: Date | null;
   howWeMet?: string | null;
   notes?: string | null;
@@ -127,6 +128,7 @@ export default function FriendProfilePage() {
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
     birthday: '',
     howWeMet: '',
     notes: '',
@@ -227,6 +229,7 @@ export default function FriendProfilePage() {
         setFriend(foundFriend);
         setFormData({
           name: foundFriend.name,
+          email: foundFriend.email || '',
           birthday: foundFriend.birthday
             ? format(new Date(foundFriend.birthday), 'yyyy-MM-dd')
             : '',
@@ -286,6 +289,7 @@ export default function FriendProfilePage() {
         body: JSON.stringify({
           id: params.id,
           name: formData.name,
+          email: formData.email || null,
           birthday: formData.birthday,
           howWeMet: formData.howWeMet,
           notes: formData.notes,
@@ -559,6 +563,31 @@ export default function FriendProfilePage() {
                 </div>
               )}
             </div>
+
+            {/* Email - only for non-Amika friends (regular friends) */}
+            {!friend.linkedUserId && (
+              <div>
+                <label className="text-sm font-medium text-gray-600">Email</label>
+                {editing ? (
+                  <div>
+                    <Input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) =>
+                        setFormData({ ...formData, email: e.target.value })
+                      }
+                      placeholder="friend@example.com"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Add email to send calendar invites
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-1">{friend.email || 'Not set'}</p>
+                )}
+              </div>
+            )}
 
             <div>
               <label className="text-sm font-medium text-gray-600">How We Met</label>
