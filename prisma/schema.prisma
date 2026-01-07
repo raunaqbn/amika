@@ -23,6 +23,7 @@ model User {
   diaryNotes   DiaryNote[]
   events       Event[]
   chatTranscripts ChatTranscript[]
+  wishlistItems WishlistItem[]
   // User connections (friend requests between Amika users)
   connectionsSent     UserConnection[] @relation("ConnectionRequester")
   connectionsReceived UserConnection[] @relation("ConnectionAddressee")
@@ -144,4 +145,21 @@ model SharedItem {
   createdAt      DateTime @default(now())
 
   @@unique([sharedByUserId, sharedWithUserId, itemType, itemId])
+}
+
+// User wishlist items
+model WishlistItem {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  link        String?  // URL to product/experience
+  price       String?  // Price as string to handle different formats
+  category    String?  // gift, experience, travel, tech, home, fashion, other
+  priority    Int      @default(0) // 0=normal, 1=high, 2=top priority
+  imageUrl    String?
+  purchased   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
