@@ -1,0 +1,37 @@
+# Matchfile - Code signing configuration
+# https://docs.fastlane.tools/actions/match/
+
+# Git repository to store certificates and profiles
+# Create a private repo for this
+git_url(ENV["MATCH_GIT_URL"] || "git@github.com:your-org/ios-certificates.git")
+
+# Storage mode: git or google_cloud
+storage_mode("git")
+
+# App identifier(s)
+app_identifier(["app.amika.ios"])
+
+# Your Apple Developer Portal username
+username(ENV["APPLE_ID"] || "your-apple-id@example.com")
+
+# Team ID
+team_id(ENV["TEAM_ID"] || "YOUR_TEAM_ID")
+
+# Certificate types to sync
+# Valid types: development, adhoc, appstore, enterprise
+type("appstore")
+
+# Platform
+platform("ios")
+
+# Keychain name and password for CI
+# These are set via environment variables in GitHub Actions
+keychain_name(ENV["MATCH_KEYCHAIN_NAME"] || "login.keychain")
+keychain_password(ENV["MATCH_KEYCHAIN_PASSWORD"])
+
+# Read-only mode for CI (won't create new certs/profiles)
+readonly(is_ci)
+
+# Clone using HTTPS with token instead of SSH
+# Set MATCH_GIT_BASIC_AUTHORIZATION for CI
+clone_branch_directly(true)

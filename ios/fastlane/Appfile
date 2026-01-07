@@ -1,0 +1,27 @@
+# App identifier
+app_identifier("app.amika.ios")
+
+# Apple ID email
+apple_id(ENV["APPLE_ID"] || "your-apple-id@example.com")
+
+# Team ID (from Apple Developer Portal)
+team_id(ENV["TEAM_ID"] || "YOUR_TEAM_ID")
+
+# App Store Connect Team ID
+itc_team_id(ENV["ITC_TEAM_ID"] || ENV["TEAM_ID"])
+
+# For App Store Connect API Key authentication (recommended for CI)
+# Set these environment variables:
+# - APP_STORE_CONNECT_API_KEY_ID
+# - APP_STORE_CONNECT_API_ISSUER_ID
+# - APP_STORE_CONNECT_API_KEY_CONTENT (base64 encoded .p8 file content)
+
+for_platform :ios do
+  for_lane :beta do
+    app_identifier("app.amika.ios")
+  end
+
+  for_lane :release do
+    app_identifier("app.amika.ios")
+  end
+end

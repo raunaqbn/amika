@@ -1,0 +1,205 @@
+# Fastfile for Amika iOS App
+# This file defines all the lanes for building, testing, and deploying the app
+
+default_platform(:ios)
+
+platform :ios do
+
+  # ==================== Setup ====================
+
+  desc "Install dependencies and setup the project"
+  lane :setup do
+    # Install CocoaPods if Podfile exists
+    if File.exist?("../Amika/Podfile")
+      cocoapods(
+        podfile: "../Amika/Podfile",
+        try_repo_update_on_error: true
+      )
+    end
+  end
+
+  # ==================== Build ====================
+
+  desc "Build the app for testing"
+  lane :build do
+    setup
+
+    build_app(
+      project: "Amika/Amika.xcodeproj",
+      scheme: "Amika",
+      configuration: "Debug",
+      clean: true,
+      skip_archive: true,
+      skip_codesigning: true,
+      destination: "generic/platform=iOS Simulator"
+    )
+  end
+
+  desc "Build the app for release"
+  lane :build_release do
+    setup
+
+    build_app(
+      project: "Amika/Amika.xcodeproj",
+      scheme: "Amika",
+      configuration: "Release",
+      clean: true,
+      export_method: "app-store",
+      output_directory: "./build",
+      output_name: "Amika.ipa"
+    )
+  end
+
+  # ==================== Testing ====================
+
+  desc "Run unit tests"
+  lane :test do
+    setup
+
+    run_tests(
+      project: "Amika/Amika.xcodeproj",
+      scheme: "Amika",
+      device: "iPhone 15",
+      clean: true,
+      code_coverage: true,
+      output_directory: "./test_output"
+    )
+  end
+
+  # ==================== Code Signing ====================
+
+  desc "Sync certificates and profiles with match"
+  lane :sync_certificates do
+    match(
+      type: "appstore",
+      app_identifier: "app.amika.ios",
+      readonly: is_ci
+    )
+  end
+
+  desc "Sync development certificates"
+  lane :sync_dev_certificates do
+    match(
+      type: "development",
+      app_identifier: "app.amika.ios",
+      readonly: is_ci
+    )
+  end
+
+  # ==================== TestFlight ====================
+
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    # Ensure we're on a clean state
+    ensure_git_status_clean unless is_ci
+
+    # Sync certificates
+    sync_certificates
+
+    # Increment build number
+    increment_build_number(
+      build_number: latest_testflight_build_number + 1,
+      xcodeproj: "Amika/Amika.xcodeproj"
+    )
+
+    # Build the app
+    build_app(
+      project: "Amika/Amika.xcodeproj",
+      scheme: "Amika",
+      configuration: "Release",
+      clean: true,
+      export_method: "app-store",
+      output_directory: "./build",
+      output_name: "Amika.ipa"
+    )
+
+    # Upload to TestFlight
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true,
+      apple_id: ENV["APPLE_ID"],
+      app_identifier: "app.amika.ios",
+      ipa: "./build/Amika.ipa"
+    )
+
+    # Commit version bump if not on CI
+    unless is_ci
+      commit_version_bump(
+        xcodeproj: "Amika/Amika.xcodeproj",
+        message: "Bump build number to #{get_build_number}"
+      )
+    end
+
+    # Clean up
+    clean_build_artifacts
+  end
+
+  desc "Upload to TestFlight (assumes already built)"
+  lane :upload_testflight do
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true,
+      apple_id: ENV["APPLE_ID"],
+      app_identifier: "app.amika.ios",
+      ipa: "./build/Amika.ipa"
+    )
+  end
+
+  # ==================== App Store ====================
+
+  desc "Build and upload to App Store for review"
+  lane :release do
+    # Ensure we're on a clean state
+    ensure_git_status_clean unless is_ci
+
+    # Sync certificates
+    sync_certificates
+
+    # Build the app
+    build_app(
+      project: "Amika/Amika.xcodeproj",
+      scheme: "Amika",
+      configuration: "Release",
+      clean: true,
+      export_method: "app-store",
+      output_directory: "./build",
+      output_name: "Amika.ipa"
+    )
+
+    # Upload to App Store Connect
+    upload_to_app_store(
+      app_identifier: "app.amika.ios",
+      ipa: "./build/Amika.ipa",
+      skip_screenshots: true,
+      skip_metadata: false,
+      submit_for_review: false, # Set to true to auto-submit
+      automatic_release: false
+    )
+
+    # Clean up
+    clean_build_artifacts
+  end
+
+  # ==================== Utilities ====================
+
+  desc "Increment version number"
+  lane :bump_version do |options|
+    increment_version_number(
+      bump_type: options[:type] || "patch", # major, minor, patch
+      xcodeproj: "Amika/Amika.xcodeproj"
+    )
+  end
+
+  desc "Get current version info"
+  lane :version_info do
+    version = get_version_number(xcodeproj: "Amika/Amika.xcodeproj")
+    build = get_build_number(xcodeproj: "Amika/Amika.xcodeproj")
+    UI.message("Version: #{version} (#{build})")
+  end
+
+  # ==================== Error Handling ====================
+
+  error do |lane, exception|
+    # Notify on error (can integrate with Slack, etc.)
+    UI.error("Lane #{lane} failed with error: #{exception.message}")
+  end
+
+end

@@ -1,0 +1,605 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		/* App */
+		001 /* AmikaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100; };
+		002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101; };
+
+		/* Utils */
+		010 /* AmikaColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110; };
+		011 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111; };
+		012 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 112; };
+
+		/* Models */
+		020 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 120; };
+		021 /* Friend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 121; };
+		022 /* Event.swift in Sources */ = {isa = PBXBuildFile; fileRef = 122; };
+		023 /* Memory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 123; };
+		024 /* DiaryNote.swift in Sources */ = {isa = PBXBuildFile; fileRef = 124; };
+		025 /* WishlistItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 125; };
+		026 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 126; };
+
+		/* Services */
+		030 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130; };
+		031 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 131; };
+		032 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132; };
+		033 /* FriendsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 133; };
+		034 /* EventsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 134; };
+		035 /* MemoriesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 135; };
+		036 /* DiaryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 136; };
+		037 /* WishlistService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137; };
+		038 /* ChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 138; };
+
+		/* Views - Auth */
+		040 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140; };
+		041 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 141; };
+		042 /* SignUpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 142; };
+		043 /* WebAuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 143; };
+
+		/* Views - Friends */
+		050 /* FriendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 150; };
+		051 /* AddFriendView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 151; };
+		052 /* FriendDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 152; };
+		053 /* EditFriendView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 153; };
+
+		/* Views - Events */
+		060 /* EventsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 160; };
+		061 /* AddEventView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 161; };
+		062 /* EventDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 162; };
+		063 /* EditEventView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 163; };
+
+		/* Views - Diary */
+		070 /* DiaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 170; };
+		071 /* AddDiaryNoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171; };
+		072 /* DiaryNoteDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 172; };
+
+		/* Views - Mirror */
+		080 /* MirrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180; };
+
+		/* Views - Profile */
+		090 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 190; };
+		091 /* EditProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 191; };
+
+		/* Views - Wishlist */
+		0A0 /* WishlistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0; };
+		0A1 /* AddWishlistItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1; };
+		0A2 /* WishlistItemDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2; };
+
+		/* ViewModels */
+		0B0 /* FriendsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B0; };
+		0B1 /* EventsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B1; };
+		0B2 /* DiaryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2; };
+		0B3 /* WishlistViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B3; };
+
+		/* Resources */
+		0C0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1C0; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		/* Product */
+		AAA /* Amika.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Amika.app; sourceTree = BUILT_PRODUCTS_DIR; };
+
+		/* App */
+		100 /* AmikaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmikaApp.swift; sourceTree = "<group>"; };
+		101 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+
+		/* Utils */
+		110 /* AmikaColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmikaColors.swift; sourceTree = "<group>"; };
+		111 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
+		112 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
+
+		/* Models */
+		120 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
+		121 /* Friend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Friend.swift; sourceTree = "<group>"; };
+		122 /* Event.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Event.swift; sourceTree = "<group>"; };
+		123 /* Memory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Memory.swift; sourceTree = "<group>"; };
+		124 /* DiaryNote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiaryNote.swift; sourceTree = "<group>"; };
+		125 /* WishlistItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistItem.swift; sourceTree = "<group>"; };
+		126 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
+
+		/* Services */
+		130 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
+		131 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		132 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
+		133 /* FriendsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsService.swift; sourceTree = "<group>"; };
+		134 /* EventsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventsService.swift; sourceTree = "<group>"; };
+		135 /* MemoriesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoriesService.swift; sourceTree = "<group>"; };
+		136 /* DiaryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiaryService.swift; sourceTree = "<group>"; };
+		137 /* WishlistService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistService.swift; sourceTree = "<group>"; };
+		138 /* ChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatService.swift; sourceTree = "<group>"; };
+
+		/* Views - Auth */
+		140 /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		141 /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
+		142 /* SignUpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignUpView.swift; sourceTree = "<group>"; };
+		143 /* WebAuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebAuthView.swift; sourceTree = "<group>"; };
+
+		/* Views - Friends */
+		150 /* FriendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsView.swift; sourceTree = "<group>"; };
+		151 /* AddFriendView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddFriendView.swift; sourceTree = "<group>"; };
+		152 /* FriendDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendDetailView.swift; sourceTree = "<group>"; };
+		153 /* EditFriendView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditFriendView.swift; sourceTree = "<group>"; };
+
+		/* Views - Events */
+		160 /* EventsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventsView.swift; sourceTree = "<group>"; };
+		161 /* AddEventView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEventView.swift; sourceTree = "<group>"; };
+		162 /* EventDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDetailView.swift; sourceTree = "<group>"; };
+		163 /* EditEventView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditEventView.swift; sourceTree = "<group>"; };
+
+		/* Views - Diary */
+		170 /* DiaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiaryView.swift; sourceTree = "<group>"; };
+		171 /* AddDiaryNoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddDiaryNoteView.swift; sourceTree = "<group>"; };
+		172 /* DiaryNoteDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiaryNoteDetailView.swift; sourceTree = "<group>"; };
+
+		/* Views - Mirror */
+		180 /* MirrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorView.swift; sourceTree = "<group>"; };
+
+		/* Views - Profile */
+		190 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		191 /* EditProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditProfileView.swift; sourceTree = "<group>"; };
+
+		/* Views - Wishlist */
+		1A0 /* WishlistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistView.swift; sourceTree = "<group>"; };
+		1A1 /* AddWishlistItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddWishlistItemView.swift; sourceTree = "<group>"; };
+		1A2 /* WishlistItemDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistItemDetailView.swift; sourceTree = "<group>"; };
+
+		/* ViewModels */
+		1B0 /* FriendsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsViewModel.swift; sourceTree = "<group>"; };
+		1B1 /* EventsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventsViewModel.swift; sourceTree = "<group>"; };
+		1B2 /* DiaryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiaryViewModel.swift; sourceTree = "<group>"; };
+		1B3 /* WishlistViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WishlistViewModel.swift; sourceTree = "<group>"; };
+
+		/* Resources */
+		1C0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1C1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		ROOT = {
+			isa = PBXGroup;
+			children = (
+				AMIKA_GROUP,
+				PRODUCTS,
+			);
+			sourceTree = "<group>";
+		};
+		PRODUCTS = {
+			isa = PBXGroup;
+			children = (
+				AAA /* Amika.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AMIKA_GROUP = {
+			isa = PBXGroup;
+			children = (
+				APP_GROUP,
+				MODELS_GROUP,
+				SERVICES_GROUP,
+				VIEWS_GROUP,
+				VIEWMODELS_GROUP,
+				UTILS_GROUP,
+				RESOURCES_GROUP,
+			);
+			path = Amika;
+			sourceTree = "<group>";
+		};
+		APP_GROUP = {
+			isa = PBXGroup;
+			children = (
+				100 /* AmikaApp.swift */,
+				101 /* ContentView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		MODELS_GROUP = {
+			isa = PBXGroup;
+			children = (
+				120 /* User.swift */,
+				121 /* Friend.swift */,
+				122 /* Event.swift */,
+				123 /* Memory.swift */,
+				124 /* DiaryNote.swift */,
+				125 /* WishlistItem.swift */,
+				126 /* ChatMessage.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		SERVICES_GROUP = {
+			isa = PBXGroup;
+			children = (
+				130 /* KeychainService.swift */,
+				131 /* APIClient.swift */,
+				132 /* AuthManager.swift */,
+				133 /* FriendsService.swift */,
+				134 /* EventsService.swift */,
+				135 /* MemoriesService.swift */,
+				136 /* DiaryService.swift */,
+				137 /* WishlistService.swift */,
+				138 /* ChatService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		VIEWS_GROUP = {
+			isa = PBXGroup;
+			children = (
+				AUTH_VIEWS,
+				FRIENDS_VIEWS,
+				EVENTS_VIEWS,
+				DIARY_VIEWS,
+				MIRROR_VIEWS,
+				PROFILE_VIEWS,
+				WISHLIST_VIEWS,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		AUTH_VIEWS = {
+			isa = PBXGroup;
+			children = (
+				140 /* AuthView.swift */,
+				141 /* SignInView.swift */,
+				142 /* SignUpView.swift */,
+				143 /* WebAuthView.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		FRIENDS_VIEWS = {
+			isa = PBXGroup;
+			children = (
+				150 /* FriendsView.swift */,
+				151 /* AddFriendView.swift */,
+				152 /* FriendDetailView.swift */,
+				153 /* EditFriendView.swift */,
+			);
+			path = Friends;
+			sourceTree = "<group>";
+		};
+		EVENTS_VIEWS = {
+			isa = PBXGroup;
+			children = (
+				160 /* EventsView.swift */,
+				161 /* AddEventView.swift */,
+				162 /* EventDetailView.swift */,
+				163 /* EditEventView.swift */,
+			);
+			path = Events;
+			sourceTree = "<group>";
+		};
+		DIARY_VIEWS = {
+			isa = PBXGroup;
+			children = (
+				170 /* DiaryView.swift */,
+				171 /* AddDiaryNoteView.swift */,
+				172 /* DiaryNoteDetailView.swift */,
+			);
+			path = Diary;
+			sourceTree = "<group>";
+		};
+		MIRROR_VIEWS = {
+			isa = PBXGroup;
+			children = (
+				180 /* MirrorView.swift */,
+			);
+			path = Mirror;
+			sourceTree = "<group>";
+		};
+		PROFILE_VIEWS = {
+			isa = PBXGroup;
+			children = (
+				190 /* ProfileView.swift */,
+				191 /* EditProfileView.swift */,
+			);
+			path = Profile;
+			sourceTree = "<group>";
+		};
+		WISHLIST_VIEWS = {
+			isa = PBXGroup;
+			children = (
+				1A0 /* WishlistView.swift */,
+				1A1 /* AddWishlistItemView.swift */,
+				1A2 /* WishlistItemDetailView.swift */,
+			);
+			path = Wishlist;
+			sourceTree = "<group>";
+		};
+		VIEWMODELS_GROUP = {
+			isa = PBXGroup;
+			children = (
+				1B0 /* FriendsViewModel.swift */,
+				1B1 /* EventsViewModel.swift */,
+				1B2 /* DiaryViewModel.swift */,
+				1B3 /* WishlistViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		UTILS_GROUP = {
+			isa = PBXGroup;
+			children = (
+				110 /* AmikaColors.swift */,
+				111 /* Constants.swift */,
+				112 /* NetworkMonitor.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		RESOURCES_GROUP = {
+			isa = PBXGroup;
+			children = (
+				1C0 /* Assets.xcassets */,
+				1C1 /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		TARGET_AMIKA = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CONFIG_LIST;
+			buildPhases = (
+				SOURCES_PHASE,
+				RESOURCES_PHASE,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Amika;
+			productName = Amika;
+			productReference = AAA /* Amika.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		PROJECT = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					TARGET_AMIKA = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = PROJECT_CONFIG_LIST;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = ROOT;
+			productRefGroup = PRODUCTS;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				TARGET_AMIKA,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		RESOURCES_PHASE = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0C0 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		SOURCES_PHASE = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				001 /* AmikaApp.swift in Sources */,
+				002 /* ContentView.swift in Sources */,
+				010 /* AmikaColors.swift in Sources */,
+				011 /* Constants.swift in Sources */,
+				012 /* NetworkMonitor.swift in Sources */,
+				020 /* User.swift in Sources */,
+				021 /* Friend.swift in Sources */,
+				022 /* Event.swift in Sources */,
+				023 /* Memory.swift in Sources */,
+				024 /* DiaryNote.swift in Sources */,
+				025 /* WishlistItem.swift in Sources */,
+				026 /* ChatMessage.swift in Sources */,
+				030 /* KeychainService.swift in Sources */,
+				031 /* APIClient.swift in Sources */,
+				032 /* AuthManager.swift in Sources */,
+				033 /* FriendsService.swift in Sources */,
+				034 /* EventsService.swift in Sources */,
+				035 /* MemoriesService.swift in Sources */,
+				036 /* DiaryService.swift in Sources */,
+				037 /* WishlistService.swift in Sources */,
+				038 /* ChatService.swift in Sources */,
+				040 /* AuthView.swift in Sources */,
+				041 /* SignInView.swift in Sources */,
+				042 /* SignUpView.swift in Sources */,
+				043 /* WebAuthView.swift in Sources */,
+				050 /* FriendsView.swift in Sources */,
+				051 /* AddFriendView.swift in Sources */,
+				052 /* FriendDetailView.swift in Sources */,
+				053 /* EditFriendView.swift in Sources */,
+				060 /* EventsView.swift in Sources */,
+				061 /* AddEventView.swift in Sources */,
+				062 /* EventDetailView.swift in Sources */,
+				063 /* EditEventView.swift in Sources */,
+				070 /* DiaryView.swift in Sources */,
+				071 /* AddDiaryNoteView.swift in Sources */,
+				072 /* DiaryNoteDetailView.swift in Sources */,
+				080 /* MirrorView.swift in Sources */,
+				090 /* ProfileView.swift in Sources */,
+				091 /* EditProfileView.swift in Sources */,
+				0A0 /* WishlistView.swift in Sources */,
+				0A1 /* AddWishlistItemView.swift in Sources */,
+				0A2 /* WishlistItemDetailView.swift in Sources */,
+				0B0 /* FriendsViewModel.swift in Sources */,
+				0B1 /* EventsViewModel.swift in Sources */,
+				0B2 /* DiaryViewModel.swift in Sources */,
+				0B3 /* WishlistViewModel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		DEBUG_CONFIG = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		RELEASE_CONFIG = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		TARGET_DEBUG_CONFIG = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Amika/Resources/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Amika;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.amika.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		TARGET_RELEASE_CONFIG = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Amika/Resources/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Amika;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.amika.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		PROJECT_CONFIG_LIST = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DEBUG_CONFIG,
+				RELEASE_CONFIG,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CONFIG_LIST = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				TARGET_DEBUG_CONFIG,
+				TARGET_RELEASE_CONFIG,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = PROJECT;
+}

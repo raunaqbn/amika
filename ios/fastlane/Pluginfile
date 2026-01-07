@@ -1,0 +1,8 @@
+# Fastlane Plugins
+# Install plugins by adding them here and running `fastlane install_plugins`
+
+# Versioning plugin for better version/build number management
+# gem 'fastlane-plugin-versioning'
+
+# Badge plugin to add build info overlay to app icon (useful for beta builds)
+# gem 'fastlane-plugin-badge'
