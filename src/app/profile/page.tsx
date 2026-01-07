@@ -13,9 +13,11 @@ import {
   Users,
   BookOpen,
   Calendar,
-  Heart
+  Heart,
+  Sparkles
 } from 'lucide-react';
 import { WishlistSection } from '@/components/wishlist-section';
+import { InterestSelector } from '@/components/interest-selector';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -25,6 +27,7 @@ export default function ProfilePage() {
   const [name, setName] = useState('');
   const [birthday, setBirthday] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [interests, setInterests] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -37,6 +40,7 @@ export default function ProfilePage() {
         setBirthday(format(date, 'yyyy-MM-dd'));
       }
       setProfileImage(user.profileImage);
+      setInterests(user.interests || []);
     }
   }, [user]);
 
@@ -172,6 +176,28 @@ export default function ProfilePage() {
       {/* Wishlist */}
       <div className="mb-6">
         <WishlistSection userId={user.id} userName={user.name} />
+      </div>
+
+      {/* My Interests */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Sparkles className="w-5 h-5 text-[#A8C5A8]" />
+          <h3 className="text-lg font-semibold text-gray-800">My Interests</h3>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">
+          Share your interests with friends so they can see what you enjoy.
+        </p>
+        <InterestSelector
+          selectedInterests={interests}
+          onInterestsChange={setInterests}
+          editing={true}
+          onSave={async (newInterests) => {
+            const result = await updateProfile({ interests: newInterests });
+            if (result.success) {
+              await refreshSession();
+            }
+          }}
+        />
       </div>
 
       {/* Edit Profile */}

@@ -16,6 +16,7 @@ model User {
   name         String
   birthday     DateTime?
   profileImage String?
+  interests    String?   // JSON array of interest IDs like ["hiking", "wine", "live-music"]
   createdAt    DateTime  @default(now())
   sessions     Session[]
   friends      Friend[]

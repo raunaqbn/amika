@@ -10,8 +10,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, Plus, Calendar, Heart, BookOpen, Trash2, Edit, Check, X, Sparkles, Utensils, MapPin, Dumbbell, Video, Share2, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Plus, Calendar, Heart, BookOpen, Trash2, Edit, Check, X, Sparkles, Utensils, MapPin, Dumbbell, Video, Share2, Eye, EyeOff, Gift, ExternalLink } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
+import { getInterestLabel, INTEREST_CATEGORIES } from '@/lib/interests';
 
 interface AmikaFriend {
   id: string;
@@ -51,6 +52,18 @@ interface Note {
   updatedAt: string;
 }
 
+interface WishlistItem {
+  id: string;
+  title: string;
+  description: string | null;
+  link: string | null;
+  price: string | null;
+  category: string | null;
+  priority: number;
+  imageUrl: string | null;
+  createdAt: string;
+}
+
 const eventCategories = [
   { value: null, label: 'All', icon: Calendar },
   { value: 'experiences', label: 'Experiences', icon: Sparkles },
@@ -68,6 +81,8 @@ export default function AmikaFriendProfilePage() {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
+  const [interests, setInterests] = useState<string[]>([]);
 
   // Memory form state
   const [newMemoryContent, setNewMemoryContent] = useState('');
@@ -101,6 +116,8 @@ export default function AmikaFriendProfilePage() {
     fetchMemories();
     fetchEvents();
     fetchNotes();
+    fetchWishlist();
+    fetchInterests();
   }, [params.id]);
 
   const fetchFriend = async () => {
@@ -150,6 +167,30 @@ export default function AmikaFriendProfilePage() {
       }
     } catch (error) {
       console.error('Error fetching notes:', error);
+    }
+  };
+
+  const fetchWishlist = async () => {
+    try {
+      const response = await fetch(`/api/amika-friends/${params.id}/wishlist`);
+      if (response.ok) {
+        const data = await response.json();
+        setWishlist(data);
+      }
+    } catch (error) {
+      console.error('Error fetching wishlist:', error);
+    }
+  };
+
+  const fetchInterests = async () => {
+    try {
+      const response = await fetch(`/api/amika-friends/${params.id}/interests`);
+      if (response.ok) {
+        const data = await response.json();
+        setInterests(data.interests || []);
+      }
+    } catch (error) {
+      console.error('Error fetching interests:', error);
     }
   };
 
@@ -432,6 +473,92 @@ export default function AmikaFriendProfilePage() {
             Toggle sharing to let them see what you&apos;ve shared.
           </p>
         </Card>
+
+        {/* Interests Section */}
+        {interests.length > 0 && (
+          <Card className="p-6 border-[#A8C5A8]/20 mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="w-5 h-5 text-[#A8C5A8]" />
+              <h2 className="text-xl font-semibold">{friend.name}&apos;s Interests</h2>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {interests.map((interestId) => (
+                <span
+                  key={interestId}
+                  className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-[#A8C5A8]/20 text-[#6B8E6B] border border-[#A8C5A8]/30"
+                >
+                  {getInterestLabel(interestId)}
+                </span>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Wishlist Section */}
+        {wishlist.length > 0 && (
+          <Card className="p-6 border-[#A8C5A8]/20 mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Gift className="w-5 h-5 text-[#D4A5A5]" />
+              <h2 className="text-xl font-semibold">{friend.name}&apos;s Wishlist</h2>
+            </div>
+            <div className="space-y-3">
+              {wishlist.map((item) => (
+                <div
+                  key={item.id}
+                  className="p-4 bg-white border border-gray-100 rounded-lg shadow-sm hover:border-[#A8C5A8]/40 transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    {item.imageUrl && (
+                      <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                        <img
+                          src={item.imageUrl}
+                          alt={item.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-medium text-gray-900">{item.title}</h3>
+                        {item.priority > 0 && (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            item.priority === 2
+                              ? 'bg-red-100 text-red-600'
+                              : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {item.priority === 2 ? 'Top Priority' : 'High Priority'}
+                          </span>
+                        )}
+                      </div>
+                      {item.description && (
+                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">{item.description}</p>
+                      )}
+                      <div className="flex items-center gap-3 mt-2">
+                        {item.price && (
+                          <span className="text-sm font-medium text-[#A8C5A8]">{item.price}</span>
+                        )}
+                        {item.category && (
+                          <span className="text-xs text-gray-400 capitalize">{item.category}</span>
+                        )}
+                        {item.link && (
+                          <a
+                            href={item.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-[#A8C5A8] hover:underline"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            View Item
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
 
         {/* Events Section */}
         <Card className="p-6 border-[#A8C5A8]/20 mb-6">

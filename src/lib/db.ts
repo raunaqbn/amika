@@ -11,6 +11,7 @@ export type User = {
   name: string;
   birthday: Date | null;
   profileImage: string | null;
+  interests: string | null; // JSON array of interest IDs
   createdAt: Date;
 };
 
@@ -408,6 +409,13 @@ async function ensureTablesExist() {
       // Column might already exist
     }
 
+    // Add interests to users table for user's own interests
+    try {
+      await client.execute(`ALTER TABLE users ADD COLUMN interests TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
+
     // Add linkedUserId to friends table for Amika friend unification
     try {
       await client.execute(`ALTER TABLE friends ADD COLUMN linkedUserId TEXT`);
@@ -509,6 +517,7 @@ export const prisma = {
         name: row.name as string,
         birthday: row.birthday ? new Date(row.birthday as string) : null,
         profileImage: row.profileImage as string | null,
+        interests: row.interests as string | null,
         createdAt: new Date(row.createdAt as string),
       };
     },
@@ -532,6 +541,7 @@ export const prisma = {
         name: row.name as string,
         birthday: row.birthday ? new Date(row.birthday as string) : null,
         profileImage: row.profileImage as string | null,
+        interests: row.interests as string | null,
         createdAt: new Date(row.createdAt as string),
       };
     },
@@ -552,11 +562,12 @@ export const prisma = {
         name: data.name,
         birthday: data.birthday ?? null,
         profileImage: null,
+        interests: null,
         createdAt: new Date(),
       };
 
       await client.execute({
-        sql: 'INSERT INTO users (id, email, passwordHash, name, birthday, profileImage, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        sql: 'INSERT INTO users (id, email, passwordHash, name, birthday, profileImage, interests, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         args: [
           user.id,
           user.email,
@@ -564,6 +575,7 @@ export const prisma = {
           user.name,
           user.birthday ? user.birthday.toISOString() : null,
           user.profileImage,
+          user.interests,
           user.createdAt.toISOString(),
         ],
       });
@@ -571,7 +583,7 @@ export const prisma = {
       return user;
     },
 
-    update: async (id: string, data: { name?: string; birthday?: Date | null; profileImage?: string | null }): Promise<User> => {
+    update: async (id: string, data: { name?: string; birthday?: Date | null; profileImage?: string | null; interests?: string | null }): Promise<User> => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -585,14 +597,16 @@ export const prisma = {
         name: data.name ?? existing.name,
         birthday: data.birthday !== undefined ? data.birthday : existing.birthday,
         profileImage: data.profileImage !== undefined ? data.profileImage : existing.profileImage,
+        interests: data.interests !== undefined ? data.interests : existing.interests,
       };
 
       await client.execute({
-        sql: 'UPDATE users SET name = ?, birthday = ?, profileImage = ? WHERE id = ?',
+        sql: 'UPDATE users SET name = ?, birthday = ?, profileImage = ?, interests = ? WHERE id = ?',
         args: [
           updated.name,
           updated.birthday ? updated.birthday.toISOString() : null,
           updated.profileImage,
+          updated.interests,
           id,
         ],
       });
