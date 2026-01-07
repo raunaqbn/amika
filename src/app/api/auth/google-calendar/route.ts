@@ -29,9 +29,11 @@ export async function GET(request: NextRequest) {
     // Start OAuth flow
     // Generate a secure state token that includes the user ID
     const stateToken = randomBytes(32).toString('hex');
-    const state = Buffer.from(JSON.stringify({ userId, token: stateToken })).toString('base64');
+    // Include the origin in state so callback can use the same redirect URI
+    const origin = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin;
+    const state = Buffer.from(JSON.stringify({ userId, token: stateToken, origin })).toString('base64');
 
-    const authUrl = getGoogleAuthUrl(state);
+    const authUrl = getGoogleAuthUrl(state, origin);
     return NextResponse.json({ authUrl });
   } catch (error) {
     console.error('Error in Google Calendar auth:', error);
