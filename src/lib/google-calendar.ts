@@ -3,9 +3,17 @@ import { prisma, type GoogleAccount } from './db';
 // Google OAuth2 configuration
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
-// Calendar OAuth uses a separate callback from sign-in OAuth
-const GOOGLE_CALENDAR_REDIRECT_URI = process.env.GOOGLE_CALENDAR_REDIRECT_URI ||
-  (process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google-calendar/callback` : '');
+
+// Get the redirect URI dynamically based on request origin or environment variable
+function getRedirectUri(origin?: string): string {
+  // Allow explicit override via environment variable
+  if (process.env.GOOGLE_CALENDAR_REDIRECT_URI) {
+    return process.env.GOOGLE_CALENDAR_REDIRECT_URI;
+  }
+  // Use the provided origin (from request), or fall back to NEXT_PUBLIC_APP_URL
+  const baseUrl = origin || process.env.NEXT_PUBLIC_APP_URL || '';
+  return `${baseUrl}/api/auth/google-calendar/callback`;
+}
 
 // Google Calendar API scopes
 const SCOPES = [
@@ -14,10 +22,10 @@ const SCOPES = [
 ];
 
 // Generate OAuth2 authorization URL for Calendar
-export function getGoogleAuthUrl(state: string): string {
+export function getGoogleAuthUrl(state: string, origin?: string): string {
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: GOOGLE_CALENDAR_REDIRECT_URI,
+    redirect_uri: getRedirectUri(origin),
     response_type: 'code',
     scope: SCOPES.join(' '),
     access_type: 'offline',
@@ -29,7 +37,7 @@ export function getGoogleAuthUrl(state: string): string {
 }
 
 // Exchange authorization code for tokens
-export async function exchangeCodeForTokens(code: string): Promise<{
+export async function exchangeCodeForTokens(code: string, origin?: string): Promise<{
   access_token: string;
   refresh_token: string;
   expires_in: number;
@@ -44,7 +52,7 @@ export async function exchangeCodeForTokens(code: string): Promise<{
       code,
       client_id: GOOGLE_CLIENT_ID,
       client_secret: GOOGLE_CLIENT_SECRET,
-      redirect_uri: GOOGLE_CALENDAR_REDIRECT_URI,
+      redirect_uri: getRedirectUri(origin),
       grant_type: 'authorization_code',
     }),
   });

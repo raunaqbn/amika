@@ -22,11 +22,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/profile?google_error=invalid_request', request.url));
     }
 
-    // Decode state to get user ID
+    // Decode state to get user ID and origin
     let userId: string;
+    let origin: string | undefined;
     try {
       const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
       userId = stateData.userId;
+      origin = stateData.origin;
       if (!userId) {
         throw new Error('No user ID in state');
       }
@@ -34,8 +36,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/profile?google_error=invalid_state', request.url));
     }
 
-    // Exchange code for tokens
-    const tokens = await exchangeCodeForTokens(code);
+    // Exchange code for tokens (use origin from state to match the redirect_uri used during auth)
+    const tokens = await exchangeCodeForTokens(code, origin);
 
     // Get user's Google email
     const googleEmail = await getGoogleUserEmail(tokens.access_token);
