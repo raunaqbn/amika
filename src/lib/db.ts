@@ -887,9 +887,12 @@ export const prisma = {
       await ensureTablesExist();
       const client = getClient();
 
+      // Normalize email: trim whitespace and convert to lowercase
+      const normalizedEmail = email.trim().toLowerCase();
+
       const result = await client.execute({
         sql: 'SELECT * FROM users WHERE email = ?',
-        args: [email.toLowerCase()],
+        args: [normalizedEmail],
       });
 
       if (result.rows.length === 0) return null;
@@ -979,14 +982,17 @@ export const prisma = {
       await ensureTablesExist();
       const client = getClient();
 
-      const existing = await prisma.user.findByEmail(data.email);
+      // Normalize email: trim whitespace and convert to lowercase
+      const normalizedEmail = data.email.trim().toLowerCase();
+
+      const existing = await prisma.user.findByEmail(normalizedEmail);
       if (existing) {
         throw new Error('User with this email already exists');
       }
 
       const user: User = {
         id: randomUUID(),
-        email: data.email.toLowerCase(),
+        email: normalizedEmail,
         passwordHash: hashPassword(data.password),
         name: data.name,
         birthday: data.birthday ?? null,
@@ -999,23 +1005,33 @@ export const prisma = {
         createdAt: new Date(),
       };
 
-      await client.execute({
-        sql: 'INSERT INTO users (id, email, passwordHash, name, birthday, profileImage, phone, location, googleId, isTemporary, interests, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        args: [
-          user.id,
-          user.email,
-          user.passwordHash,
-          user.name,
-          user.birthday ? user.birthday.toISOString() : null,
-          user.profileImage,
-          user.phone,
-          user.location,
-          user.googleId,
-          user.isTemporary ? 1 : 0,
-          user.interests,
-          user.createdAt.toISOString(),
-        ],
-      });
+      try {
+        await client.execute({
+          sql: 'INSERT INTO users (id, email, passwordHash, name, birthday, profileImage, phone, location, googleId, isTemporary, interests, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          args: [
+            user.id,
+            user.email,
+            user.passwordHash,
+            user.name,
+            user.birthday ? user.birthday.toISOString() : null,
+            user.profileImage,
+            user.phone,
+            user.location,
+            user.googleId,
+            user.isTemporary ? 1 : 0,
+            user.interests,
+            user.createdAt.toISOString(),
+          ],
+        });
+      } catch (error: any) {
+        // Handle race condition: if database UNIQUE constraint catches a duplicate
+        if (error.message?.includes('UNIQUE constraint failed') ||
+            error.message?.includes('duplicate key') ||
+            error.code === 'SQLITE_CONSTRAINT') {
+          throw new Error('User with this email already exists');
+        }
+        throw error;
+      }
 
       return user;
     },
