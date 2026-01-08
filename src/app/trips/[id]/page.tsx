@@ -26,13 +26,27 @@ import {
   Edit2,
   Wifi,
   WifiOff,
+  Share2,
+  Link2,
+  Copy,
+  Check,
+  Link2Off,
 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 interface Trip {
   id: string;
@@ -44,6 +58,7 @@ interface Trip {
   endDate: Date | null;
   location: string | null;
   locationDetails: string | null;
+  shareToken: string | null;
   createdAt: Date;
   updatedAt: Date;
   collaborators: Collaborator[];
@@ -169,6 +184,9 @@ export default function TripPlanningPage() {
   const [activeTab, setActiveTab] = useState('dates');
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
   const [userId, setUserId] = useState<string | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const fetchTrip = useCallback(async () => {
     try {
@@ -249,10 +267,63 @@ export default function TripPlanningPage() {
       });
 
       if (response.ok) {
-        router.push('/events');
+        router.push('/trips');
       }
     } catch (err) {
       console.error('Error deleting trip:', err);
+    }
+  };
+
+  const handleGenerateShareLink = async () => {
+    setShareLoading(true);
+    try {
+      const response = await fetch(`/api/trips/${tripId}/share`, {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTrip((prev) => (prev ? { ...prev, shareToken: data.shareToken } : null));
+      }
+    } catch (err) {
+      console.error('Error generating share link:', err);
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleRevokeShareLink = async () => {
+    if (!confirm('Are you sure you want to disable sharing? Anyone with the link will no longer be able to access this trip.')) return;
+
+    setShareLoading(true);
+    try {
+      const response = await fetch(`/api/trips/${tripId}/share`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setTrip((prev) => (prev ? { ...prev, shareToken: null } : null));
+      }
+    } catch (err) {
+      console.error('Error revoking share link:', err);
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const getShareUrl = () => {
+    if (!trip?.shareToken) return '';
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${baseUrl}/trips/share/${trip.shareToken}`;
+  };
+
+  const handleCopyShareLink = async () => {
+    try {
+      await navigator.clipboard.writeText(getShareUrl());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
     }
   };
 
@@ -275,9 +346,9 @@ export default function TripPlanningPage() {
             The trip you&apos;re looking for doesn&apos;t exist or you don&apos;t have
             access to it.
           </p>
-          <Button onClick={() => router.push('/events')}>
+          <Button onClick={() => router.push('/trips')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Events
+            Back to Trips
           </Button>
         </Card>
       </div>
@@ -295,7 +366,7 @@ export default function TripPlanningPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.push('/events')}
+              onClick={() => router.push('/trips')}
               className="shrink-0"
             >
               <ArrowLeft className="w-4 h-4 md:mr-2" />
@@ -359,10 +430,15 @@ export default function TripPlanningPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setShareDialogOpen(true)}>
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share Trip
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {}}>
                     <Edit2 className="w-4 h-4 mr-2" />
                     Edit Trip
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={handleDeleteTrip}
                     className="text-red-600"
@@ -465,6 +541,81 @@ export default function TripPlanningPage() {
           </div>
         </div>
       </div>
+
+      {/* Share Dialog */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="w-5 h-5 text-[#A8C5A8]" />
+              Share Trip
+            </DialogTitle>
+            <DialogDescription>
+              Share this trip with anyone using a link. They can view the itinerary and tickets without needing an Amika account.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            {trip?.shareToken ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    value={getShareUrl()}
+                    className="flex-1 bg-gray-50"
+                  />
+                  <Button
+                    onClick={handleCopyShareLink}
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                  >
+                    {copied ? (
+                      <Check className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Link2 className="w-4 h-4" />
+                    <span>Sharing is enabled</span>
+                  </div>
+                  <Button
+                    onClick={handleRevokeShareLink}
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    disabled={shareLoading}
+                  >
+                    <Link2Off className="w-4 h-4 mr-2" />
+                    Disable
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-4">
+                <Link2 className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                <p className="text-sm text-gray-600 mb-4">
+                  Generate a shareable link to let others view this trip
+                </p>
+                <Button
+                  onClick={handleGenerateShareLink}
+                  className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90"
+                  disabled={shareLoading}
+                >
+                  {shareLoading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                  ) : (
+                    <Link2 className="w-4 h-4 mr-2" />
+                  )}
+                  Generate Link
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

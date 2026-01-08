@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, BookOpen, User, LogIn, Eye, Upload, CalendarDays, Heart } from 'lucide-react';
+import { Home, Users, BookOpen, User, LogIn, Eye, Upload, CalendarDays, Heart, Plane } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import {
   Dialog,
@@ -102,6 +102,7 @@ export function Nav() {
     { href: '/friends', icon: Users, label: 'Friends' },
     { href: '/memories', icon: Heart, label: 'Memories' },
     { href: '/events', icon: CalendarDays, label: 'Events' },
+    { href: '/trips', icon: Plane, label: 'Trips' },
     { href: '/diary', icon: BookOpen, label: 'Diary' },
   ];
 

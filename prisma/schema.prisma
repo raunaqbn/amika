@@ -199,6 +199,9 @@ model TripSession {
   location        String?
   locationDetails String?  // JSON string: {city, country, coordinates, etc.}
 
+  // Public sharing
+  shareToken      String?  @unique  // Token for public shareable link
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
