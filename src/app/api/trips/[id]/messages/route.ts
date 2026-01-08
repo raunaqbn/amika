@@ -4,6 +4,7 @@ import { getUserId } from '@/lib/auth';
 import { streamText, tool } from 'ai';
 import { getModel } from '@/lib/ai';
 import { z } from 'zod';
+import { formatInterestsForAI, parseInterests } from '@/lib/interests';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,8 +80,17 @@ export async function POST(
         return NextResponse.json({ userMessage });
       }
 
-      // Build AI context
+      // Build AI context with collaborator interests
+      const collaboratorDetails = trip.collaborators.map((c: any) => {
+        const interests = parseInterests(c.interests);
+        const interestsText = interests.length > 0
+          ? formatInterestsForAI(interests)
+          : 'no specific interests listed';
+        return `- ${c.friendName}: ${interestsText}`;
+      }).join('\n');
+
       const collaboratorNames = trip.collaborators.map((c: any) => c.friendName).join(', ');
+
       const tripContext = `
 Trip: ${trip.title}
 ${trip.description ? `Description: ${trip.description}` : ''}
@@ -90,16 +100,24 @@ Collaborators: ${collaboratorNames || 'Just the organizer'}
 Current section: ${context}
       `.trim();
 
+      // Build collaborator interests section for personalized suggestions
+      const collaboratorInterestsSection = trip.collaborators.length > 0
+        ? `\n\n## Group Member Interests\nUse these interests to make personalized suggestions that the group will enjoy:\n${collaboratorDetails}`
+        : '';
+
       const systemPrompt = `You are Amika, a helpful AI assistant helping plan a collaborative trip. You're friendly, concise, and practical.
 
-${tripContext}
+${tripContext}${collaboratorInterestsSection}
 
 Help the group with their trip planning by:
-- Suggesting activities and places based on the destination
+- Suggesting activities and places based on the destination AND the group's shared interests
+- Finding common interests among collaborators to suggest activities everyone will enjoy
 - Helping decide on dates
-- Recommending restaurants and experiences
+- Recommending restaurants and experiences that match the group's preferences
 - Providing practical travel tips
 - Being inclusive of all collaborators' preferences
+
+When making suggestions, consider what activities might appeal to multiple group members based on their interests. Highlight when a suggestion matches specific members' interests.
 
 Keep responses concise and actionable. If suggesting activities, format them clearly so they can be easily added to the itinerary.
 When you suggest specific events or places, format them with **bold** titles so they can be recognized.`;
