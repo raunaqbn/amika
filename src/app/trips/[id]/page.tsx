@@ -564,6 +564,7 @@ export default function TripPlanningPage() {
                   messages={messages['dates'] || []}
                   polls={trip.polls.filter((p) => p.context === 'dates')}
                   tripId={tripId}
+                  onRefresh={fetchTrip}
                 />
               </TabsContent>
 
@@ -574,6 +575,7 @@ export default function TripPlanningPage() {
                   messages={messages['location'] || []}
                   polls={trip.polls.filter((p) => p.context === 'location')}
                   tripId={tripId}
+                  onRefresh={fetchTrip}
                 />
               </TabsContent>
 
