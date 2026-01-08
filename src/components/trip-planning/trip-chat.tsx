@@ -52,7 +52,7 @@ interface ActiveUser {
 
 interface TripChatProps {
   tripId: string;
-  context: string;
+  context?: string;
   messages: Message[];
   currentUser: CurrentUser;
   collaborators: Collaborator[];
@@ -64,7 +64,7 @@ interface TripChatProps {
 
 export function TripChat({
   tripId,
-  context,
+  context = 'general',
   messages,
   currentUser,
   collaborators,
@@ -239,7 +239,7 @@ export function TripChat({
   const othersTyping = typingUsers.filter(u => u.id !== currentUser.id);
 
   return (
-    <Card className="p-4">
+    <Card className="p-4 flex flex-col h-full min-h-[500px] lg:min-h-[600px]">
       <div className="flex items-center gap-2 mb-3">
         <h4 className="font-medium text-sm">Discussion</h4>
         {/* Active users indicator */}
@@ -269,7 +269,7 @@ export function TripChat({
       </div>
 
       {/* Messages */}
-      <div className="max-h-[500px] overflow-y-auto mb-3 space-y-3">
+      <div className="flex-1 overflow-y-auto mb-3 space-y-3 min-h-0">
         {messages.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
             No messages yet. Start the discussion!

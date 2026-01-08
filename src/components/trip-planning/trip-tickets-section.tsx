@@ -5,7 +5,6 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
-import { TripChat } from './trip-chat';
 import { TripPollComponent } from './trip-poll';
 import { CreatePollDialog } from './create-poll-dialog';
 import {
@@ -40,17 +39,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
-
-interface Message {
-  id: string;
-  tripId: string;
-  userId: string;
-  friendId: string | null;
-  context: string;
-  role: string;
-  content: string;
-  createdAt: Date;
-}
 
 interface TripPoll {
   id: string;
@@ -101,36 +89,14 @@ interface Trip {
   title: string;
 }
 
-interface CurrentUser {
-  id: string;
-  name: string;
-  profileImage: string | null;
-}
-
-interface TypingUser {
-  id: string;
-  name: string;
-}
-
-interface ActiveUser {
-  id: string;
-  name: string;
-  profileImage: string | null;
-  lastSeen: Date;
-}
-
 interface TripTicketsSectionProps {
   trip: Trip;
   tickets: TripTicket[];
-  messages: Message[];
   polls: TripPoll[];
   collaborators: Collaborator[];
   tripId: string;
   currentUserId?: string;
   onRefresh: () => void;
-  currentUser: CurrentUser;
-  typingUsers?: TypingUser[];
-  activeUsers?: ActiveUser[];
 }
 
 const ticketTypeIcons: Record<string, any> = {
@@ -154,31 +120,18 @@ const ticketTypes = [
 export function TripTicketsSection({
   trip,
   tickets,
-  messages,
   polls,
   collaborators,
   tripId,
   currentUserId: currentUserIdProp,
   onRefresh,
-  currentUser,
-  typingUsers = [],
-  activeUsers = [],
 }: TripTicketsSectionProps) {
   const currentUserId = currentUserIdProp || trip.userId;
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     [currentUserId]: true,
   });
-  const [localMessages, setLocalMessages] = useState<Message[]>(messages);
   const [showCreatePoll, setShowCreatePoll] = useState(false);
   const [showAddTicket, setShowAddTicket] = useState(false);
-
-  const handleNewMessage = (message: Message) => {
-    setLocalMessages((prev) => [...prev, message]);
-  };
-
-  const allMessages = [...messages, ...localMessages.filter(
-    (m) => !messages.find((msg) => msg.id === m.id)
-  )];
 
   const toggleSection = (userId: string) => {
     setOpenSections((prev) => ({ ...prev, [userId]: !prev[userId] }));
@@ -226,26 +179,9 @@ export function TripTicketsSection({
   const usersWithTickets = Object.keys(ticketsByUser);
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4">
-      {/* Left Column - Chat */}
-      <div className="flex-1 order-2 lg:order-1">
-        <TripChat
-          tripId={tripId}
-          context="tickets"
-          messages={allMessages}
-          currentUser={currentUser}
-          collaborators={collaborators}
-          tripOwnerId={trip.userId}
-          onNewMessage={handleNewMessage}
-          typingUsers={typingUsers}
-          activeUsers={activeUsers}
-        />
-      </div>
-
-      {/* Right Column - Tickets and Polls */}
-      <div className="w-full lg:w-96 space-y-4 order-1 lg:order-2">
-        {/* Tickets by Person */}
-        <Card className="p-4">
+    <div className="space-y-4">
+      {/* Tickets by Person */}
+      <Card className="p-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Ticket className="w-5 h-5 text-[#A8C5A8]" />
@@ -371,7 +307,6 @@ export function TripTicketsSection({
               ))}
           </div>
         )}
-      </div>
 
       {/* Create Poll Dialog */}
       <CreatePollDialog
