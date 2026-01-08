@@ -208,190 +208,207 @@ export function TripEventsSection({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Daily Plans */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <CalendarDays className="w-5 h-5 text-[#A8C5A8]" />
-            <h3 className="font-semibold">Daily Itinerary</h3>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAddDay}
-            disabled={addingDay}
-          >
-            {addingDay ? (
-              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-            ) : (
-              <Plus className="w-4 h-4 mr-1" />
-            )}
-            Add Day
-          </Button>
-        </div>
+    <div className="flex flex-col lg:flex-row gap-4">
+      {/* Left Column - Chat */}
+      <div className="flex-1 order-2 lg:order-1">
+        <TripChat
+          tripId={tripId}
+          context="events"
+          messages={allMessages}
+          onNewMessage={handleNewMessage}
+          onCreatePoll={() => setShowCreatePoll(true)}
+        />
+      </div>
 
-        {dailyPlans.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <CalendarDays className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p>No days planned yet</p>
-            <p className="text-sm">Add a day to start planning your itinerary</p>
+      {/* Right Column - Daily Plans and Polls */}
+      <div className="w-full lg:w-96 space-y-4 order-1 lg:order-2">
+        {/* Daily Plans */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="w-5 h-5 text-[#A8C5A8]" />
+              <h3 className="font-semibold">Daily Itinerary</h3>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAddDay}
+              disabled={addingDay}
+            >
+              {addingDay ? (
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4 mr-1" />
+              )}
+              Add Day
+            </Button>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {dailyPlans.map((day) => (
-              <Collapsible
-                key={day.id}
-                open={openDays[day.dayNumber]}
-                onOpenChange={() => toggleDay(day.dayNumber)}
-              >
-                <CollapsibleTrigger className="w-full">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div className="flex items-center gap-2">
-                      {openDays[day.dayNumber] ? (
-                        <ChevronDown className="w-4 h-4" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4" />
-                      )}
-                      <span className="font-medium">Day {day.dayNumber}</span>
-                      {day.date && (
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(day.date).toLocaleDateString()}
-                        </span>
-                      )}
+
+          {dailyPlans.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <CalendarDays className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>No days planned yet</p>
+              <p className="text-sm">Add a day to start planning your itinerary</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {dailyPlans.map((day) => (
+                <Collapsible
+                  key={day.id}
+                  open={openDays[day.dayNumber]}
+                  onOpenChange={() => toggleDay(day.dayNumber)}
+                >
+                  <CollapsibleTrigger className="w-full">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div className="flex items-center gap-2">
+                        {openDays[day.dayNumber] ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
+                        <span className="font-medium">Day {day.dayNumber}</span>
+                        {day.date && (
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(day.date).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {day.events.length} event{day.events.length !== 1 ? 's' : ''}
+                      </span>
                     </div>
-                    <span className="text-sm text-muted-foreground">
-                      {day.events.length} event{day.events.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="pt-2 pl-6 space-y-2">
-                    {day.events.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-2">
-                        No events for this day
-                      </p>
-                    ) : (
-                      day.events.map((event) => {
-                        const CategoryIcon = event.category
-                          ? categoryIcons[event.category] || MapPin
-                          : MapPin;
-                        return (
-                          <div
-                            key={event.id}
-                            className="p-3 border rounded-lg bg-white"
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-start gap-2">
-                                <CategoryIcon className="w-4 h-4 mt-0.5 text-[#A8C5A8]" />
-                                <div>
-                                  <p className="font-medium">{event.title}</p>
-                                  {event.description && (
-                                    <p className="text-sm text-muted-foreground">
-                                      {event.description}
-                                    </p>
-                                  )}
-                                  <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                                    {event.startTime && (
-                                      <span className="flex items-center gap-1">
-                                        <Clock className="w-3 h-3" />
-                                        {event.startTime}
-                                        {event.endTime && ` - ${event.endTime}`}
-                                      </span>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="pt-2 pl-6 space-y-2">
+                      {day.events.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-2">
+                          No events for this day
+                        </p>
+                      ) : (
+                        day.events.map((event) => {
+                          const CategoryIcon = event.category
+                            ? categoryIcons[event.category] || MapPin
+                            : MapPin;
+                          return (
+                            <div
+                              key={event.id}
+                              className="p-3 border rounded-lg bg-white"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-2">
+                                  <CategoryIcon className="w-4 h-4 mt-0.5 text-[#A8C5A8]" />
+                                  <div>
+                                    <p className="font-medium">{event.title}</p>
+                                    {event.description && (
+                                      <p className="text-sm text-muted-foreground">
+                                        {event.description}
+                                      </p>
                                     )}
-                                    {event.location && (
-                                      <span className="flex items-center gap-1">
-                                        <MapPin className="w-3 h-3" />
-                                        {event.location}
-                                      </span>
-                                    )}
-                                    {event.estimatedCost && (
-                                      <span className="flex items-center gap-1">
-                                        <DollarSign className="w-3 h-3" />
-                                        {event.estimatedCost}
-                                      </span>
-                                    )}
+                                    <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                      {event.startTime && (
+                                        <span className="flex items-center gap-1">
+                                          <Clock className="w-3 h-3" />
+                                          {event.startTime}
+                                          {event.endTime && ` - ${event.endTime}`}
+                                        </span>
+                                      )}
+                                      {event.location && (
+                                        <span className="flex items-center gap-1">
+                                          <MapPin className="w-3 h-3" />
+                                          {event.location}
+                                        </span>
+                                      )}
+                                      {event.estimatedCost && (
+                                        <span className="flex items-center gap-1">
+                                          <DollarSign className="w-3 h-3" />
+                                          {event.estimatedCost}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                {event.externalUrl && (
-                                  <a
-                                    href={event.externalUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="p-1 hover:bg-gray-100 rounded"
+                                <div className="flex items-center gap-1">
+                                  {event.externalUrl && (
+                                    <a
+                                      href={event.externalUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1 hover:bg-gray-100 rounded"
+                                    >
+                                      <ExternalLink className="w-4 h-4 text-blue-600" />
+                                    </a>
+                                  )}
+                                  <button
+                                    onClick={() => handleDeleteEvent(event.id)}
+                                    className="p-1 hover:bg-red-50 rounded"
                                   >
-                                    <ExternalLink className="w-4 h-4 text-blue-600" />
-                                  </a>
-                                )}
-                                <button
-                                  onClick={() => handleDeleteEvent(event.id)}
-                                  className="p-1 hover:bg-red-50 rounded"
-                                >
-                                  <Trash2 className="w-4 h-4 text-red-500" />
-                                </button>
+                                    <Trash2 className="w-4 h-4 text-red-500" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => {
-                        setSelectedDayPlanId(day.id);
-                        setShowAddEvent(true);
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-1" />
-                      Add Event
-                    </Button>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            ))}
+                          );
+                        })
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setSelectedDayPlanId(day.id);
+                          setShowAddEvent(true);
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add Event
+                      </Button>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Active Polls */}
+        {polls.filter((p) => p.status === 'active').length > 0 && (
+          <div className="space-y-3">
+            <h4 className="font-medium text-sm text-muted-foreground">
+              ACTIVE POLLS
+            </h4>
+            {polls
+              .filter((p) => p.status === 'active')
+              .map((poll) => (
+                <TripPollComponent
+                  key={poll.id}
+                  poll={poll}
+                  tripId={tripId}
+                  onDelete={onRefresh}
+                  onClose={onRefresh}
+                />
+              ))}
           </div>
         )}
-      </Card>
 
-      {/* Active Polls */}
-      {polls.filter((p) => p.status === 'active').length > 0 && (
-        <div className="space-y-3">
-          <h4 className="font-medium text-sm text-muted-foreground">
-            ACTIVE POLLS
-          </h4>
-          {polls
-            .filter((p) => p.status === 'active')
-            .map((poll) => (
-              <TripPollComponent
-                key={poll.id}
-                poll={poll}
-                tripId={tripId}
-              />
-            ))}
-        </div>
-      )}
-
-      {/* Closed Polls */}
-      {polls.filter((p) => p.status === 'closed').length > 0 && (
-        <div className="space-y-3">
-          <h4 className="font-medium text-sm text-muted-foreground">
-            CLOSED POLLS
-          </h4>
-          {polls
-            .filter((p) => p.status === 'closed')
-            .map((poll) => (
-              <TripPollComponent
-                key={poll.id}
-                poll={poll}
-                tripId={tripId}
-              />
-            ))}
-        </div>
-      )}
+        {/* Closed Polls */}
+        {polls.filter((p) => p.status === 'closed').length > 0 && (
+          <div className="space-y-3">
+            <h4 className="font-medium text-sm text-muted-foreground">
+              CLOSED POLLS
+            </h4>
+            {polls
+              .filter((p) => p.status === 'closed')
+              .map((poll) => (
+                <TripPollComponent
+                  key={poll.id}
+                  poll={poll}
+                  tripId={tripId}
+                  onDelete={onRefresh}
+                />
+              ))}
+          </div>
+        )}
+      </div>
 
       {/* Chat */}
       <TripChat
@@ -413,6 +430,7 @@ export function TripEventsSection({
         onOpenChange={setShowCreatePoll}
         tripId={tripId}
         context="events"
+        onPollCreated={onRefresh}
       />
 
       {/* Add Event Dialog */}

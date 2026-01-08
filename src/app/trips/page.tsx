@@ -16,7 +16,15 @@ import {
   Clock,
   CheckCircle2,
   ArrowRight,
+  MoreVertical,
+  Trash2,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface Friend {
   id: string;
@@ -111,6 +119,25 @@ export default function TripsPage() {
         return 'bg-gray-100 text-gray-600';
       default:
         return 'bg-amber-100 text-amber-800';
+    }
+  };
+
+  const handleDeleteTrip = async (tripId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this trip? This action cannot be undone.')) return;
+
+    try {
+      const response = await fetch(`/api/trips/${tripId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setTrips(trips.filter((trip) => trip.id !== tripId));
+      } else {
+        console.error('Failed to delete trip');
+      }
+    } catch (err) {
+      console.error('Error deleting trip:', err);
     }
   };
 
@@ -239,7 +266,22 @@ export default function TripsPage() {
                             </div>
                           )}
                         </div>
-                        <ArrowRight className="w-4 h-4 text-gray-400" />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <button className="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                              <MoreVertical className="w-4 h-4 text-gray-400" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={(e) => handleDeleteTrip(trip.id, e)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete Trip
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </Card>
@@ -297,7 +339,22 @@ export default function TripsPage() {
                           )}
                         </div>
                       </div>
-                      <ArrowRight className="w-4 h-4 text-gray-400" />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                          <button className="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                            <MoreVertical className="w-4 h-4 text-gray-400" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={(e) => handleDeleteTrip(trip.id, e)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Trip
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </Card>
                 ))}

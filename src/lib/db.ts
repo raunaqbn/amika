@@ -5237,6 +5237,41 @@ export const prisma = {
       return vote;
     },
 
+    delete: async (pollId: string, userId: string): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify poll exists and user has access (must be creator)
+      const existing = await client.execute({
+        sql: `SELECT p.* FROM trip_polls p
+              JOIN trip_sessions ts ON p.tripId = ts.id
+              WHERE p.id = ? AND p.createdById = ?`,
+        args: [pollId, userId],
+      });
+
+      if (existing.rows.length === 0) {
+        throw new Error('Poll not found or access denied');
+      }
+
+      // Delete votes first (foreign key constraint)
+      await client.execute({
+        sql: `DELETE FROM trip_poll_votes WHERE optionId IN (SELECT id FROM trip_poll_options WHERE pollId = ?)`,
+        args: [pollId],
+      });
+
+      // Delete options
+      await client.execute({
+        sql: 'DELETE FROM trip_poll_options WHERE pollId = ?',
+        args: [pollId],
+      });
+
+      // Delete poll
+      await client.execute({
+        sql: 'DELETE FROM trip_polls WHERE id = ?',
+        args: [pollId],
+      });
+    },
+
     removeVote: async (optionId: string, userId: string): Promise<boolean> => {
       await ensureTablesExist();
       const client = getClient();

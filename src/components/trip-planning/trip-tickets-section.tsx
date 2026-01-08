@@ -223,112 +223,129 @@ export function TripTicketsSection({
   const usersWithTickets = Object.keys(ticketsByUser);
 
   return (
-    <div className="space-y-4">
-      {/* Tickets by Person */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Ticket className="w-5 h-5 text-[#A8C5A8]" />
-            <h3 className="font-semibold">Travel Documents</h3>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowAddTicket(true)}
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Add Ticket
-          </Button>
-        </div>
+    <div className="flex flex-col lg:flex-row gap-4">
+      {/* Left Column - Chat */}
+      <div className="flex-1 order-2 lg:order-1">
+        <TripChat
+          tripId={tripId}
+          context="tickets"
+          messages={allMessages}
+          onNewMessage={handleNewMessage}
+          onCreatePoll={() => setShowCreatePoll(true)}
+        />
+      </div>
 
-        {usersWithTickets.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Ticket className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p>No tickets added yet</p>
-            <p className="text-sm">Add your travel confirmations and documents</p>
+      {/* Right Column - Tickets and Polls */}
+      <div className="w-full lg:w-96 space-y-4 order-1 lg:order-2">
+        {/* Tickets by Person */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Ticket className="w-5 h-5 text-[#A8C5A8]" />
+              <h3 className="font-semibold">Travel Documents</h3>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAddTicket(true)}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Add Ticket
+            </Button>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {/* Current user's tickets first */}
-            {ticketsByUser[currentUserId] && (
-              <TicketUserSection
-                userId={currentUserId}
-                userName="My Tickets"
-                tickets={ticketsByUser[currentUserId]}
-                isOpen={openSections[currentUserId]}
-                onToggle={() => toggleSection(currentUserId)}
-                onDelete={handleDeleteTicket}
-                totalCost={getTotalCost(ticketsByUser[currentUserId])}
-              />
-            )}
 
-            {/* Other collaborators' tickets */}
-            {usersWithTickets
-              .filter((userId) => userId !== currentUserId)
-              .map((userId) => (
+          {usersWithTickets.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Ticket className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>No tickets added yet</p>
+              <p className="text-sm">Add your travel confirmations and documents</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Current user's tickets first */}
+              {ticketsByUser[currentUserId] && (
                 <TicketUserSection
-                  key={userId}
-                  userId={userId}
-                  userName={getUserName(userId)}
-                  tickets={ticketsByUser[userId]}
-                  isOpen={openSections[userId]}
-                  onToggle={() => toggleSection(userId)}
+                  userId={currentUserId}
+                  userName="My Tickets"
+                  tickets={ticketsByUser[currentUserId]}
+                  isOpen={openSections[currentUserId]}
+                  onToggle={() => toggleSection(currentUserId)}
                   onDelete={handleDeleteTicket}
-                  totalCost={getTotalCost(ticketsByUser[userId])}
-                  isOther
+                  totalCost={getTotalCost(ticketsByUser[currentUserId])}
+                />
+              )}
+
+              {/* Other collaborators' tickets */}
+              {usersWithTickets
+                .filter((userId) => userId !== currentUserId)
+                .map((userId) => (
+                  <TicketUserSection
+                    key={userId}
+                    userId={userId}
+                    userName={getUserName(userId)}
+                    tickets={ticketsByUser[userId]}
+                    isOpen={openSections[userId]}
+                    onToggle={() => toggleSection(userId)}
+                    onDelete={handleDeleteTicket}
+                    totalCost={getTotalCost(ticketsByUser[userId])}
+                    isOther
+                  />
+                ))}
+            </div>
+          )}
+
+          {/* Total Trip Cost Summary */}
+          {tickets.length > 0 && (
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Total Trip Cost</span>
+                <span className="font-semibold text-lg">
+                  ${tickets.reduce((sum, t) => sum + (t.cost || 0), 0).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Active Polls */}
+        {polls.filter((p) => p.status === 'active').length > 0 && (
+          <div className="space-y-3">
+            <h4 className="font-medium text-sm text-muted-foreground">
+              ACTIVE POLLS
+            </h4>
+            {polls
+              .filter((p) => p.status === 'active')
+              .map((poll) => (
+                <TripPollComponent
+                  key={poll.id}
+                  poll={poll}
+                  tripId={tripId}
+                  onDelete={onRefresh}
+                  onClose={onRefresh}
                 />
               ))}
           </div>
         )}
 
-        {/* Total Trip Cost Summary */}
-        {tickets.length > 0 && (
-          <div className="mt-4 pt-4 border-t">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Total Trip Cost</span>
-              <span className="font-semibold text-lg">
-                ${tickets.reduce((sum, t) => sum + (t.cost || 0), 0).toFixed(2)}
-              </span>
-            </div>
+        {/* Closed Polls */}
+        {polls.filter((p) => p.status === 'closed').length > 0 && (
+          <div className="space-y-3">
+            <h4 className="font-medium text-sm text-muted-foreground">
+              CLOSED POLLS
+            </h4>
+            {polls
+              .filter((p) => p.status === 'closed')
+              .map((poll) => (
+                <TripPollComponent
+                  key={poll.id}
+                  poll={poll}
+                  tripId={tripId}
+                  onDelete={onRefresh}
+                />
+              ))}
           </div>
         )}
-      </Card>
-
-      {/* Active Polls */}
-      {polls.filter((p) => p.status === 'active').length > 0 && (
-        <div className="space-y-3">
-          <h4 className="font-medium text-sm text-muted-foreground">
-            ACTIVE POLLS
-          </h4>
-          {polls
-            .filter((p) => p.status === 'active')
-            .map((poll) => (
-              <TripPollComponent
-                key={poll.id}
-                poll={poll}
-                tripId={tripId}
-              />
-            ))}
-        </div>
-      )}
-
-      {/* Closed Polls */}
-      {polls.filter((p) => p.status === 'closed').length > 0 && (
-        <div className="space-y-3">
-          <h4 className="font-medium text-sm text-muted-foreground">
-            CLOSED POLLS
-          </h4>
-          {polls
-            .filter((p) => p.status === 'closed')
-            .map((poll) => (
-              <TripPollComponent
-                key={poll.id}
-                poll={poll}
-                tripId={tripId}
-              />
-            ))}
-        </div>
-      )}
+      </div>
 
       {/* Chat */}
       <TripChat
@@ -350,6 +367,7 @@ export function TripTicketsSection({
         onOpenChange={setShowCreatePoll}
         tripId={tripId}
         context="tickets"
+        onPollCreated={onRefresh}
       />
 
       {/* Add Ticket Dialog */}

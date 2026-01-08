@@ -187,7 +187,7 @@ export default function TripPlanningPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('dates');
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
-  const [userId, setUserId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -211,7 +211,6 @@ export default function TripPlanningPage() {
       }
       const data = await response.json();
       setTrip(data);
-      setUserId(data.userId);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -222,6 +221,24 @@ export default function TripPlanningPage() {
   useEffect(() => {
     fetchTrip();
   }, [fetchTrip]);
+
+  // Fetch current user ID
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetch('/api/auth/session');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            setCurrentUserId(data.user.id);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching current user:', err);
+      }
+    };
+    fetchCurrentUser();
+  }, []);
 
   // Set up sync with context for typing indicators
   const { isConnected, typingUsers, activeUsers } = useTripSync(tripId, {
@@ -416,7 +433,7 @@ export default function TripPlanningPage() {
     );
   }
 
-  const isOwner = trip.userId === userId;
+  const isOwner = trip.userId === currentUserId;
 
   return (
     <div className="min-h-screen bg-[#FFFBF5] md:pt-16 pb-20 md:pb-8 overflow-x-hidden overflow-y-auto touch-scroll">
@@ -567,8 +584,9 @@ export default function TripPlanningPage() {
                   messages={messages['dates'] || []}
                   polls={trip.polls.filter((p) => p.context === 'dates')}
                   tripId={tripId}
+                  onRefresh={fetchTrip}
                   currentUser={{
-                    id: user?.id || '',
+                    id: user?.id || currentUserId || '',
                     name: user?.name || 'You',
                     profileImage: user?.profileImage || null,
                   }}
@@ -585,8 +603,9 @@ export default function TripPlanningPage() {
                   messages={messages['location'] || []}
                   polls={trip.polls.filter((p) => p.context === 'location')}
                   tripId={tripId}
+                  onRefresh={fetchTrip}
                   currentUser={{
-                    id: user?.id || '',
+                    id: user?.id || currentUserId || '',
                     name: user?.name || 'You',
                     profileImage: user?.profileImage || null,
                   }}
