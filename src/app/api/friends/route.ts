@@ -140,8 +140,9 @@ export async function GET() {
       }
     }
 
-    // Count all events (including incomplete) per friend
-    for (const event of allEvents) {
+    // Count only planned (not completed) events per friend
+    const plannedEvents = allEvents.filter((e: any) => !e.completed);
+    for (const event of plannedEvents) {
       if (event.friendId) {
         friendEventsMap.set(
           event.friendId,
