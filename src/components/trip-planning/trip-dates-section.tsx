@@ -181,6 +181,24 @@ export function TripDatesSection({
         </div>
       )}
 
+      {/* Closed Polls */}
+      {polls.filter((p) => p.status === 'closed').length > 0 && (
+        <div className="space-y-3">
+          <h4 className="font-medium text-sm text-muted-foreground">
+            CLOSED POLLS
+          </h4>
+          {polls
+            .filter((p) => p.status === 'closed')
+            .map((poll) => (
+              <TripPollComponent
+                key={poll.id}
+                poll={poll}
+                tripId={tripId}
+              />
+            ))}
+        </div>
+      )}
+
       {/* Chat */}
       <TripChat
         tripId={tripId}

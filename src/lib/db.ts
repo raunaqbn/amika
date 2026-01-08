@@ -169,6 +169,7 @@ export type TripSession = {
   location: string | null;
   locationDetails: string | null;
   shareToken: string | null;
+  joinToken: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -718,6 +719,11 @@ async function ensureTablesExist() {
     // Add shareToken column if it doesn't exist (migration for existing tables)
     await client.execute(`
       ALTER TABLE trip_sessions ADD COLUMN shareToken TEXT UNIQUE
+    `).catch(() => {/* Column may already exist */});
+
+    // Add joinToken column if it doesn't exist (migration for existing tables)
+    await client.execute(`
+      ALTER TABLE trip_sessions ADD COLUMN joinToken TEXT UNIQUE
     `).catch(() => {/* Column may already exist */});
 
     await client.execute(`
@@ -3657,6 +3663,7 @@ export const prisma = {
           location: row.location as string | null,
           locationDetails: row.locationDetails as string | null,
           shareToken: row.shareToken as string | null,
+          joinToken: row.joinToken as string | null,
           createdAt: new Date(row.createdAt as string),
           updatedAt: new Date(row.updatedAt as string),
           collaborators: colResult.rows.map((c: any) => ({
@@ -3815,6 +3822,7 @@ export const prisma = {
         location: row.location as string | null,
         locationDetails: row.locationDetails as string | null,
         shareToken: row.shareToken as string | null,
+        joinToken: row.joinToken as string | null,
         createdAt: new Date(row.createdAt as string),
         updatedAt: new Date(row.updatedAt as string),
         collaborators: colResult.rows.map((c: any) => ({
@@ -3879,6 +3887,7 @@ export const prisma = {
         location: null,
         locationDetails: null,
         shareToken: null,
+        joinToken: null,
         createdAt: now,
         updatedAt: now,
       };
@@ -3983,6 +3992,7 @@ export const prisma = {
         location: data.location !== undefined ? data.location : row.location as string | null,
         locationDetails: data.locationDetails !== undefined ? data.locationDetails : row.locationDetails as string | null,
         shareToken: row.shareToken as string | null,
+        joinToken: row.joinToken as string | null,
         createdAt: new Date(row.createdAt as string),
         updatedAt: now,
       };
@@ -4226,6 +4236,7 @@ export const prisma = {
         location: row.location as string | null,
         locationDetails: row.locationDetails as string | null,
         shareToken: row.shareToken as string | null,
+        joinToken: row.joinToken as string | null,
         createdAt: new Date(row.createdAt as string),
         updatedAt: new Date(row.updatedAt as string),
         ownerName: row.ownerName as string,
@@ -4268,6 +4279,164 @@ export const prisma = {
           completedAt: g.completedAt ? new Date(g.completedAt as string) : null,
         })),
       };
+    },
+
+    generateJoinToken: async (id: string, userId: string): Promise<string | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Only owner can generate join link
+      const existing = await client.execute({
+        sql: 'SELECT * FROM trip_sessions WHERE id = ? AND userId = ?',
+        args: [id, userId],
+      });
+
+      if (existing.rows.length === 0) return null;
+
+      // Generate a unique join token
+      const joinToken = randomUUID().replace(/-/g, '').substring(0, 16);
+
+      await client.execute({
+        sql: 'UPDATE trip_sessions SET joinToken = ?, updatedAt = ? WHERE id = ?',
+        args: [joinToken, new Date().toISOString(), id],
+      });
+
+      return joinToken;
+    },
+
+    revokeJoinToken: async (id: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Only owner can revoke join link
+      const existing = await client.execute({
+        sql: 'SELECT * FROM trip_sessions WHERE id = ? AND userId = ?',
+        args: [id, userId],
+      });
+
+      if (existing.rows.length === 0) return false;
+
+      await client.execute({
+        sql: 'UPDATE trip_sessions SET joinToken = NULL, updatedAt = ? WHERE id = ?',
+        args: [new Date().toISOString(), id],
+      });
+
+      return true;
+    },
+
+    findByJoinToken: async (joinToken: string): Promise<{
+      id: string;
+      title: string;
+      description: string | null;
+      ownerName: string;
+      collaboratorCount: number;
+    } | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: `SELECT ts.id, ts.title, ts.description, u.name as ownerName
+              FROM trip_sessions ts
+              JOIN users u ON ts.userId = u.id
+              WHERE ts.joinToken = ?`,
+        args: [joinToken],
+      });
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+
+      // Get collaborator count
+      const colResult = await client.execute({
+        sql: 'SELECT COUNT(*) as count FROM trip_collaborators WHERE tripId = ?',
+        args: [row.id as string],
+      });
+
+      return {
+        id: row.id as string,
+        title: row.title as string,
+        description: row.description as string | null,
+        ownerName: row.ownerName as string,
+        collaboratorCount: Number(colResult.rows[0].count),
+      };
+    },
+
+    joinTripByToken: async (joinToken: string, userId: string, userName: string): Promise<{ tripId: string } | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Find the trip by join token
+      const tripResult = await client.execute({
+        sql: 'SELECT id, userId FROM trip_sessions WHERE joinToken = ?',
+        args: [joinToken],
+      });
+
+      if (tripResult.rows.length === 0) return null;
+
+      const tripId = tripResult.rows[0].id as string;
+      const tripOwnerId = tripResult.rows[0].userId as string;
+
+      // Check if user is already a collaborator via their userId in trip_collaborators
+      const existingCollab = await client.execute({
+        sql: 'SELECT id FROM trip_collaborators WHERE tripId = ? AND userId = ?',
+        args: [tripId, userId],
+      });
+
+      if (existingCollab.rows.length > 0) {
+        // Already a collaborator, just return the trip ID
+        return { tripId };
+      }
+
+      // Check if user is the owner
+      if (tripOwnerId === userId) {
+        return { tripId };
+      }
+
+      // Check if the user has a friend entry with the trip owner that's linked to this user
+      const friendResult = await client.execute({
+        sql: 'SELECT id FROM friends WHERE userId = ? AND linkedUserId = ?',
+        args: [tripOwnerId, userId],
+      });
+
+      let friendId: string;
+
+      if (friendResult.rows.length > 0) {
+        friendId = friendResult.rows[0].id as string;
+
+        // Check if this friend is already a collaborator
+        const existingFriendCollab = await client.execute({
+          sql: 'SELECT id FROM trip_collaborators WHERE tripId = ? AND friendId = ?',
+          args: [tripId, friendId],
+        });
+
+        if (existingFriendCollab.rows.length > 0) {
+          // Update the collaborator to link the userId
+          await client.execute({
+            sql: 'UPDATE trip_collaborators SET userId = ? WHERE tripId = ? AND friendId = ?',
+            args: [userId, tripId, friendId],
+          });
+          return { tripId };
+        }
+      } else {
+        // Create a new friend entry for the trip owner
+        friendId = randomUUID();
+        const now = new Date().toISOString();
+        await client.execute({
+          sql: `INSERT INTO friends (id, userId, name, linkedUserId, createdAt, updatedAt)
+                VALUES (?, ?, ?, ?, ?, ?)`,
+          args: [friendId, tripOwnerId, userName, userId, now, now],
+        });
+      }
+
+      // Add as collaborator
+      const collaboratorId = randomUUID();
+      await client.execute({
+        sql: `INSERT INTO trip_collaborators (id, tripId, friendId, userId, role, joinedAt)
+              VALUES (?, ?, ?, ?, 'collaborator', ?)`,
+        args: [collaboratorId, tripId, friendId, userId, new Date().toISOString()],
+      });
+
+      return { tripId };
     },
   },
 
