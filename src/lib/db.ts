@@ -859,6 +859,21 @@ async function ensureTablesExist() {
       )
     `);
 
+    // Trip presence tracking for real-time collaboration
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS trip_presence (
+        id TEXT PRIMARY KEY,
+        tripId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        context TEXT DEFAULT 'general',
+        isTyping INTEGER DEFAULT 0,
+        lastSeen TEXT NOT NULL,
+        FOREIGN KEY (tripId) REFERENCES trip_sessions(id) ON DELETE CASCADE,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE (tripId, userId)
+      )
+    `);
+
     tablesInitialized = true;
   } catch (error) {
     console.error('Error initializing tables:', error);
@@ -5416,6 +5431,167 @@ export const prisma = {
         tripUpdated,
         lastUpdated: new Date(),
       };
+    },
+  },
+
+  // Trip Presence - for typing indicators and active user tracking
+  tripPresence: {
+    // Update typing status for a user
+    updateTyping: async (tripId: string, userId: string, isTyping: boolean, context: string = 'general'): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify access
+      const accessCheck = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [tripId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Trip not found or access denied');
+      }
+
+      const now = new Date().toISOString();
+
+      // Upsert presence record
+      await client.execute({
+        sql: `INSERT INTO trip_presence (id, tripId, userId, context, isTyping, lastSeen)
+              VALUES (?, ?, ?, ?, ?, ?)
+              ON CONFLICT (tripId, userId) DO UPDATE SET
+                context = excluded.context,
+                isTyping = excluded.isTyping,
+                lastSeen = excluded.lastSeen`,
+        args: [randomUUID(), tripId, userId, context, isTyping ? 1 : 0, now],
+      });
+    },
+
+    // Update presence (heartbeat) for a user
+    updatePresence: async (tripId: string, userId: string): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify access
+      const accessCheck = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [tripId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Trip not found or access denied');
+      }
+
+      const now = new Date().toISOString();
+
+      // Upsert presence record (keep typing status if exists)
+      await client.execute({
+        sql: `INSERT INTO trip_presence (id, tripId, userId, context, isTyping, lastSeen)
+              VALUES (?, ?, ?, 'general', 0, ?)
+              ON CONFLICT (tripId, userId) DO UPDATE SET
+                lastSeen = excluded.lastSeen`,
+        args: [randomUUID(), tripId, userId, now],
+      });
+    },
+
+    // Get users currently typing
+    getTypingUsers: async (tripId: string, userId: string, context?: string): Promise<{
+      id: string;
+      name: string;
+    }[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify access
+      const accessCheck = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [tripId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Trip not found or access denied');
+      }
+
+      // Get typing users (typing within last 5 seconds)
+      const fiveSecondsAgo = new Date(Date.now() - 5000).toISOString();
+
+      let sql = `SELECT p.userId, u.name
+                 FROM trip_presence p
+                 JOIN users u ON p.userId = u.id
+                 WHERE p.tripId = ? AND p.isTyping = 1 AND p.lastSeen > ?`;
+      let args: any[] = [tripId, fiveSecondsAgo];
+
+      if (context) {
+        sql += ' AND p.context = ?';
+        args.push(context);
+      }
+
+      const result = await client.execute({ sql, args });
+
+      return result.rows.map((row: any) => ({
+        id: row.userId as string,
+        name: row.name as string,
+      }));
+    },
+
+    // Get active users (seen within last 30 seconds)
+    getActiveUsers: async (tripId: string, userId: string): Promise<{
+      id: string;
+      name: string;
+      profileImage: string | null;
+      lastSeen: Date;
+    }[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify access
+      const accessCheck = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [tripId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Trip not found or access denied');
+      }
+
+      // Get active users (seen within last 30 seconds)
+      const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
+
+      const result = await client.execute({
+        sql: `SELECT p.userId, p.lastSeen, u.name, u.profileImage
+              FROM trip_presence p
+              JOIN users u ON p.userId = u.id
+              WHERE p.tripId = ? AND p.lastSeen > ?
+              ORDER BY p.lastSeen DESC`,
+        args: [tripId, thirtySecondsAgo],
+      });
+
+      return result.rows.map((row: any) => ({
+        id: row.userId as string,
+        name: row.name as string,
+        profileImage: row.profileImage as string | null,
+        lastSeen: new Date(row.lastSeen as string),
+      }));
+    },
+
+    // Clean up old presence records (called periodically)
+    cleanup: async (): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Remove presence records older than 1 minute
+      const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
+
+      await client.execute({
+        sql: 'DELETE FROM trip_presence WHERE lastSeen < ?',
+        args: [oneMinuteAgo],
+      });
     },
   },
 };

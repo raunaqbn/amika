@@ -34,8 +34,39 @@ interface TripPoll {
 
 interface Trip {
   id: string;
+  userId: string;
   location: string | null;
   locationDetails: string | null;
+}
+
+interface Collaborator {
+  id: string;
+  tripId: string;
+  friendId: string;
+  userId: string | null;
+  role: string;
+  joinedAt: Date;
+  friendName: string;
+  profileImage: string | null;
+  linkedUserId: string | null;
+}
+
+interface CurrentUser {
+  id: string;
+  name: string;
+  profileImage: string | null;
+}
+
+interface TypingUser {
+  id: string;
+  name: string;
+}
+
+interface ActiveUser {
+  id: string;
+  name: string;
+  profileImage: string | null;
+  lastSeen: Date;
 }
 
 interface TripLocationSectionProps {
@@ -45,6 +76,10 @@ interface TripLocationSectionProps {
   polls: TripPoll[];
   tripId: string;
   onRefresh?: () => void;
+  currentUser: CurrentUser;
+  collaborators: Collaborator[];
+  typingUsers?: TypingUser[];
+  activeUsers?: ActiveUser[];
 }
 
 export function TripLocationSection({
@@ -54,6 +89,10 @@ export function TripLocationSection({
   polls,
   tripId,
   onRefresh,
+  currentUser,
+  collaborators,
+  typingUsers = [],
+  activeUsers = [],
 }: TripLocationSectionProps) {
   const [editing, setEditing] = useState(false);
   const [location, setLocation] = useState(trip.location || '');
@@ -85,8 +124,13 @@ export function TripLocationSection({
           tripId={tripId}
           context="location"
           messages={allMessages}
+          currentUser={currentUser}
+          collaborators={collaborators}
+          tripOwnerId={trip.userId}
           onNewMessage={handleNewMessage}
           onCreatePoll={() => setShowCreatePoll(true)}
+          typingUsers={typingUsers}
+          activeUsers={activeUsers}
         />
       </div>
 

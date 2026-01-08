@@ -100,6 +100,24 @@ interface Trip {
   title: string;
 }
 
+interface CurrentUser {
+  id: string;
+  name: string;
+  profileImage: string | null;
+}
+
+interface TypingUser {
+  id: string;
+  name: string;
+}
+
+interface ActiveUser {
+  id: string;
+  name: string;
+  profileImage: string | null;
+  lastSeen: Date;
+}
+
 interface TripTicketsSectionProps {
   trip: Trip;
   tickets: TripTicket[];
@@ -108,6 +126,9 @@ interface TripTicketsSectionProps {
   collaborators: Collaborator[];
   tripId: string;
   onRefresh: () => void;
+  currentUser: CurrentUser;
+  typingUsers?: TypingUser[];
+  activeUsers?: ActiveUser[];
 }
 
 const ticketTypeIcons: Record<string, any> = {
@@ -136,6 +157,9 @@ export function TripTicketsSection({
   collaborators,
   tripId,
   onRefresh,
+  currentUser,
+  typingUsers = [],
+  activeUsers = [],
 }: TripTicketsSectionProps) {
   const currentUserId = trip.userId;
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -206,8 +230,13 @@ export function TripTicketsSection({
           tripId={tripId}
           context="tickets"
           messages={allMessages}
+          currentUser={currentUser}
+          collaborators={collaborators}
+          tripOwnerId={trip.userId}
           onNewMessage={handleNewMessage}
           onCreatePoll={() => setShowCreatePoll(true)}
+          typingUsers={typingUsers}
+          activeUsers={activeUsers}
         />
       </div>
 
