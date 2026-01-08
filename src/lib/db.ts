@@ -710,6 +710,7 @@ async function ensureTablesExist() {
         location TEXT,
         locationDetails TEXT,
         shareToken TEXT UNIQUE,
+        joinToken TEXT UNIQUE,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
@@ -722,9 +723,18 @@ async function ensureTablesExist() {
     `).catch(() => {/* Column may already exist */});
 
     // Add joinToken column if it doesn't exist (migration for existing tables)
-    await client.execute(`
-      ALTER TABLE trip_sessions ADD COLUMN joinToken TEXT UNIQUE
-    `).catch(() => {/* Column may already exist */});
+    // Check if column exists first using PRAGMA
+    try {
+      const tableInfo = await client.execute(`PRAGMA table_info(trip_sessions)`);
+      const hasJoinToken = tableInfo.rows.some((row: any) => row.name === 'joinToken');
+      if (!hasJoinToken) {
+        console.log('Adding joinToken column to trip_sessions...');
+        await client.execute(`ALTER TABLE trip_sessions ADD COLUMN joinToken TEXT UNIQUE`);
+        console.log('joinToken column added successfully');
+      }
+    } catch (error) {
+      console.error('Error checking/adding joinToken column:', error);
+    }
 
     await client.execute(`
       CREATE TABLE IF NOT EXISTS trip_collaborators (
