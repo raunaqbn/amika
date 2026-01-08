@@ -673,7 +673,7 @@ export function ChatInterface() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-full gap-6">
+    <div className="flex flex-col md:flex-row h-full min-h-0 gap-6">
       <aside className="md:w-72 lg:w-80 md:max-w-sm w-full md:flex-shrink-0 border border-[#A8C5A8]/30 rounded-2xl p-4 bg-white/60 shadow-sm">
         <div className="flex items-center justify-between mb-4 gap-2">
           <div>
@@ -742,7 +742,7 @@ export function ChatInterface() {
         </Button>
       </aside>
 
-      <div className="flex-1 flex flex-col h-full">
+      <div className="flex-1 flex flex-col h-full min-h-0">
         <div className="flex items-center justify-between mb-4 gap-3">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Conversation</h2>
@@ -767,7 +767,7 @@ export function ChatInterface() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-4 pb-4">
+        <div className="flex-1 overflow-y-auto space-y-4 pb-4 min-h-0">
           {messages.length === 0 ? (
             <div className="text-center py-12 px-4">
               <div className="bg-gradient-to-br from-[#A8C5A8]/20 to-[#D4A5A5]/20 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
