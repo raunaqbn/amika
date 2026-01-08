@@ -84,7 +84,7 @@ export function useTripSync(
   const [error, setError] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
-  const lastSyncRef = useRef<Date>(new Date());
+  const lastSyncRef = useRef<Date>(new Date(0)); // Start at epoch to fetch all historical messages
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const presenceIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -244,9 +244,11 @@ export function useTripSync(
     };
   }, [enabled, tripId, fetchTypingUsers, fetchActiveUsers, sendPresenceHeartbeat]);
 
-  // Reset last sync when trip changes
+  // Reset last sync when trip changes - use epoch to fetch all historical messages
   useEffect(() => {
-    lastSyncRef.current = new Date();
+    // Set to epoch time (0) so the first sync fetches ALL historical messages
+    // This ensures users who join late can see the complete chat history
+    lastSyncRef.current = new Date(0);
     setIsConnected(false);
     setTypingUsers([]);
     setActiveUsers([]);
