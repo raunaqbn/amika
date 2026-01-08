@@ -57,6 +57,7 @@ interface TripChatProps {
   currentUser: CurrentUser;
   collaborators: Collaborator[];
   tripOwnerId: string;
+  tripOwnerName?: string | null;
   onNewMessage?: (message: Message) => void;
   typingUsers?: TypingUser[];
   activeUsers?: ActiveUser[];
@@ -69,6 +70,7 @@ export function TripChat({
   currentUser,
   collaborators,
   tripOwnerId,
+  tripOwnerName,
   onNewMessage,
   typingUsers = [],
   activeUsers = [],
@@ -204,8 +206,9 @@ export function TripChat({
     if (msg.userId === tripOwnerId && tripOwnerId !== currentUser.id) {
       // Find owner info from collaborators or use default
       const ownerCollab = collaborators.find(c => c.linkedUserId === tripOwnerId || c.userId === tripOwnerId);
+      const ownerDisplayName = ownerCollab?.friendName || tripOwnerName || 'Trip Owner';
       return {
-        name: ownerCollab?.friendName || 'Trip Owner',
+        name: `${ownerDisplayName} (Trip Owner)`,
         image: ownerCollab?.profileImage || null,
         isCurrentUser: false,
         isAssistant: false,
