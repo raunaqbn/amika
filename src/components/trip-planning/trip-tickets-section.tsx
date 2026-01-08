@@ -107,6 +107,7 @@ interface TripTicketsSectionProps {
   polls: TripPoll[];
   collaborators: Collaborator[];
   tripId: string;
+  currentUserId?: string;
   onRefresh: () => void;
 }
 
@@ -135,9 +136,10 @@ export function TripTicketsSection({
   polls,
   collaborators,
   tripId,
+  currentUserId: currentUserIdProp,
   onRefresh,
 }: TripTicketsSectionProps) {
-  const currentUserId = trip.userId;
+  const currentUserId = currentUserIdProp || trip.userId;
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     [currentUserId]: true,
   });
@@ -296,6 +298,8 @@ export function TripTicketsSection({
                   key={poll.id}
                   poll={poll}
                   tripId={tripId}
+                  currentUserId={currentUserId}
+                  onVote={onRefresh}
                   onDelete={onRefresh}
                   onClose={onRefresh}
                 />
@@ -316,6 +320,7 @@ export function TripTicketsSection({
                   key={poll.id}
                   poll={poll}
                   tripId={tripId}
+                  currentUserId={currentUserId}
                   onDelete={onRefresh}
                 />
               ))}

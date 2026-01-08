@@ -95,6 +95,7 @@ interface TripEventsSectionProps {
   messages: Message[];
   polls: TripPoll[];
   tripId: string;
+  currentUserId?: string;
   onRefresh: () => void;
 }
 
@@ -112,6 +113,7 @@ export function TripEventsSection({
   messages,
   polls,
   tripId,
+  currentUserId,
   onRefresh,
 }: TripEventsSectionProps) {
   const [openDays, setOpenDays] = useState<Record<number, boolean>>({ 1: true });
@@ -344,6 +346,8 @@ export function TripEventsSection({
                   key={poll.id}
                   poll={poll}
                   tripId={tripId}
+                  currentUserId={currentUserId}
+                  onVote={onRefresh}
                   onDelete={onRefresh}
                   onClose={onRefresh}
                 />
@@ -364,6 +368,7 @@ export function TripEventsSection({
                   key={poll.id}
                   poll={poll}
                   tripId={tripId}
+                  currentUserId={currentUserId}
                   onDelete={onRefresh}
                 />
               ))}

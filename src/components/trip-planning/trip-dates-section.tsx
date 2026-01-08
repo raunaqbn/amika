@@ -46,6 +46,7 @@ interface TripDatesSectionProps {
   messages: Message[];
   polls: TripPoll[];
   tripId: string;
+  currentUserId?: string;
   onRefresh?: () => void;
 }
 
@@ -55,6 +56,7 @@ export function TripDatesSection({
   messages,
   polls,
   tripId,
+  currentUserId,
   onRefresh,
 }: TripDatesSectionProps) {
   const [editing, setEditing] = useState(false);
@@ -191,6 +193,8 @@ export function TripDatesSection({
                   key={poll.id}
                   poll={poll}
                   tripId={tripId}
+                  currentUserId={currentUserId}
+                  onVote={onRefresh}
                   onDelete={onRefresh}
                   onClose={onRefresh}
                 />
@@ -211,6 +215,7 @@ export function TripDatesSection({
                   key={poll.id}
                   poll={poll}
                   tripId={tripId}
+                  currentUserId={currentUserId}
                   onDelete={onRefresh}
                 />
               ))}
