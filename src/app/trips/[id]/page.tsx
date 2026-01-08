@@ -673,61 +673,58 @@ export default function TripPlanningPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-4">
-            {trip?.joinToken ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <Input
-                    readOnly
-                    value={getInviteUrl()}
-                    className="flex-1 bg-gray-50"
-                  />
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Session link</label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={trip?.joinToken ? getInviteUrl() : 'Click generate to create a link'}
+                  className="flex-1 bg-gray-50"
+                />
+                {trip?.joinToken ? (
                   <Button
                     onClick={handleCopyInviteLink}
                     variant="outline"
-                    size="icon"
                     className="shrink-0"
                   >
                     {inviteCopied ? (
-                      <Check className="w-4 h-4 text-green-600" />
+                      <Check className="w-4 h-4 text-green-600 mr-2" />
                     ) : (
-                      <Copy className="w-4 h-4" />
+                      <Copy className="w-4 h-4 mr-2" />
                     )}
+                    Copy
                   </Button>
-                </div>
-                <div className="flex items-center justify-between pt-2 border-t">
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Link2 className="w-4 h-4" />
-                    <span>Session link active</span>
-                  </div>
+                ) : (
                   <Button
-                    onClick={handleRevokeInviteLink}
-                    variant="ghost"
-                    size="sm"
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={handleGenerateInviteLink}
+                    className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 shrink-0"
                     disabled={inviteLoading}
                   >
-                    <Link2Off className="w-4 h-4 mr-2" />
-                    Disable
+                    {inviteLoading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    ) : (
+                      <Link2 className="w-4 h-4 mr-2" />
+                    )}
+                    Generate
                   </Button>
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-4">
-                <Link2 className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-                <p className="text-sm text-gray-600 mb-4">
-                  Generate a session link to let others join this trip
+                )}
+              </div>
+            </div>
+
+            {trip?.joinToken && (
+              <div className="flex items-center justify-between pt-2 border-t">
+                <p className="text-xs text-gray-500">
+                  Anyone with this link can join and collaborate on planning.
                 </p>
                 <Button
-                  onClick={handleGenerateInviteLink}
-                  className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90"
+                  onClick={handleRevokeInviteLink}
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
                   disabled={inviteLoading}
                 >
-                  {inviteLoading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  ) : (
-                    <Link2 className="w-4 h-4 mr-2" />
-                  )}
-                  Generate Link
+                  <Link2Off className="w-4 h-4 mr-2" />
+                  Disable
                 </Button>
               </div>
             )}
