@@ -26,6 +26,7 @@ import {
   Loader2,
   User,
   FileText,
+  BarChart2,
 } from 'lucide-react';
 import {
   Collapsible,
@@ -236,7 +237,6 @@ export function TripTicketsSection({
           collaborators={collaborators}
           tripOwnerId={trip.userId}
           onNewMessage={handleNewMessage}
-          onCreatePoll={() => setShowCreatePoll(true)}
           typingUsers={typingUsers}
           activeUsers={activeUsers}
         />
@@ -314,13 +314,25 @@ export function TripTicketsSection({
           )}
         </Card>
 
-        {/* Active Polls */}
-        {polls.filter((p) => p.status === 'active').length > 0 && (
-          <div className="space-y-3">
+        {/* Polls Section */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
             <h4 className="font-medium text-sm text-muted-foreground">
               ACTIVE POLLS
             </h4>
-            {polls
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCreatePoll(true)}
+              className="text-xs"
+            >
+              <BarChart2 className="w-3 h-3 mr-1" />
+              Create Poll
+            </Button>
+          </div>
+
+          {polls.filter((p) => p.status === 'active').length > 0 ? (
+            polls
               .filter((p) => p.status === 'active')
               .map((poll) => (
                 <TripPollComponent
@@ -332,9 +344,13 @@ export function TripTicketsSection({
                   onDelete={onRefresh}
                   onClose={onRefresh}
                 />
-              ))}
-          </div>
-        )}
+              ))
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No active polls yet
+            </p>
+          )}
+        </div>
 
         {/* Closed Polls */}
         {polls.filter((p) => p.status === 'closed').length > 0 && (

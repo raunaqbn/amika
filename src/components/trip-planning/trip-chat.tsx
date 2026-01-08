@@ -5,7 +5,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Send, Loader2, Sparkles, BarChart2, Circle } from 'lucide-react';
+import { Send, Loader2, Sparkles, Circle } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -58,7 +58,6 @@ interface TripChatProps {
   collaborators: Collaborator[];
   tripOwnerId: string;
   onNewMessage?: (message: Message) => void;
-  onCreatePoll?: () => void;
   typingUsers?: TypingUser[];
   activeUsers?: ActiveUser[];
 }
@@ -71,7 +70,6 @@ export function TripChat({
   collaborators,
   tripOwnerId,
   onNewMessage,
-  onCreatePoll,
   typingUsers = [],
   activeUsers = [],
 }: TripChatProps) {
@@ -80,10 +78,25 @@ export function TripChat({
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const prevMessageCountRef = useRef<number>(0);
+  const prevLastMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Use block: 'nearest' to scroll within container only, preventing page scroll
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Only scroll when a NEW message is actually added, not on every render
+    // This prevents scrolling when polls are updated (which refreshes data but doesn't add messages)
+    const lastMessage = messages[messages.length - 1];
+    const lastMessageId = lastMessage?.id || null;
+    const messageCount = messages.length;
+
+    const hasNewMessage = messageCount > prevMessageCountRef.current ||
+                          (lastMessageId !== prevLastMessageIdRef.current && lastMessageId !== null);
+
+    if (hasNewMessage) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    prevMessageCountRef.current = messageCount;
+    prevLastMessageIdRef.current = lastMessageId;
   }, [messages]);
 
   // Send typing indicator
@@ -227,49 +240,36 @@ export function TripChat({
 
   return (
     <Card className="p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <h4 className="font-medium text-sm">Discussion</h4>
-          {/* Active users indicator */}
-          {activeUsers.length > 0 && (
-            <div className="flex items-center gap-1">
-              <div className="flex -space-x-1">
-                {activeUsers.slice(0, 3).map((user) => (
-                  <div key={user.id} className="relative">
-                    <Avatar className="h-5 w-5 border border-white">
-                      <AvatarImage src={user.profileImage || undefined} />
-                      <AvatarFallback className="text-[8px] bg-gray-200">
-                        {user.name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <Circle className="absolute -bottom-0.5 -right-0.5 w-2 h-2 fill-green-500 text-green-500" />
-                  </div>
-                ))}
-              </div>
-              {activeUsers.length > 3 && (
-                <span className="text-xs text-muted-foreground">
-                  +{activeUsers.length - 3}
-                </span>
-              )}
-              <span className="text-xs text-muted-foreground ml-1">active</span>
+      <div className="flex items-center gap-2 mb-3">
+        <h4 className="font-medium text-sm">Discussion</h4>
+        {/* Active users indicator */}
+        {activeUsers.length > 0 && (
+          <div className="flex items-center gap-1">
+            <div className="flex -space-x-1">
+              {activeUsers.slice(0, 3).map((user) => (
+                <div key={user.id} className="relative">
+                  <Avatar className="h-5 w-5 border border-white">
+                    <AvatarImage src={user.profileImage || undefined} />
+                    <AvatarFallback className="text-[8px] bg-gray-200">
+                      {user.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <Circle className="absolute -bottom-0.5 -right-0.5 w-2 h-2 fill-green-500 text-green-500" />
+                </div>
+              ))}
             </div>
-          )}
-        </div>
-        {onCreatePoll && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onCreatePoll}
-            className="text-xs"
-          >
-            <BarChart2 className="w-3 h-3 mr-1" />
-            Create Poll
-          </Button>
+            {activeUsers.length > 3 && (
+              <span className="text-xs text-muted-foreground">
+                +{activeUsers.length - 3}
+              </span>
+            )}
+            <span className="text-xs text-muted-foreground ml-1">active</span>
+          </div>
         )}
       </div>
 
       {/* Messages */}
-      <div className="max-h-[300px] overflow-y-auto mb-3 space-y-3">
+      <div className="max-h-[500px] overflow-y-auto mb-3 space-y-3">
         {messages.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
             No messages yet. Start the discussion!
