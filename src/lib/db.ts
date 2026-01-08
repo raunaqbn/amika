@@ -168,6 +168,7 @@ export type TripSession = {
   endDate: Date | null;
   location: string | null;
   locationDetails: string | null;
+  shareToken: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -707,11 +708,17 @@ async function ensureTablesExist() {
         endDate TEXT,
         location TEXT,
         locationDetails TEXT,
+        shareToken TEXT UNIQUE,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
+
+    // Add shareToken column if it doesn't exist (migration for existing tables)
+    await client.execute(`
+      ALTER TABLE trip_sessions ADD COLUMN shareToken TEXT UNIQUE
+    `).catch(() => {/* Column may already exist */});
 
     await client.execute(`
       CREATE TABLE IF NOT EXISTS trip_collaborators (
@@ -3649,6 +3656,7 @@ export const prisma = {
           endDate: row.endDate ? new Date(row.endDate as string) : null,
           location: row.location as string | null,
           locationDetails: row.locationDetails as string | null,
+          shareToken: row.shareToken as string | null,
           createdAt: new Date(row.createdAt as string),
           updatedAt: new Date(row.updatedAt as string),
           collaborators: colResult.rows.map((c: any) => ({
@@ -3806,6 +3814,7 @@ export const prisma = {
         endDate: row.endDate ? new Date(row.endDate as string) : null,
         location: row.location as string | null,
         locationDetails: row.locationDetails as string | null,
+        shareToken: row.shareToken as string | null,
         createdAt: new Date(row.createdAt as string),
         updatedAt: new Date(row.updatedAt as string),
         collaborators: colResult.rows.map((c: any) => ({
@@ -3869,6 +3878,7 @@ export const prisma = {
         endDate: null,
         location: null,
         locationDetails: null,
+        shareToken: null,
         createdAt: now,
         updatedAt: now,
       };
@@ -3972,6 +3982,7 @@ export const prisma = {
         endDate: data.endDate !== undefined ? data.endDate : (row.endDate ? new Date(row.endDate as string) : null),
         location: data.location !== undefined ? data.location : row.location as string | null,
         locationDetails: data.locationDetails !== undefined ? data.locationDetails : row.locationDetails as string | null,
+        shareToken: row.shareToken as string | null,
         createdAt: new Date(row.createdAt as string),
         updatedAt: now,
       };
@@ -4030,6 +4041,233 @@ export const prisma = {
       });
 
       return true;
+    },
+
+    generateShareToken: async (id: string, userId: string): Promise<string | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Only owner can generate share link
+      const existing = await client.execute({
+        sql: 'SELECT * FROM trip_sessions WHERE id = ? AND userId = ?',
+        args: [id, userId],
+      });
+
+      if (existing.rows.length === 0) return null;
+
+      // Generate a unique share token
+      const shareToken = randomUUID().replace(/-/g, '').substring(0, 16);
+
+      await client.execute({
+        sql: 'UPDATE trip_sessions SET shareToken = ?, updatedAt = ? WHERE id = ?',
+        args: [shareToken, new Date().toISOString(), id],
+      });
+
+      return shareToken;
+    },
+
+    revokeShareToken: async (id: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Only owner can revoke share link
+      const existing = await client.execute({
+        sql: 'SELECT * FROM trip_sessions WHERE id = ? AND userId = ?',
+        args: [id, userId],
+      });
+
+      if (existing.rows.length === 0) return false;
+
+      await client.execute({
+        sql: 'UPDATE trip_sessions SET shareToken = NULL, updatedAt = ? WHERE id = ?',
+        args: [new Date().toISOString(), id],
+      });
+
+      return true;
+    },
+
+    findByShareToken: async (shareToken: string): Promise<(TripSession & {
+      collaborators: any[];
+      dailyPlans: any[];
+      tickets: any[];
+      polls: any[];
+      goalProgress: any[];
+      ownerName: string;
+    }) | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: `SELECT ts.*, u.name as ownerName FROM trip_sessions ts
+              JOIN users u ON ts.userId = u.id
+              WHERE ts.shareToken = ?`,
+        args: [shareToken],
+      });
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+      const id = row.id as string;
+
+      // Get collaborators
+      const colResult = await client.execute({
+        sql: `SELECT tc.*, f.name as friendName, f.profileImage, f.customProfileImage, f.linkedUserId
+              FROM trip_collaborators tc
+              JOIN friends f ON tc.friendId = f.id
+              WHERE tc.tripId = ?`,
+        args: [id],
+      });
+
+      // Get daily plans with events
+      const plansResult = await client.execute({
+        sql: 'SELECT * FROM trip_daily_plans WHERE tripId = ? ORDER BY dayNumber ASC',
+        args: [id],
+      });
+
+      const dailyPlans: any[] = [];
+      for (const plan of plansResult.rows) {
+        const eventsResult = await client.execute({
+          sql: 'SELECT * FROM trip_events WHERE dailyPlanId = ? ORDER BY "order" ASC',
+          args: [plan.id as string],
+        });
+        dailyPlans.push({
+          id: plan.id,
+          tripId: plan.tripId,
+          dayNumber: plan.dayNumber,
+          date: plan.date ? new Date(plan.date as string) : null,
+          events: eventsResult.rows.map((e: any) => ({
+            id: e.id,
+            dailyPlanId: e.dailyPlanId,
+            title: e.title,
+            description: e.description,
+            startTime: e.startTime,
+            endTime: e.endTime,
+            location: e.location,
+            category: e.category,
+            externalUrl: e.externalUrl,
+            estimatedCost: e.estimatedCost,
+            notes: e.notes,
+            order: e.order,
+            createdById: e.createdById,
+            createdAt: new Date(e.createdAt as string),
+            updatedAt: new Date(e.updatedAt as string),
+          })),
+        });
+      }
+
+      // Get tickets
+      const ticketsResult = await client.execute({
+        sql: 'SELECT * FROM trip_tickets WHERE tripId = ? ORDER BY departureTime ASC',
+        args: [id],
+      });
+
+      // Get polls with options and votes
+      const pollsResult = await client.execute({
+        sql: 'SELECT * FROM trip_polls WHERE tripId = ? ORDER BY createdAt DESC',
+        args: [id],
+      });
+
+      const polls: any[] = [];
+      for (const poll of pollsResult.rows) {
+        const optionsResult = await client.execute({
+          sql: 'SELECT * FROM trip_poll_options WHERE pollId = ? ORDER BY "order" ASC',
+          args: [poll.id as string],
+        });
+
+        const optionsWithVotes: any[] = [];
+        for (const opt of optionsResult.rows) {
+          const votesResult = await client.execute({
+            sql: 'SELECT * FROM trip_poll_votes WHERE optionId = ?',
+            args: [opt.id as string],
+          });
+          optionsWithVotes.push({
+            id: opt.id,
+            pollId: opt.pollId,
+            label: opt.label,
+            url: opt.url,
+            order: opt.order,
+            votes: votesResult.rows.map((v: any) => ({
+              id: v.id,
+              optionId: v.optionId,
+              visitorId: v.visitorId,
+              friendId: v.friendId,
+              votedAt: new Date(v.votedAt as string),
+            })),
+          });
+        }
+
+        polls.push({
+          id: poll.id,
+          tripId: poll.tripId,
+          context: poll.context,
+          question: poll.question,
+          status: poll.status,
+          createdById: poll.createdById,
+          createdAt: new Date(poll.createdAt as string),
+          closedAt: poll.closedAt ? new Date(poll.closedAt as string) : null,
+          options: optionsWithVotes,
+        });
+      }
+
+      // Get goal progress
+      const goalsResult = await client.execute({
+        sql: 'SELECT * FROM trip_goal_progress WHERE tripId = ?',
+        args: [id],
+      });
+
+      return {
+        id: row.id as string,
+        userId: row.userId as string,
+        title: row.title as string,
+        description: row.description as string | null,
+        status: row.status as TripSession['status'],
+        startDate: row.startDate ? new Date(row.startDate as string) : null,
+        endDate: row.endDate ? new Date(row.endDate as string) : null,
+        location: row.location as string | null,
+        locationDetails: row.locationDetails as string | null,
+        shareToken: row.shareToken as string | null,
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: new Date(row.updatedAt as string),
+        ownerName: row.ownerName as string,
+        collaborators: colResult.rows.map((c: any) => ({
+          id: c.id,
+          tripId: c.tripId,
+          friendId: c.friendId,
+          userId: c.userId,
+          role: c.role,
+          joinedAt: new Date(c.joinedAt as string),
+          friendName: c.friendName,
+          profileImage: c.customProfileImage || c.profileImage,
+          linkedUserId: c.linkedUserId,
+        })),
+        dailyPlans,
+        tickets: ticketsResult.rows.map((t: any) => ({
+          id: t.id,
+          tripId: t.tripId,
+          collaboratorId: t.collaboratorId,
+          type: t.type,
+          title: t.title,
+          description: t.description,
+          confirmationNum: t.confirmationNum,
+          departureTime: t.departureTime ? new Date(t.departureTime as string) : null,
+          arrivalTime: t.arrivalTime ? new Date(t.arrivalTime as string) : null,
+          location: t.location,
+          cost: t.cost,
+          currency: t.currency,
+          url: t.url,
+          createdById: t.createdById,
+          createdAt: new Date(t.createdAt as string),
+          updatedAt: new Date(t.updatedAt as string),
+        })),
+        polls,
+        goalProgress: goalsResult.rows.map((g: any) => ({
+          id: g.id,
+          tripId: g.tripId,
+          goalType: g.goalType,
+          status: g.status,
+          completedAt: g.completedAt ? new Date(g.completedAt as string) : null,
+        })),
+      };
     },
   },
 
