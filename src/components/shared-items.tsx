@@ -4,14 +4,15 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Check, X, Loader2, Share2, FileText, Calendar, Image as ImageIcon } from 'lucide-react';
+import { Check, X, Loader2, Share2, FileText, Calendar, Image as ImageIcon, Plane } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { formatDistanceToNow, format } from 'date-fns';
 
 type SharedItem = {
   id: string;
   sharedByUserId: string;
   sharedWithUserId: string;
-  itemType: 'memory' | 'note' | 'event';
+  itemType: 'memory' | 'note' | 'event' | 'trip';
   itemId: string;
   status: 'pending' | 'accepted' | 'rejected';
   message: string | null;
@@ -30,10 +31,13 @@ type SharedItem = {
     eventDate?: string;
     location?: string;
     imageUrl?: string | null;
+    startDate?: string;
+    endDate?: string;
   };
 };
 
 export function SharedItemsInbox({ onUpdate }: { onUpdate?: () => void }) {
+  const router = useRouter();
   const [items, setItems] = useState<SharedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
@@ -56,7 +60,7 @@ export function SharedItemsInbox({ onUpdate }: { onUpdate?: () => void }) {
     }
   };
 
-  const handleResponse = async (itemId: string, status: 'accepted' | 'rejected') => {
+  const handleResponse = async (itemId: string, status: 'accepted' | 'rejected', item?: SharedItem) => {
     setProcessing(itemId);
     try {
       const response = await fetch('/api/shared-items', {
@@ -68,6 +72,11 @@ export function SharedItemsInbox({ onUpdate }: { onUpdate?: () => void }) {
       if (response.ok) {
         setItems(items.filter((i) => i.id !== itemId));
         onUpdate?.();
+
+        // Navigate to trip page if accepting a trip invite
+        if (status === 'accepted' && item?.itemType === 'trip') {
+          router.push(`/trips/${item.itemId}`);
+        }
       }
     } catch (err) {
       console.error('Error responding to shared item:', err);
@@ -84,6 +93,8 @@ export function SharedItemsInbox({ onUpdate }: { onUpdate?: () => void }) {
         return <FileText className="w-4 h-4" />;
       case 'event':
         return <Calendar className="w-4 h-4" />;
+      case 'trip':
+        return <Plane className="w-4 h-4" />;
       default:
         return <Share2 className="w-4 h-4" />;
     }
@@ -99,6 +110,16 @@ export function SharedItemsInbox({ onUpdate }: { onUpdate?: () => void }) {
         return item.item.title || item.item.content?.slice(0, 100) + '...';
       case 'event':
         return `${item.item.title}${item.item.eventDate ? ` - ${format(new Date(item.item.eventDate), 'MMM d, yyyy')}` : ''}`;
+      case 'trip':
+        let preview = item.item.title || 'Trip';
+        if (item.item.location) preview += ` to ${item.item.location}`;
+        if (item.item.startDate) {
+          preview += ` - ${format(new Date(item.item.startDate), 'MMM d, yyyy')}`;
+          if (item.item.endDate) {
+            preview += ` to ${format(new Date(item.item.endDate), 'MMM d, yyyy')}`;
+          }
+        }
+        return preview;
       default:
         return 'Shared item';
     }
@@ -173,7 +194,7 @@ export function SharedItemsInbox({ onUpdate }: { onUpdate?: () => void }) {
             <div className="flex gap-2 pl-11">
               <Button
                 size="sm"
-                onClick={() => handleResponse(item.id, 'accepted')}
+                onClick={() => handleResponse(item.id, 'accepted', item)}
                 disabled={processing === item.id}
                 className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
               >
@@ -182,14 +203,14 @@ export function SharedItemsInbox({ onUpdate }: { onUpdate?: () => void }) {
                 ) : (
                   <>
                     <Check className="w-4 h-4 mr-1" />
-                    Accept
+                    {item.itemType === 'trip' ? 'View Trip' : 'Accept'}
                   </>
                 )}
               </Button>
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => handleResponse(item.id, 'rejected')}
+                onClick={() => handleResponse(item.id, 'rejected', item)}
                 disabled={processing === item.id}
               >
                 <X className="w-4 h-4 mr-1" />
@@ -233,6 +254,8 @@ export function AcceptedSharedItems() {
         return <FileText className="w-4 h-4" />;
       case 'event':
         return <Calendar className="w-4 h-4" />;
+      case 'trip':
+        return <Plane className="w-4 h-4" />;
       default:
         return <Share2 className="w-4 h-4" />;
     }
