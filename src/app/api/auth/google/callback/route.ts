@@ -62,12 +62,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/signin?error=no_code', request.nextUrl.origin));
     }
 
-    // Parse state for invite code
+    // Parse state for invite code and returnUrl
     let inviteCode: string | null = null;
+    let returnUrl: string | null = null;
     if (state) {
       try {
         const parsed = JSON.parse(state);
         inviteCode = parsed.inviteCode || null;
+        returnUrl = parsed.returnUrl || null;
       } catch {
         // Invalid state, ignore
       }
@@ -133,7 +135,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/friends?invited=true', request.nextUrl.origin));
     }
 
-    return NextResponse.redirect(new URL('/', request.nextUrl.origin));
+    // Redirect to returnUrl if provided, otherwise home
+    const redirectTo = returnUrl || '/';
+    return NextResponse.redirect(new URL(redirectTo, request.nextUrl.origin));
   } catch (error) {
     console.error('Google OAuth error:', error);
     return NextResponse.redirect(new URL('/signin?error=google_auth_failed', request.nextUrl.origin));

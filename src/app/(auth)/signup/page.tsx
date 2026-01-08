@@ -23,6 +23,8 @@ function SignUpForm() {
 
   // Get friend request target from URL
   const friendRequestId = searchParams.get('friendRequest');
+  // Get return URL from query params
+  const returnUrl = searchParams.get('returnUrl');
 
   // Fetch friend request user info if provided
   useEffect(() => {
@@ -45,7 +47,11 @@ function SignUpForm() {
 
   const handleGoogleSignUp = () => {
     setGoogleLoading(true);
-    window.location.href = '/api/auth/google';
+    // Pass returnUrl to Google OAuth
+    const googleUrl = returnUrl
+      ? `/api/auth/google?returnUrl=${encodeURIComponent(returnUrl)}`
+      : '/api/auth/google';
+    window.location.href = googleUrl;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,7 +85,8 @@ function SignUpForm() {
           // Don't block signup flow if friend request fails
         }
       }
-      router.push('/');
+      // Redirect to returnUrl if provided, otherwise home
+      router.push(returnUrl || '/');
       router.refresh();
     } else {
       setError(result.error || 'Failed to create account');
@@ -255,7 +262,10 @@ function SignUpForm() {
         <div className="mt-6 text-center">
           <p className="text-gray-600 text-sm">
             Already have an account?{' '}
-            <Link href="/signin" className="text-[#A8C5A8] hover:underline font-medium">
+            <Link
+              href={returnUrl ? `/signin?returnUrl=${encodeURIComponent(returnUrl)}` : '/signin'}
+              className="text-[#A8C5A8] hover:underline font-medium"
+            >
               Sign in
             </Link>
           </p>
