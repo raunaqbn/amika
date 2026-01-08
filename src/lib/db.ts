@@ -4313,43 +4313,50 @@ export const prisma = {
     },
 
     generateJoinToken: async (id: string, userId: string): Promise<string | null> => {
-      console.log('generateJoinToken called with tripId:', id, 'userId:', userId);
-      await ensureTablesExist();
-      const client = getClient();
+      try {
+        console.log('generateJoinToken called with tripId:', id, 'userId:', userId);
+        await ensureTablesExist();
+        console.log('ensureTablesExist completed');
+        const client = getClient();
+        console.log('getClient completed');
 
-      // Only owner can generate join link
-      const existing = await client.execute({
-        sql: 'SELECT * FROM trip_sessions WHERE id = ? AND userId = ?',
-        args: [id, userId],
-      });
-
-      console.log('Trip query result:', existing.rows.length, 'rows');
-
-      if (existing.rows.length === 0) {
-        // Check if trip exists but user is not owner
-        const tripExists = await client.execute({
-          sql: 'SELECT userId FROM trip_sessions WHERE id = ?',
-          args: [id],
+        // Only owner can generate join link
+        const existing = await client.execute({
+          sql: 'SELECT * FROM trip_sessions WHERE id = ? AND userId = ?',
+          args: [id, userId],
         });
-        if (tripExists.rows.length > 0) {
-          console.log('Trip exists but user is not owner. Trip owner:', tripExists.rows[0]?.userId, 'Current user:', userId);
-        } else {
-          console.log('Trip does not exist with id:', id);
+
+        console.log('Trip query result:', existing.rows.length, 'rows');
+
+        if (existing.rows.length === 0) {
+          // Check if trip exists but user is not owner
+          const tripExists = await client.execute({
+            sql: 'SELECT userId FROM trip_sessions WHERE id = ?',
+            args: [id],
+          });
+          if (tripExists.rows.length > 0) {
+            console.log('Trip exists but user is not owner. Trip owner:', tripExists.rows[0]?.userId, 'Current user:', userId);
+          } else {
+            console.log('Trip does not exist with id:', id);
+          }
+          return null;
         }
-        return null;
+
+        // Generate a unique join token
+        const joinToken = randomUUID().replace(/-/g, '').substring(0, 16);
+        console.log('Generated joinToken:', joinToken);
+
+        await client.execute({
+          sql: 'UPDATE trip_sessions SET joinToken = ?, updatedAt = ? WHERE id = ?',
+          args: [joinToken, new Date().toISOString(), id],
+        });
+
+        console.log('Updated trip with joinToken successfully');
+        return joinToken;
+      } catch (error) {
+        console.error('Error in generateJoinToken:', error);
+        throw error;
       }
-
-      // Generate a unique join token
-      const joinToken = randomUUID().replace(/-/g, '').substring(0, 16);
-      console.log('Generated joinToken:', joinToken);
-
-      await client.execute({
-        sql: 'UPDATE trip_sessions SET joinToken = ?, updatedAt = ? WHERE id = ?',
-        args: [joinToken, new Date().toISOString(), id],
-      });
-
-      console.log('Updated trip with joinToken successfully');
-      return joinToken;
     },
 
     revokeJoinToken: async (id: string, userId: string): Promise<boolean> => {
