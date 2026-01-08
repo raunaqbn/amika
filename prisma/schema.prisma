@@ -125,6 +125,11 @@ model Event {
   category    String?  // experiences, restaurants, places
   friendId    String
   friend      Friend   @relation(fields: [friendId], references: [id], onDelete: Cascade)
+
+  // Public sharing
+  shareToken  String?  @unique  // Token for public shareable link (read-only)
+  joinToken   String?  @unique  // Token for invite link (allows joining the event)
+
   createdAt   DateTime @default(now())
 }
 
