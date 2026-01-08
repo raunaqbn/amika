@@ -660,7 +660,7 @@ export default function TripPlanningPage() {
         </div>
       </div>
 
-      {/* Share Dialog */}
+      {/* Share Dialog - Now creates a session link for joining */}
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
         <DialogContent className="sm:max-w-md bg-white">
           <DialogHeader>
@@ -669,25 +669,25 @@ export default function TripPlanningPage() {
               Share Trip
             </DialogTitle>
             <DialogDescription>
-              Share this trip with anyone using a link. They can view the itinerary and tickets without needing an Amika account.
+              Share this trip with friends using a link. They&apos;ll need to sign in to join and collaborate on planning.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-4">
-            {trip?.shareToken ? (
+            {trip?.joinToken ? (
               <>
                 <div className="flex items-center gap-2">
                   <Input
                     readOnly
-                    value={getShareUrl()}
+                    value={getInviteUrl()}
                     className="flex-1 bg-gray-50"
                   />
                   <Button
-                    onClick={handleCopyShareLink}
+                    onClick={handleCopyInviteLink}
                     variant="outline"
                     size="icon"
                     className="shrink-0"
                   >
-                    {copied ? (
+                    {inviteCopied ? (
                       <Check className="w-4 h-4 text-green-600" />
                     ) : (
                       <Copy className="w-4 h-4" />
@@ -697,14 +697,14 @@ export default function TripPlanningPage() {
                 <div className="flex items-center justify-between pt-2 border-t">
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <Link2 className="w-4 h-4" />
-                    <span>Sharing is enabled</span>
+                    <span>Session link active</span>
                   </div>
                   <Button
-                    onClick={handleRevokeShareLink}
+                    onClick={handleRevokeInviteLink}
                     variant="ghost"
                     size="sm"
                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    disabled={shareLoading}
+                    disabled={inviteLoading}
                   >
                     <Link2Off className="w-4 h-4 mr-2" />
                     Disable
@@ -715,14 +715,14 @@ export default function TripPlanningPage() {
               <div className="text-center py-4">
                 <Link2 className="w-10 h-10 text-gray-400 mx-auto mb-3" />
                 <p className="text-sm text-gray-600 mb-4">
-                  Generate a shareable link to let others view this trip
+                  Generate a session link to let others join this trip
                 </p>
                 <Button
-                  onClick={handleGenerateShareLink}
+                  onClick={handleGenerateInviteLink}
                   className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90"
-                  disabled={shareLoading}
+                  disabled={inviteLoading}
                 >
-                  {shareLoading ? (
+                  {inviteLoading ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                   ) : (
                     <Link2 className="w-4 h-4 mr-2" />
