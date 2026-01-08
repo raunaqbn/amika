@@ -4125,6 +4125,7 @@ export const prisma = {
     },
 
     findById: async (id: string, userId: string): Promise<(TripSession & {
+      ownerName: string | null;
       collaborators: any[];
       dailyPlans: any[];
       tickets: any[];
