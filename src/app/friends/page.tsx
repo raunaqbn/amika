@@ -16,6 +16,9 @@ interface Friend {
   notes?: string | null;
   linkedUserId?: string | null;
   friendshipPoints?: number;
+  eventsCount?: number;
+  memoriesCount?: number;
+  notesCount?: number;
 }
 
 export default function FriendsPage() {

@@ -108,12 +108,13 @@ export async function GET() {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
-    // Fetch all completed events to calculate friendship points
+    // Fetch all events to calculate friendship points and counts
     const allEvents = await prisma.event.findMany({ userId, includeFriends: true });
     const completedEvents = allEvents.filter((e: any) => e.completed);
 
-    // Calculate points for each friend
+    // Calculate points and event counts for each friend
     const friendPointsMap = new Map<string, number>();
+    const friendEventsMap = new Map<string, number>();
 
     for (const event of completedEvents) {
       const points = getEventPoints(event.category);
@@ -139,10 +140,55 @@ export async function GET() {
       }
     }
 
-    // Add friendship points to each friend object
+    // Count all events (including incomplete) per friend
+    for (const event of allEvents) {
+      if (event.friendId) {
+        friendEventsMap.set(
+          event.friendId,
+          (friendEventsMap.get(event.friendId) || 0) + 1
+        );
+      }
+      if (event.friends && Array.isArray(event.friends)) {
+        for (const f of event.friends) {
+          if (f.id !== event.friendId) {
+            friendEventsMap.set(
+              f.id,
+              (friendEventsMap.get(f.id) || 0) + 1
+            );
+          }
+        }
+      }
+    }
+
+    // Count memories per friend
+    const friendMemoriesMap = new Map<string, number>();
+    for (const friend of allFriends as any[]) {
+      if (friend.memories && Array.isArray(friend.memories)) {
+        friendMemoriesMap.set(friend.id, friend.memories.length);
+      }
+    }
+
+    // Count diary notes per friend (via diary notes with friends tags)
+    const diaryNotes = await prisma.diaryNote.findMany({ userId });
+    const friendNotesMap = new Map<string, number>();
+    for (const note of diaryNotes) {
+      if (note.friends && Array.isArray(note.friends)) {
+        for (const friend of note.friends) {
+          friendNotesMap.set(
+            friend.id,
+            (friendNotesMap.get(friend.id) || 0) + 1
+          );
+        }
+      }
+    }
+
+    // Add friendship points and stats to each friend object
     const friendsWithPoints = allFriends.map((friend: any) => ({
       ...friend,
       friendshipPoints: friendPointsMap.get(friend.id) || 0,
+      eventsCount: friendEventsMap.get(friend.id) || 0,
+      memoriesCount: friendMemoriesMap.get(friend.id) || 0,
+      notesCount: friendNotesMap.get(friend.id) || 0,
     }));
 
     return NextResponse.json(friendsWithPoints);
