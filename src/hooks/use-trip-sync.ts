@@ -13,6 +13,23 @@ interface TripMessage {
   createdAt: Date;
 }
 
+interface TripPollVote {
+  id: string;
+  optionId: string;
+  visitorId: string | null;
+  friendId: string | null;
+  votedAt: Date;
+}
+
+interface TripPollOption {
+  id: string;
+  pollId: string;
+  label: string;
+  url: string | null;
+  order: number;
+  votes?: TripPollVote[];
+}
+
 interface TripPoll {
   id: string;
   tripId: string;
@@ -22,6 +39,7 @@ interface TripPoll {
   createdById: string;
   createdAt: Date;
   closedAt: Date | null;
+  options?: TripPollOption[];
 }
 
 interface TripGoalProgress {

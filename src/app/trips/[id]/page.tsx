@@ -260,6 +260,17 @@ export default function TripPlanningPage() {
         return updated;
       });
     },
+    onPollsUpdated: (updatedPolls) => {
+      setTrip((prev) => {
+        if (!prev) return null;
+        // Merge updated polls into existing polls
+        const pollsMap = new Map(prev.polls.map((p) => [p.id, p]));
+        updatedPolls.forEach((poll: TripPoll) => {
+          pollsMap.set(poll.id, poll);
+        });
+        return { ...prev, polls: Array.from(pollsMap.values()) };
+      });
+    },
     onGoalsUpdated: (goals) => {
       setTrip((prev) => (prev ? { ...prev, goalProgress: goals } : null));
     },
