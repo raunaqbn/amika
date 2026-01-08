@@ -148,6 +148,12 @@ export async function PUT(request: Request) {
             });
           }
         }
+
+        // For trip type, ensure the user is added as a collaborator
+        if (sharedItemDetails.itemType === 'trip') {
+          const tripId = sharedItemDetails.itemId;
+          await prisma.tripCollaborator.ensureUserAccess(tripId, recipientUserId);
+        }
       } catch (copyError) {
         console.error('Error copying shared item to recipient:', copyError);
         // Don't fail the acceptance if copy fails

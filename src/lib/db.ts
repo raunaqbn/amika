@@ -4130,6 +4130,70 @@ export const prisma = {
 
       return true;
     },
+
+    ensureUserAccess: async (tripId: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Check if user already has access via trip_collaborators.userId
+      const existingAccess = await client.execute({
+        sql: 'SELECT id FROM trip_collaborators WHERE tripId = ? AND userId = ?',
+        args: [tripId, userId],
+      });
+
+      if (existingAccess.rows.length > 0) {
+        // User already has access
+        return true;
+      }
+
+      // Check if user is the trip owner
+      const tripOwner = await client.execute({
+        sql: 'SELECT userId FROM trip_sessions WHERE id = ?',
+        args: [tripId],
+      });
+
+      if (tripOwner.rows.length > 0 && tripOwner.rows[0].userId === userId) {
+        // User is the owner, they already have access
+        return true;
+      }
+
+      // Look for a collaborator record where the friend's linkedUserId matches this user
+      // This handles the case where the collaborator was added but userId wasn't set
+      const collaboratorWithLinkedUser = await client.execute({
+        sql: `SELECT tc.id FROM trip_collaborators tc
+              JOIN friends f ON tc.friendId = f.id
+              WHERE tc.tripId = ? AND f.linkedUserId = ?`,
+        args: [tripId, userId],
+      });
+
+      if (collaboratorWithLinkedUser.rows.length > 0) {
+        // Update the collaborator record to set the userId
+        await client.execute({
+          sql: 'UPDATE trip_collaborators SET userId = ? WHERE id = ?',
+          args: [userId, collaboratorWithLinkedUser.rows[0].id],
+        });
+        return true;
+      }
+
+      // As a fallback, check if this user has a friend record pointing to the trip owner
+      // and add them as a collaborator
+      const userFriends = await client.execute({
+        sql: 'SELECT id FROM friends WHERE userId = ? AND linkedUserId = ?',
+        args: [userId, tripOwner.rows[0]?.userId],
+      });
+
+      if (userFriends.rows.length > 0 && tripOwner.rows.length > 0) {
+        // The user has the trip owner as a friend, add them as collaborator
+        const now = new Date();
+        await client.execute({
+          sql: 'INSERT INTO trip_collaborators (id, tripId, friendId, userId, role, joinedAt) VALUES (?, ?, ?, ?, ?, ?)',
+          args: [randomUUID(), tripId, userFriends.rows[0].id, userId, 'collaborator', now.toISOString()],
+        });
+        return true;
+      }
+
+      return false;
+    },
   },
 
   // Trip Daily Plans and Events
