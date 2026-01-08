@@ -17,6 +17,9 @@ function SignInContent() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  // Get return URL from query params
+  const returnUrl = searchParams.get('returnUrl');
+
   useEffect(() => {
     const errorParam = searchParams.get('error');
     if (errorParam === 'google_auth_failed') {
@@ -26,7 +29,11 @@ function SignInContent() {
 
   const handleGoogleSignIn = () => {
     setGoogleLoading(true);
-    window.location.href = '/api/auth/google';
+    // Pass returnUrl to Google OAuth
+    const googleUrl = returnUrl
+      ? `/api/auth/google?returnUrl=${encodeURIComponent(returnUrl)}`
+      : '/api/auth/google';
+    window.location.href = googleUrl;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,7 +44,8 @@ function SignInContent() {
     const result = await signIn(email, password);
 
     if (result.success) {
-      router.push('/');
+      // Redirect to returnUrl if provided, otherwise home
+      router.push(returnUrl || '/');
       router.refresh();
     } else {
       setError(result.error || 'Failed to sign in');
@@ -157,7 +165,10 @@ function SignInContent() {
           <div className="mt-6 text-center">
             <p className="text-gray-600 text-sm">
               Don&apos;t have an account?{' '}
-              <Link href="/signup" className="text-[#A8C5A8] hover:underline font-medium">
+              <Link
+                href={returnUrl ? `/signup?returnUrl=${encodeURIComponent(returnUrl)}` : '/signup'}
+                className="text-[#A8C5A8] hover:underline font-medium"
+              >
                 Create one
               </Link>
             </p>

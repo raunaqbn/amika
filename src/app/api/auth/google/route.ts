@@ -13,11 +13,15 @@ export async function GET(request: NextRequest) {
 
   const searchParams = request.nextUrl.searchParams;
   const inviteCode = searchParams.get('invite');
+  const returnUrl = searchParams.get('returnUrl');
 
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin}/api/auth/google/callback`;
 
-  // Store invite code in state if provided
-  const state = inviteCode ? JSON.stringify({ inviteCode }) : '';
+  // Store invite code and returnUrl in state if provided
+  const stateData: { inviteCode?: string; returnUrl?: string } = {};
+  if (inviteCode) stateData.inviteCode = inviteCode;
+  if (returnUrl) stateData.returnUrl = returnUrl;
+  const state = Object.keys(stateData).length > 0 ? JSON.stringify(stateData) : '';
 
   const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   googleAuthUrl.searchParams.set('client_id', clientId);

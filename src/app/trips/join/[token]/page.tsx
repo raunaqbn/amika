@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,9 +16,10 @@ interface TripInfo {
   collaboratorCount: number;
 }
 
-export default function JoinTripPage() {
+function JoinTripContent() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const token = params.token as string;
   const { user, loading: authLoading } = useAuth();
 
@@ -28,9 +29,31 @@ export default function JoinTripPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // Track if we've already attempted auto-join to prevent loops
+  const autoJoinAttempted = useRef(false);
+  // Check if we should auto-join (returning from authentication)
+  const shouldAutoJoin = searchParams.get('autoJoin') === 'true';
+
   useEffect(() => {
     fetchTripInfo();
   }, [token]);
+
+  // Auto-join when returning from authentication
+  useEffect(() => {
+    if (
+      shouldAutoJoin &&
+      user &&
+      !authLoading &&
+      tripInfo &&
+      !loading &&
+      !joining &&
+      !success &&
+      !autoJoinAttempted.current
+    ) {
+      autoJoinAttempted.current = true;
+      performJoin();
+    }
+  }, [shouldAutoJoin, user, authLoading, tripInfo, loading, joining, success]);
 
   const fetchTripInfo = async () => {
     try {
@@ -52,13 +75,7 @@ export default function JoinTripPage() {
     }
   };
 
-  const handleJoin = async () => {
-    if (!user) {
-      // Redirect to sign in with return URL
-      router.push(`/signin?returnUrl=${encodeURIComponent(`/trips/join/${token}`)}`);
-      return;
-    }
-
+  const performJoin = async () => {
     setJoining(true);
     try {
       const response = await fetch(`/api/trips/join/${token}`, {
@@ -85,10 +102,36 @@ export default function JoinTripPage() {
     }
   };
 
+  const handleJoin = async () => {
+    if (!user) {
+      // Redirect to sign in with return URL (include autoJoin=true to auto-join after auth)
+      const returnUrl = `/trips/join/${token}?autoJoin=true`;
+      router.push(`/signin?returnUrl=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
+
+    await performJoin();
+  };
+
   if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-[#FFFBF5] flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A8C5A8]" />
+      </div>
+    );
+  }
+
+  // Show joining state when auto-joining
+  if (shouldAutoJoin && user && !error && !success) {
+    return (
+      <div className="min-h-screen bg-[#FFFBF5] flex items-center justify-center p-4">
+        <Card className="p-8 text-center max-w-md w-full">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#A8C5A8] mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Joining Trip...</h2>
+          <p className="text-muted-foreground">
+            Please wait while we add you to <strong>{tripInfo?.title}</strong>
+          </p>
+        </Card>
       </div>
     );
   }
@@ -184,5 +227,19 @@ export default function JoinTripPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+export default function JoinTripPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#FFFBF5] flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A8C5A8]" />
+        </div>
+      }
+    >
+      <JoinTripContent />
+    </Suspense>
   );
 }
