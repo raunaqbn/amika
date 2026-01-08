@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
-import { Share2, Trophy, Trash2 } from 'lucide-react';
+import { Share2, Trophy, Trash2, Calendar, Camera, BookOpen } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -26,6 +26,9 @@ interface Friend {
   customProfileImage?: string | null;
   linkedUserId?: string | null;
   friendshipPoints?: number;
+  eventsCount?: number;
+  memoriesCount?: number;
+  notesCount?: number;
 }
 
 interface FriendCardProps {
@@ -84,6 +87,29 @@ export function FriendCard({ friend, isAmikaFriend, onRemove }: FriendCardProps)
                 <p className="text-sm text-gray-600 line-clamp-2 mt-1">
                   {friend.notes}
                 </p>
+              )}
+              {/* Stats row */}
+              {((friend.eventsCount ?? 0) > 0 || (friend.memoriesCount ?? 0) > 0 || (friend.notesCount ?? 0) > 0) && (
+                <div className="flex items-center gap-3 mt-2">
+                  {(friend.eventsCount ?? 0) > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-gray-500" title="Planned events">
+                      <Calendar className="w-3 h-3" />
+                      <span>{friend.eventsCount}</span>
+                    </div>
+                  )}
+                  {(friend.memoriesCount ?? 0) > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-gray-500" title="Memories">
+                      <Camera className="w-3 h-3" />
+                      <span>{friend.memoriesCount}</span>
+                    </div>
+                  )}
+                  {(friend.notesCount ?? 0) > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-gray-500" title="Diary notes">
+                      <BookOpen className="w-3 h-3" />
+                      <span>{friend.notesCount}</span>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
             <div className="flex items-center gap-2">
