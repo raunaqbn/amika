@@ -112,7 +112,7 @@ type SharedItem = {
   id: string;
   sharedByUserId: string;
   sharedWithUserId: string;
-  itemType: 'memory' | 'note' | 'event';
+  itemType: 'memory' | 'note' | 'event' | 'trip';
   itemId: string;
   status: 'pending' | 'accepted' | 'rejected';
   message: string | null;
@@ -2755,14 +2755,16 @@ export const prisma = {
   // Shared items between users
   sharedItem: {
     // Share an item with a connected user
-    create: async (data: { sharedByUserId: string; sharedWithUserId: string; itemType: 'memory' | 'note' | 'event'; itemId: string; message?: string }): Promise<SharedItem> => {
+    create: async (data: { sharedByUserId: string; sharedWithUserId: string; itemType: 'memory' | 'note' | 'event' | 'trip'; itemId: string; message?: string; skipConnectionCheck?: boolean }): Promise<SharedItem> => {
       await ensureTablesExist();
       const client = getClient();
 
-      // Check if users are connected
-      const connected = await prisma.userConnection.areConnected(data.sharedByUserId, data.sharedWithUserId);
-      if (!connected) {
-        throw new Error('You can only share with connected friends');
+      // Check if users are connected (skip for trip invites as they have their own access control)
+      if (!data.skipConnectionCheck) {
+        const connected = await prisma.userConnection.areConnected(data.sharedByUserId, data.sharedWithUserId);
+        if (!connected) {
+          throw new Error('You can only share with connected friends');
+        }
       }
 
       // Check if already shared
@@ -2772,6 +2774,19 @@ export const prisma = {
       });
 
       if (existing.rows.length > 0) {
+        // For trips, just skip silently instead of erroring
+        if (data.itemType === 'trip') {
+          return {
+            id: existing.rows[0].id as string,
+            sharedByUserId: existing.rows[0].sharedByUserId as string,
+            sharedWithUserId: existing.rows[0].sharedWithUserId as string,
+            itemType: existing.rows[0].itemType as 'memory' | 'note' | 'event' | 'trip',
+            itemId: existing.rows[0].itemId as string,
+            status: existing.rows[0].status as 'pending' | 'accepted' | 'rejected',
+            message: existing.rows[0].message as string | null,
+            createdAt: new Date(existing.rows[0].createdAt as string),
+          };
+        }
         throw new Error('Item already shared with this user');
       }
 
@@ -2902,6 +2917,23 @@ export const prisma = {
               category: eventRow.category as string | null,
             };
           }
+        } else if (itemType === 'trip') {
+          const tripResult = await client.execute({
+            sql: 'SELECT * FROM trip_sessions WHERE id = ?',
+            args: [itemId],
+          });
+          if (tripResult.rows.length > 0) {
+            const tripRow = tripResult.rows[0];
+            item = {
+              id: tripRow.id as string,
+              title: tripRow.title as string,
+              description: tripRow.description as string | null,
+              location: tripRow.location as string | null,
+              startDate: tripRow.startDate ? new Date(tripRow.startDate as string) : null,
+              endDate: tripRow.endDate ? new Date(tripRow.endDate as string) : null,
+              status: tripRow.status as string,
+            };
+          }
         }
 
         const sharedBy = userMap.get(row.sharedByUserId as string) || { id: row.sharedByUserId as string, name: 'Unknown', email: '', profileImage: null };
@@ -2911,7 +2943,7 @@ export const prisma = {
           id: row.id as string,
           sharedByUserId: row.sharedByUserId as string,
           sharedWithUserId: row.sharedWithUserId as string,
-          itemType: row.itemType as 'memory' | 'note' | 'event',
+          itemType: row.itemType as 'memory' | 'note' | 'event' | 'trip',
           itemId: row.itemId as string,
           status: row.status as 'pending' | 'accepted' | 'rejected',
           message: row.message as string | null,
@@ -3882,6 +3914,23 @@ export const prisma = {
             sql: 'INSERT INTO trip_collaborators (id, tripId, friendId, userId, role, joinedAt) VALUES (?, ?, ?, ?, ?, ?)',
             args: [randomUUID(), trip.id, friendId, linkedUserId, 'collaborator', now.toISOString()],
           });
+
+          // Send notification to the collaborator if they have an account
+          if (linkedUserId) {
+            try {
+              await prisma.sharedItem.create({
+                sharedByUserId: data.userId,
+                sharedWithUserId: linkedUserId,
+                itemType: 'trip',
+                itemId: trip.id,
+                message: `You've been invited to collaborate on the trip "${data.title}"`,
+                skipConnectionCheck: true,
+              });
+            } catch (notifError) {
+              // Don't fail the trip creation if notification fails
+              console.error('Failed to send trip notification:', notifError);
+            }
+          }
         }
       }
 
@@ -3990,7 +4039,7 @@ export const prisma = {
       await ensureTablesExist();
       const client = getClient();
 
-      // Verify user has access to trip
+      // Verify user has access to trip and get trip details
       const accessCheck = await client.execute({
         sql: `SELECT ts.* FROM trip_sessions ts
               LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
@@ -4002,6 +4051,8 @@ export const prisma = {
         throw new Error('Trip not found or access denied');
       }
 
+      const tripOwnerId = accessCheck.rows[0].userId as string;
+      const tripTitle = accessCheck.rows[0].title as string;
       const now = new Date();
       const added: TripCollaborator[] = [];
 
@@ -4036,6 +4087,23 @@ export const prisma = {
         });
 
         added.push(collaborator);
+
+        // Send notification to the collaborator if they have an account
+        if (linkedUserId) {
+          try {
+            await prisma.sharedItem.create({
+              sharedByUserId: tripOwnerId,
+              sharedWithUserId: linkedUserId,
+              itemType: 'trip',
+              itemId: tripId,
+              message: `You've been invited to collaborate on the trip "${tripTitle}"`,
+              skipConnectionCheck: true,
+            });
+          } catch (notifError) {
+            // Don't fail the collaborator addition if notification fails
+            console.error('Failed to send trip notification:', notifError);
+          }
+        }
       }
 
       return added;

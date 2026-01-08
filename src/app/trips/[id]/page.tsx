@@ -287,53 +287,56 @@ export default function TripPlanningPage() {
   const isOwner = trip.userId === userId;
 
   return (
-    <div className="min-h-screen bg-[#FFFBF5] md:pt-16 pb-20 md:pb-8">
+    <div className="min-h-screen bg-[#FFFBF5] md:pt-16 pb-20 md:pb-8 overflow-x-hidden touch-scroll">
       <div className="max-w-6xl mx-auto px-4 py-6">
         {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-6 gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push('/events')}
+              className="shrink-0"
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+              <ArrowLeft className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">Back</span>
             </Button>
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-gray-900">{trip.title}</h1>
-                <Badge
-                  variant={trip.status === 'planning' ? 'secondary' : 'default'}
-                  className={
-                    trip.status === 'confirmed'
-                      ? 'bg-green-100 text-green-800'
-                      : trip.status === 'completed'
-                      ? 'bg-blue-100 text-blue-800'
-                      : ''
-                  }
-                >
-                  {trip.status}
-                </Badge>
-                {isConnected ? (
-                  <Wifi className="w-4 h-4 text-green-500" />
-                ) : (
-                  <WifiOff className="w-4 h-4 text-gray-400" />
-                )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+                <h1 className="text-lg md:text-2xl font-bold text-gray-900 truncate">{trip.title}</h1>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={trip.status === 'planning' ? 'secondary' : 'default'}
+                    className={`text-xs ${
+                      trip.status === 'confirmed'
+                        ? 'bg-green-100 text-green-800'
+                        : trip.status === 'completed'
+                        ? 'bg-blue-100 text-blue-800'
+                        : ''
+                    }`}
+                  >
+                    {trip.status}
+                  </Badge>
+                  {isConnected ? (
+                    <Wifi className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <WifiOff className="w-4 h-4 text-gray-400" />
+                  )}
+                </div>
               </div>
               {trip.description && (
-                <p className="text-muted-foreground mt-1">{trip.description}</p>
+                <p className="text-muted-foreground mt-1 text-sm line-clamp-2">{trip.description}</p>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between md:justify-end gap-2">
             {/* Collaborator avatars */}
-            <div className="flex -space-x-2 mr-2">
+            <div className="flex -space-x-2">
               {trip.collaborators.slice(0, 4).map((collab) => (
                 <Avatar
                   key={collab.id}
-                  className="h-8 w-8 border-2 border-white"
+                  className="h-7 w-7 md:h-8 md:w-8 border-2 border-white"
                 >
                   <AvatarImage src={collab.profileImage || undefined} />
                   <AvatarFallback className="bg-[#D4A5A5] text-white text-xs">
@@ -342,7 +345,7 @@ export default function TripPlanningPage() {
                 </Avatar>
               ))}
               {trip.collaborators.length > 4 && (
-                <div className="h-8 w-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-xs font-medium">
+                <div className="h-7 w-7 md:h-8 md:w-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-xs font-medium">
                   +{trip.collaborators.length - 4}
                 </div>
               )}
@@ -395,24 +398,26 @@ export default function TripPlanningPage() {
           {/* Main content area */}
           <div className="flex-1">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="mb-4">
-                <TabsTrigger value="dates" className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  Dates
-                </TabsTrigger>
-                <TabsTrigger value="location" className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  Location
-                </TabsTrigger>
-                <TabsTrigger value="events" className="flex items-center gap-2">
-                  <CalendarDays className="w-4 h-4" />
-                  Events
-                </TabsTrigger>
-                <TabsTrigger value="tickets" className="flex items-center gap-2">
-                  <Ticket className="w-4 h-4" />
-                  Tickets
-                </TabsTrigger>
-              </TabsList>
+              <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 mb-4 scrollbar-hide">
+                <TabsList className="w-max md:w-auto">
+                  <TabsTrigger value="dates" className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Dates
+                  </TabsTrigger>
+                  <TabsTrigger value="location" className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    Location
+                  </TabsTrigger>
+                  <TabsTrigger value="events" className="flex items-center gap-2">
+                    <CalendarDays className="w-4 h-4" />
+                    Events
+                  </TabsTrigger>
+                  <TabsTrigger value="tickets" className="flex items-center gap-2">
+                    <Ticket className="w-4 h-4" />
+                    Tickets
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
               <TabsContent value="dates">
                 <TripDatesSection
