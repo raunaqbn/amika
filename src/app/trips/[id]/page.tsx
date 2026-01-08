@@ -13,6 +13,7 @@ import { TripDatesSection } from '@/components/trip-planning/trip-dates-section'
 import { TripLocationSection } from '@/components/trip-planning/trip-location-section';
 import { TripEventsSection } from '@/components/trip-planning/trip-events-section';
 import { TripTicketsSection } from '@/components/trip-planning/trip-tickets-section';
+import { ShareTripDialog } from '@/components/trip-planning/share-trip-dialog';
 import { useTripSync } from '@/hooks/use-trip-sync';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -21,17 +22,11 @@ import {
   MapPin,
   CalendarDays,
   Ticket,
-  Users,
   MoreVertical,
   Trash2,
   Edit2,
   Wifi,
   WifiOff,
-  Share2,
-  Link2,
-  Copy,
-  Check,
-  Link2Off,
   UserPlus,
 } from 'lucide-react';
 import {
@@ -41,14 +36,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 
 interface Trip {
   id: string;
@@ -189,11 +176,6 @@ export default function TripPlanningPage() {
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  const [shareLoading, setShareLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [inviteLoading, setInviteLoading] = useState(false);
-  const [inviteCopied, setInviteCopied] = useState(false);
 
   const fetchTrip = useCallback(async () => {
     try {
@@ -296,112 +278,6 @@ export default function TripPlanningPage() {
       }
     } catch (err) {
       console.error('Error deleting trip:', err);
-    }
-  };
-
-  const handleGenerateShareLink = async () => {
-    setShareLoading(true);
-    try {
-      const response = await fetch(`/api/trips/${tripId}/share`, {
-        method: 'POST',
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setTrip((prev) => (prev ? { ...prev, shareToken: data.shareToken } : null));
-      }
-    } catch (err) {
-      console.error('Error generating share link:', err);
-    } finally {
-      setShareLoading(false);
-    }
-  };
-
-  const handleRevokeShareLink = async () => {
-    if (!confirm('Are you sure you want to disable sharing? Anyone with the link will no longer be able to access this trip.')) return;
-
-    setShareLoading(true);
-    try {
-      const response = await fetch(`/api/trips/${tripId}/share`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        setTrip((prev) => (prev ? { ...prev, shareToken: null } : null));
-      }
-    } catch (err) {
-      console.error('Error revoking share link:', err);
-    } finally {
-      setShareLoading(false);
-    }
-  };
-
-  const getShareUrl = () => {
-    if (!trip?.shareToken) return '';
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    return `${baseUrl}/trips/share/${trip.shareToken}`;
-  };
-
-  const handleCopyShareLink = async () => {
-    try {
-      await navigator.clipboard.writeText(getShareUrl());
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
-
-  const handleGenerateInviteLink = async () => {
-    setInviteLoading(true);
-    try {
-      const response = await fetch(`/api/trips/${tripId}/join`, {
-        method: 'POST',
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setTrip((prev) => (prev ? { ...prev, joinToken: data.joinToken } : null));
-      }
-    } catch (err) {
-      console.error('Error generating invite link:', err);
-    } finally {
-      setInviteLoading(false);
-    }
-  };
-
-  const handleRevokeInviteLink = async () => {
-    if (!confirm('Are you sure you want to disable invitations? Anyone with the link will no longer be able to join.')) return;
-
-    setInviteLoading(true);
-    try {
-      const response = await fetch(`/api/trips/${tripId}/join`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        setTrip((prev) => (prev ? { ...prev, joinToken: null } : null));
-      }
-    } catch (err) {
-      console.error('Error revoking invite link:', err);
-    } finally {
-      setInviteLoading(false);
-    }
-  };
-
-  const getInviteUrl = () => {
-    if (!trip?.joinToken) return '';
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    return `${baseUrl}/trips/join/${trip.joinToken}`;
-  };
-
-  const handleCopyInviteLink = async () => {
-    try {
-      await navigator.clipboard.writeText(getInviteUrl());
-      setInviteCopied(true);
-      setTimeout(() => setInviteCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
     }
   };
 
@@ -508,13 +384,9 @@ export default function TripPlanningPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setInviteDialogOpen(true)}>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Invite Collaborators
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setShareDialogOpen(true)}>
-                    <Share2 className="w-4 h-4 mr-2" />
-                    Share Trip
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Share & Invite
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {}}>
                     <Edit2 className="w-4 h-4 mr-2" />
@@ -661,152 +533,23 @@ export default function TripPlanningPage() {
         </div>
       </div>
 
-      {/* Share Dialog - Now creates a session link for joining */}
-      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Share2 className="w-5 h-5 text-[#A8C5A8]" />
-              Share Trip
-            </DialogTitle>
-            <DialogDescription>
-              Share this trip with friends using a link. They&apos;ll need to sign in to join and collaborate on planning.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Session link</label>
-              <div className="flex items-center gap-2">
-                <Input
-                  readOnly
-                  value={trip?.joinToken ? getInviteUrl() : 'Click generate to create a link'}
-                  className="flex-1 bg-gray-50"
-                />
-                {trip?.joinToken ? (
-                  <Button
-                    onClick={handleCopyInviteLink}
-                    variant="outline"
-                    className="shrink-0"
-                  >
-                    {inviteCopied ? (
-                      <Check className="w-4 h-4 text-green-600 mr-2" />
-                    ) : (
-                      <Copy className="w-4 h-4 mr-2" />
-                    )}
-                    Copy
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleGenerateInviteLink}
-                    className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 shrink-0"
-                    disabled={inviteLoading}
-                  >
-                    {inviteLoading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    ) : (
-                      <Link2 className="w-4 h-4 mr-2" />
-                    )}
-                    Generate
-                  </Button>
-                )}
-              </div>
-            </div>
+      {/* Share Trip Dialog */}
+      <ShareTripDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        tripId={tripId}
+        tripTitle={trip?.title || ''}
+        existingCollaborators={trip?.collaborators || []}
+        joinToken={trip?.joinToken || null}
+        onCollaboratorAdded={fetchTrip}
+        onJoinTokenGenerated={(token) => {
+          setTrip((prev) => (prev ? { ...prev, joinToken: token } : null));
+        }}
+        onJoinTokenRevoked={() => {
+          setTrip((prev) => (prev ? { ...prev, joinToken: null } : null));
+        }}
+      />
 
-            {trip?.joinToken && (
-              <div className="flex items-center justify-between pt-2 border-t">
-                <p className="text-xs text-gray-500">
-                  Anyone with this link can join and collaborate on planning.
-                </p>
-                <Button
-                  onClick={handleRevokeInviteLink}
-                  variant="ghost"
-                  size="sm"
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                  disabled={inviteLoading}
-                >
-                  <Link2Off className="w-4 h-4 mr-2" />
-                  Disable
-                </Button>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Invite Collaborators Dialog */}
-      <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="w-5 h-5 text-[#A8C5A8]" />
-              Invite Collaborators
-            </DialogTitle>
-            <DialogDescription>
-              Share this invite link with friends to let them join the trip planning session.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            {trip?.joinToken ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <Input
-                    readOnly
-                    value={getInviteUrl()}
-                    className="flex-1 bg-gray-50"
-                  />
-                  <Button
-                    onClick={handleCopyInviteLink}
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0"
-                  >
-                    {inviteCopied ? (
-                      <Check className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </Button>
-                </div>
-                <div className="flex items-center justify-between pt-2 border-t">
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <UserPlus className="w-4 h-4" />
-                    <span>Invitations enabled</span>
-                  </div>
-                  <Button
-                    onClick={handleRevokeInviteLink}
-                    variant="ghost"
-                    size="sm"
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    disabled={inviteLoading}
-                  >
-                    <Link2Off className="w-4 h-4 mr-2" />
-                    Disable
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-4">
-                <UserPlus className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-                <p className="text-sm text-gray-600 mb-4">
-                  Generate an invite link to let friends join and collaborate on this trip
-                </p>
-                <Button
-                  onClick={handleGenerateInviteLink}
-                  className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90"
-                  disabled={inviteLoading}
-                >
-                  {inviteLoading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  ) : (
-                    <UserPlus className="w-4 h-4 mr-2" />
-                  )}
-                  Generate Invite Link
-                </Button>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
