@@ -5,7 +5,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Check, X, ExternalLink, Lock } from 'lucide-react';
+import { Check, X, ExternalLink, Lock, Trash2 } from 'lucide-react';
 
 interface PollVote {
   id: string;
@@ -42,6 +42,7 @@ interface TripPollComponentProps {
   currentUserId?: string;
   onVote?: () => void;
   onClose?: () => void;
+  onDelete?: () => void;
 }
 
 export function TripPollComponent({
@@ -50,9 +51,11 @@ export function TripPollComponent({
   currentUserId,
   onVote,
   onClose,
+  onDelete,
 }: TripPollComponentProps) {
   const [voting, setVoting] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [optimisticVoteOptionId, setOptimisticVoteOptionId] = useState<string | null>(null);
 
   const totalVotes = poll.options?.reduce(
@@ -127,6 +130,29 @@ export function TripPollComponent({
     }
   };
 
+  const handleDeletePoll = async () => {
+    if (deleting) return;
+
+    if (!confirm('Are you sure you want to delete this poll? This cannot be undone.')) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/trips/${tripId}/polls?pollId=${poll.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        onDelete?.();
+      }
+    } catch (error) {
+      console.error('Error deleting poll:', error);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const isActive = poll.status === 'active';
 
   return (
@@ -144,16 +170,29 @@ export function TripPollComponent({
             )}
           </p>
         </div>
-        {isActive && poll.createdById === currentUserId && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClosePoll}
-            disabled={closing}
-          >
-            <X className="w-4 h-4 mr-1" />
-            Close
-          </Button>
+        {poll.createdById === currentUserId && (
+          <div className="flex items-center gap-1">
+            {isActive && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClosePoll}
+                disabled={closing}
+              >
+                <X className="w-4 h-4 mr-1" />
+                Close
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDeletePoll}
+              disabled={deleting}
+              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
         )}
       </div>
 

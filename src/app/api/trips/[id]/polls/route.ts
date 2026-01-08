@@ -108,3 +108,40 @@ export async function PUT(
     );
   }
 }
+
+// DELETE /api/trips/[id]/polls - Delete poll
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    await params;
+    const { searchParams } = new URL(request.url);
+    const pollId = searchParams.get('pollId');
+
+    if (!pollId) {
+      return NextResponse.json(
+        { error: 'Poll ID is required' },
+        { status: 400 }
+      );
+    }
+
+    await prisma.tripPoll.delete(pollId, userId);
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Error deleting poll:', error);
+    if (error.message === 'Poll not found or access denied') {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    return NextResponse.json(
+      { error: 'Failed to delete poll' },
+      { status: 500 }
+    );
+  }
+}
