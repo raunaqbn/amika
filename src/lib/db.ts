@@ -275,6 +275,34 @@ export type TripGoalProgress = {
 
 let clientInstance: Client | null = null;
 let tablesInitialized = false;
+let joinTokenColumnChecked = false;
+
+// Separate migration for joinToken column (runs independently of tablesInitialized)
+async function ensureJoinTokenColumn() {
+  if (joinTokenColumnChecked) return;
+
+  try {
+    const client = getClient();
+    const tableInfo = await client.execute(`PRAGMA table_info(trip_sessions)`);
+    const hasJoinToken = tableInfo.rows.some((row: any) => row.name === 'joinToken' || row[1] === 'joinToken');
+
+    if (!hasJoinToken) {
+      console.log('Migration: Adding joinToken column to trip_sessions...');
+      // SQLite doesn't allow adding UNIQUE columns via ALTER TABLE
+      // Add column first, then create unique index separately
+      await client.execute(`ALTER TABLE trip_sessions ADD COLUMN joinToken TEXT`);
+      console.log('Migration: joinToken column added, creating unique index...');
+      await client.execute(`CREATE UNIQUE INDEX IF NOT EXISTS idx_trip_sessions_joinToken ON trip_sessions(joinToken)`);
+      console.log('Migration: joinToken column and index added successfully');
+    }
+
+    joinTokenColumnChecked = true;
+  } catch (error) {
+    console.error('Error in joinToken migration:', error);
+    // Still mark as checked to avoid repeated failed attempts
+    joinTokenColumnChecked = true;
+  }
+}
 
 // Password hashing utilities
 function hashPassword(password: string): string {
@@ -736,6 +764,7 @@ async function ensureTablesExist() {
         location TEXT,
         locationDetails TEXT,
         shareToken TEXT UNIQUE,
+        joinToken TEXT UNIQUE,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
@@ -748,9 +777,20 @@ async function ensureTablesExist() {
     `).catch(() => {/* Column may already exist */});
 
     // Add joinToken column if it doesn't exist (migration for existing tables)
-    await client.execute(`
-      ALTER TABLE trip_sessions ADD COLUMN joinToken TEXT UNIQUE
-    `).catch(() => {/* Column may already exist */});
+    // Check if column exists first using PRAGMA
+    try {
+      const tableInfo = await client.execute(`PRAGMA table_info(trip_sessions)`);
+      const hasJoinToken = tableInfo.rows.some((row: any) => row.name === 'joinToken');
+      if (!hasJoinToken) {
+        console.log('Adding joinToken column to trip_sessions...');
+        // SQLite doesn't allow UNIQUE in ALTER TABLE, add column then create index
+        await client.execute(`ALTER TABLE trip_sessions ADD COLUMN joinToken TEXT`);
+        await client.execute(`CREATE UNIQUE INDEX IF NOT EXISTS idx_trip_sessions_joinToken ON trip_sessions(joinToken)`);
+        console.log('joinToken column added successfully');
+      }
+    } catch (error) {
+      console.error('Error checking/adding joinToken column:', error);
+    }
 
     await client.execute(`
       CREATE TABLE IF NOT EXISTS trip_collaborators (
@@ -4683,26 +4723,53 @@ export const prisma = {
     },
 
     generateJoinToken: async (id: string, userId: string): Promise<string | null> => {
-      await ensureTablesExist();
-      const client = getClient();
+      try {
+        console.log('generateJoinToken called with tripId:', id, 'userId:', userId);
+        await ensureTablesExist();
+        console.log('ensureTablesExist completed');
+        // Ensure joinToken column exists (separate migration)
+        await ensureJoinTokenColumn();
+        console.log('ensureJoinTokenColumn completed');
+        const client = getClient();
+        console.log('getClient completed');
 
-      // Only owner can generate join link
-      const existing = await client.execute({
-        sql: 'SELECT * FROM trip_sessions WHERE id = ? AND userId = ?',
-        args: [id, userId],
-      });
+        // Only owner can generate join link
+        const existing = await client.execute({
+          sql: 'SELECT * FROM trip_sessions WHERE id = ? AND userId = ?',
+          args: [id, userId],
+        });
 
-      if (existing.rows.length === 0) return null;
+        console.log('Trip query result:', existing.rows.length, 'rows');
 
-      // Generate a unique join token
-      const joinToken = randomUUID().replace(/-/g, '').substring(0, 16);
+        if (existing.rows.length === 0) {
+          // Check if trip exists but user is not owner
+          const tripExists = await client.execute({
+            sql: 'SELECT userId FROM trip_sessions WHERE id = ?',
+            args: [id],
+          });
+          if (tripExists.rows.length > 0) {
+            console.log('Trip exists but user is not owner. Trip owner:', tripExists.rows[0]?.userId, 'Current user:', userId);
+          } else {
+            console.log('Trip does not exist with id:', id);
+          }
+          return null;
+        }
 
-      await client.execute({
-        sql: 'UPDATE trip_sessions SET joinToken = ?, updatedAt = ? WHERE id = ?',
-        args: [joinToken, new Date().toISOString(), id],
-      });
+        // Generate a unique join token
+        const joinToken = randomUUID().replace(/-/g, '').substring(0, 16);
+        console.log('Generated joinToken:', joinToken);
 
-      return joinToken;
+        await client.execute({
+          sql: 'UPDATE trip_sessions SET joinToken = ?, updatedAt = ? WHERE id = ?',
+          args: [joinToken, new Date().toISOString(), id],
+        });
+
+        console.log('Updated trip with joinToken successfully');
+        return joinToken;
+      } catch (error) {
+        console.error('Error in generateJoinToken:', error);
+        throw error;
+      }
     },
 
     revokeJoinToken: async (id: string, userId: string): Promise<boolean> => {

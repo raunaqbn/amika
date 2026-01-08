@@ -11,11 +11,13 @@ export async function POST(
 ) {
   try {
     const userId = await getUserId();
+    console.log('Join route - userId from session:', userId);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
+    console.log('Join route - tripId from params:', id);
     const joinToken = await prisma.tripSession.generateJoinToken(id, userId);
 
     if (!joinToken) {
@@ -26,10 +28,11 @@ export async function POST(
     }
 
     return NextResponse.json({ joinToken });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating join link:', error);
+    console.error('Error details:', error?.message, error?.stack);
     return NextResponse.json(
-      { error: 'Failed to generate join link' },
+      { error: 'Failed to generate join link', details: error?.message },
       { status: 500 }
     );
   }
