@@ -433,7 +433,7 @@ export default function TripPlanningPage() {
   const isOwner = trip.userId === currentUserId;
 
   return (
-    <div className="min-h-screen bg-[#FFFBF5] md:pt-16 pb-20 md:pb-8 overflow-x-hidden overflow-y-auto touch-scroll">
+    <div className="min-h-screen bg-[#FFFBF5] md:pt-20 pb-20 md:pb-8 overflow-x-hidden overflow-y-auto touch-scroll">
       <div className="max-w-6xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-6 gap-4">
