@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { EventCard } from '@/components/event-card';
 import { AddEventDialog } from '@/components/add-event-dialog';
 import { FindEventsDialog } from '@/components/find-events-dialog';
-import { Calendar, Plus, Sparkles, Clock, CheckCircle2, Utensils, MapPin, Dumbbell, Video } from 'lucide-react';
+import { PlanTripDialog } from '@/components/trip-planning/plan-trip-dialog';
+import { Calendar, Plus, Sparkles, Clock, CheckCircle2, Utensils, MapPin, Dumbbell, Video, Plane } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -46,6 +47,7 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
   const [findEventsDialogOpen, setFindEventsDialogOpen] = useState(false);
+  const [planTripDialogOpen, setPlanTripDialogOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -173,6 +175,14 @@ export default function EventsPage() {
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-3xl font-bold text-gray-900">Events</h1>
             <div className="flex gap-2">
+              <Button
+                onClick={() => setPlanTripDialogOpen(true)}
+                variant="outline"
+                className="border-[#A8C5A8]/60 text-[#A8C5A8] hover:bg-[#A8C5A8]/10"
+              >
+                <Plane className="w-4 h-4 mr-2" />
+                Plan Trip
+              </Button>
               <Button
                 onClick={() => setFindEventsDialogOpen(true)}
                 variant="outline"
@@ -352,6 +362,16 @@ export default function EventsPage() {
           onEventCreated={() => {
             fetchEvents();
           }}
+        />
+
+        <PlanTripDialog
+          open={planTripDialogOpen}
+          onOpenChange={setPlanTripDialogOpen}
+          friends={friends.map((f) => ({
+            id: f.id,
+            name: f.name,
+            linkedUserId: f.linkedUserId,
+          }))}
         />
       </div>
     </div>

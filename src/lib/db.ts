@@ -157,6 +157,120 @@ export type GoogleAccount = {
   updatedAt: Date;
 };
 
+// Trip Planning Types
+export type TripSession = {
+  id: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  status: 'planning' | 'confirmed' | 'completed' | 'cancelled';
+  startDate: Date | null;
+  endDate: Date | null;
+  location: string | null;
+  locationDetails: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type TripCollaborator = {
+  id: string;
+  tripId: string;
+  friendId: string;
+  userId: string | null;
+  role: 'owner' | 'collaborator';
+  joinedAt: Date;
+};
+
+export type TripDailyPlan = {
+  id: string;
+  tripId: string;
+  dayNumber: number;
+  date: Date | null;
+};
+
+export type TripEvent = {
+  id: string;
+  dailyPlanId: string;
+  title: string;
+  description: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  location: string | null;
+  category: string | null;
+  externalUrl: string | null;
+  estimatedCost: number | null;
+  notes: string | null;
+  order: number;
+  createdById: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type TripTicket = {
+  id: string;
+  tripId: string;
+  collaboratorId: string | null;
+  type: 'flight' | 'train' | 'bus' | 'accommodation' | 'activity' | 'other';
+  title: string;
+  description: string | null;
+  confirmationNum: string | null;
+  departureTime: Date | null;
+  arrivalTime: Date | null;
+  location: string | null;
+  cost: number | null;
+  currency: string;
+  url: string | null;
+  createdById: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type TripMessage = {
+  id: string;
+  tripId: string;
+  userId: string;
+  friendId: string | null;
+  context: 'general' | 'dates' | 'location' | 'events' | 'tickets';
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: Date;
+};
+
+export type TripPoll = {
+  id: string;
+  tripId: string;
+  context: 'dates' | 'location' | 'events' | 'tickets';
+  question: string;
+  status: 'active' | 'closed';
+  createdById: string;
+  createdAt: Date;
+  closedAt: Date | null;
+};
+
+export type TripPollOption = {
+  id: string;
+  pollId: string;
+  label: string;
+  url: string | null;
+  order: number;
+};
+
+export type TripPollVote = {
+  id: string;
+  optionId: string;
+  visitorId: string | null;
+  friendId: string | null;
+  votedAt: Date;
+};
+
+export type TripGoalProgress = {
+  id: string;
+  tripId: string;
+  goalType: 'dates' | 'location' | 'daily_events' | 'tickets';
+  status: 'pending' | 'in_progress' | 'completed';
+  completedAt: Date | null;
+};
+
 let clientInstance: Client | null = null;
 let tablesInitialized = false;
 
@@ -578,6 +692,157 @@ async function ensureTablesExist() {
         createdAt TEXT NOT NULL,
         FOREIGN KEY (inviterId) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (acceptedByUserId) REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+
+    // Trip planning tables
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS trip_sessions (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        status TEXT DEFAULT 'planning',
+        startDate TEXT,
+        endDate TEXT,
+        location TEXT,
+        locationDetails TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS trip_collaborators (
+        id TEXT PRIMARY KEY,
+        tripId TEXT NOT NULL,
+        friendId TEXT NOT NULL,
+        userId TEXT,
+        role TEXT DEFAULT 'collaborator',
+        joinedAt TEXT NOT NULL,
+        FOREIGN KEY (tripId) REFERENCES trip_sessions(id) ON DELETE CASCADE,
+        FOREIGN KEY (friendId) REFERENCES friends(id) ON DELETE CASCADE,
+        UNIQUE (tripId, friendId)
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS trip_daily_plans (
+        id TEXT PRIMARY KEY,
+        tripId TEXT NOT NULL,
+        dayNumber INTEGER NOT NULL,
+        date TEXT,
+        FOREIGN KEY (tripId) REFERENCES trip_sessions(id) ON DELETE CASCADE,
+        UNIQUE (tripId, dayNumber)
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS trip_events (
+        id TEXT PRIMARY KEY,
+        dailyPlanId TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        startTime TEXT,
+        endTime TEXT,
+        location TEXT,
+        category TEXT,
+        externalUrl TEXT,
+        estimatedCost REAL,
+        notes TEXT,
+        "order" INTEGER DEFAULT 0,
+        createdById TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (dailyPlanId) REFERENCES trip_daily_plans(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS trip_tickets (
+        id TEXT PRIMARY KEY,
+        tripId TEXT NOT NULL,
+        collaboratorId TEXT,
+        type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        confirmationNum TEXT,
+        departureTime TEXT,
+        arrivalTime TEXT,
+        location TEXT,
+        cost REAL,
+        currency TEXT DEFAULT 'USD',
+        url TEXT,
+        createdById TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (tripId) REFERENCES trip_sessions(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS trip_messages (
+        id TEXT PRIMARY KEY,
+        tripId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        friendId TEXT,
+        context TEXT DEFAULT 'general',
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (tripId) REFERENCES trip_sessions(id) ON DELETE CASCADE,
+        FOREIGN KEY (userId) REFERENCES users(id)
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS trip_polls (
+        id TEXT PRIMARY KEY,
+        tripId TEXT NOT NULL,
+        context TEXT NOT NULL,
+        question TEXT NOT NULL,
+        status TEXT DEFAULT 'active',
+        createdById TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        closedAt TEXT,
+        FOREIGN KEY (tripId) REFERENCES trip_sessions(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS trip_poll_options (
+        id TEXT PRIMARY KEY,
+        pollId TEXT NOT NULL,
+        label TEXT NOT NULL,
+        url TEXT,
+        "order" INTEGER DEFAULT 0,
+        FOREIGN KEY (pollId) REFERENCES trip_polls(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS trip_poll_votes (
+        id TEXT PRIMARY KEY,
+        optionId TEXT NOT NULL,
+        visitorId TEXT,
+        friendId TEXT,
+        votedAt TEXT NOT NULL,
+        FOREIGN KEY (optionId) REFERENCES trip_poll_options(id) ON DELETE CASCADE,
+        UNIQUE (optionId, visitorId),
+        UNIQUE (optionId, friendId)
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS trip_goal_progress (
+        id TEXT PRIMARY KEY,
+        tripId TEXT NOT NULL,
+        goalType TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        completedAt TEXT,
+        FOREIGN KEY (tripId) REFERENCES trip_sessions(id) ON DELETE CASCADE,
+        UNIQUE (tripId, goalType)
       )
     `);
 
@@ -3314,6 +3579,1269 @@ export const prisma = {
       });
 
       return true;
+    },
+  },
+
+  // Trip Session Operations
+  tripSession: {
+    findMany: async (userId: string): Promise<(TripSession & { collaborators: any[] })[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Find trips where user is owner or collaborator (via linked friend)
+      const result = await client.execute({
+        sql: `SELECT DISTINCT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.userId = ? OR tc.userId = ?
+              ORDER BY ts.updatedAt DESC`,
+        args: [userId, userId],
+      });
+
+      const trips: (TripSession & { collaborators: any[] })[] = [];
+      for (const row of result.rows) {
+        const colResult = await client.execute({
+          sql: `SELECT tc.*, f.name as friendName, f.profileImage, f.customProfileImage, f.linkedUserId
+                FROM trip_collaborators tc
+                JOIN friends f ON tc.friendId = f.id
+                WHERE tc.tripId = ?`,
+          args: [row.id as string],
+        });
+
+        trips.push({
+          id: row.id as string,
+          userId: row.userId as string,
+          title: row.title as string,
+          description: row.description as string | null,
+          status: row.status as TripSession['status'],
+          startDate: row.startDate ? new Date(row.startDate as string) : null,
+          endDate: row.endDate ? new Date(row.endDate as string) : null,
+          location: row.location as string | null,
+          locationDetails: row.locationDetails as string | null,
+          createdAt: new Date(row.createdAt as string),
+          updatedAt: new Date(row.updatedAt as string),
+          collaborators: colResult.rows.map((c: any) => ({
+            id: c.id,
+            tripId: c.tripId,
+            friendId: c.friendId,
+            userId: c.userId,
+            role: c.role,
+            joinedAt: new Date(c.joinedAt as string),
+            friendName: c.friendName,
+            profileImage: c.customProfileImage || c.profileImage,
+            linkedUserId: c.linkedUserId,
+          })),
+        });
+      }
+
+      return trips;
+    },
+
+    findById: async (id: string, userId: string): Promise<(TripSession & {
+      collaborators: any[];
+      dailyPlans: any[];
+      tickets: any[];
+      polls: any[];
+      goalProgress: any[];
+    }) | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify user has access
+      const accessCheck = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [id, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) return null;
+
+      const row = accessCheck.rows[0];
+
+      // Get collaborators
+      const colResult = await client.execute({
+        sql: `SELECT tc.*, f.name as friendName, f.profileImage, f.customProfileImage, f.linkedUserId
+              FROM trip_collaborators tc
+              JOIN friends f ON tc.friendId = f.id
+              WHERE tc.tripId = ?`,
+        args: [id],
+      });
+
+      // Get daily plans with events
+      const plansResult = await client.execute({
+        sql: 'SELECT * FROM trip_daily_plans WHERE tripId = ? ORDER BY dayNumber ASC',
+        args: [id],
+      });
+
+      const dailyPlans: any[] = [];
+      for (const plan of plansResult.rows) {
+        const eventsResult = await client.execute({
+          sql: 'SELECT * FROM trip_events WHERE dailyPlanId = ? ORDER BY "order" ASC',
+          args: [plan.id as string],
+        });
+        dailyPlans.push({
+          id: plan.id,
+          tripId: plan.tripId,
+          dayNumber: plan.dayNumber,
+          date: plan.date ? new Date(plan.date as string) : null,
+          events: eventsResult.rows.map((e: any) => ({
+            id: e.id,
+            dailyPlanId: e.dailyPlanId,
+            title: e.title,
+            description: e.description,
+            startTime: e.startTime,
+            endTime: e.endTime,
+            location: e.location,
+            category: e.category,
+            externalUrl: e.externalUrl,
+            estimatedCost: e.estimatedCost,
+            notes: e.notes,
+            order: e.order,
+            createdById: e.createdById,
+            createdAt: new Date(e.createdAt as string),
+            updatedAt: new Date(e.updatedAt as string),
+          })),
+        });
+      }
+
+      // Get tickets
+      const ticketsResult = await client.execute({
+        sql: 'SELECT * FROM trip_tickets WHERE tripId = ? ORDER BY departureTime ASC',
+        args: [id],
+      });
+
+      // Get polls with options and votes
+      const pollsResult = await client.execute({
+        sql: 'SELECT * FROM trip_polls WHERE tripId = ? ORDER BY createdAt DESC',
+        args: [id],
+      });
+
+      const polls: any[] = [];
+      for (const poll of pollsResult.rows) {
+        const optionsResult = await client.execute({
+          sql: 'SELECT * FROM trip_poll_options WHERE pollId = ? ORDER BY "order" ASC',
+          args: [poll.id as string],
+        });
+
+        const optionsWithVotes: any[] = [];
+        for (const opt of optionsResult.rows) {
+          const votesResult = await client.execute({
+            sql: 'SELECT * FROM trip_poll_votes WHERE optionId = ?',
+            args: [opt.id as string],
+          });
+          optionsWithVotes.push({
+            id: opt.id,
+            pollId: opt.pollId,
+            label: opt.label,
+            url: opt.url,
+            order: opt.order,
+            votes: votesResult.rows.map((v: any) => ({
+              id: v.id,
+              optionId: v.optionId,
+              visitorId: v.visitorId,
+              friendId: v.friendId,
+              votedAt: new Date(v.votedAt as string),
+            })),
+          });
+        }
+
+        polls.push({
+          id: poll.id,
+          tripId: poll.tripId,
+          context: poll.context,
+          question: poll.question,
+          status: poll.status,
+          createdById: poll.createdById,
+          createdAt: new Date(poll.createdAt as string),
+          closedAt: poll.closedAt ? new Date(poll.closedAt as string) : null,
+          options: optionsWithVotes,
+        });
+      }
+
+      // Get goal progress
+      const goalsResult = await client.execute({
+        sql: 'SELECT * FROM trip_goal_progress WHERE tripId = ?',
+        args: [id],
+      });
+
+      return {
+        id: row.id as string,
+        userId: row.userId as string,
+        title: row.title as string,
+        description: row.description as string | null,
+        status: row.status as TripSession['status'],
+        startDate: row.startDate ? new Date(row.startDate as string) : null,
+        endDate: row.endDate ? new Date(row.endDate as string) : null,
+        location: row.location as string | null,
+        locationDetails: row.locationDetails as string | null,
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: new Date(row.updatedAt as string),
+        collaborators: colResult.rows.map((c: any) => ({
+          id: c.id,
+          tripId: c.tripId,
+          friendId: c.friendId,
+          userId: c.userId,
+          role: c.role,
+          joinedAt: new Date(c.joinedAt as string),
+          friendName: c.friendName,
+          profileImage: c.customProfileImage || c.profileImage,
+          linkedUserId: c.linkedUserId,
+        })),
+        dailyPlans,
+        tickets: ticketsResult.rows.map((t: any) => ({
+          id: t.id,
+          tripId: t.tripId,
+          collaboratorId: t.collaboratorId,
+          type: t.type,
+          title: t.title,
+          description: t.description,
+          confirmationNum: t.confirmationNum,
+          departureTime: t.departureTime ? new Date(t.departureTime as string) : null,
+          arrivalTime: t.arrivalTime ? new Date(t.arrivalTime as string) : null,
+          location: t.location,
+          cost: t.cost,
+          currency: t.currency,
+          url: t.url,
+          createdById: t.createdById,
+          createdAt: new Date(t.createdAt as string),
+          updatedAt: new Date(t.updatedAt as string),
+        })),
+        polls,
+        goalProgress: goalsResult.rows.map((g: any) => ({
+          id: g.id,
+          tripId: g.tripId,
+          goalType: g.goalType,
+          status: g.status,
+          completedAt: g.completedAt ? new Date(g.completedAt as string) : null,
+        })),
+      };
+    },
+
+    create: async (data: {
+      userId: string;
+      title: string;
+      description?: string;
+      collaboratorFriendIds?: string[];
+    }): Promise<TripSession> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const now = new Date();
+      const trip: TripSession = {
+        id: randomUUID(),
+        userId: data.userId,
+        title: data.title,
+        description: data.description || null,
+        status: 'planning',
+        startDate: null,
+        endDate: null,
+        location: null,
+        locationDetails: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await client.execute({
+        sql: `INSERT INTO trip_sessions (id, userId, title, description, status, startDate, endDate, location, locationDetails, createdAt, updatedAt)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          trip.id,
+          trip.userId,
+          trip.title,
+          trip.description,
+          trip.status,
+          trip.startDate?.toISOString() || null,
+          trip.endDate?.toISOString() || null,
+          trip.location,
+          trip.locationDetails,
+          trip.createdAt.toISOString(),
+          trip.updatedAt.toISOString(),
+        ],
+      });
+
+      // Create initial goal progress entries
+      const goalTypes = ['dates', 'location', 'daily_events', 'tickets'];
+      for (const goalType of goalTypes) {
+        await client.execute({
+          sql: 'INSERT INTO trip_goal_progress (id, tripId, goalType, status, completedAt) VALUES (?, ?, ?, ?, ?)',
+          args: [randomUUID(), trip.id, goalType, 'pending', null],
+        });
+      }
+
+      // Add collaborators if provided
+      if (data.collaboratorFriendIds && data.collaboratorFriendIds.length > 0) {
+        for (const friendId of data.collaboratorFriendIds) {
+          // Get friend info to check for linkedUserId
+          const friendResult = await client.execute({
+            sql: 'SELECT linkedUserId FROM friends WHERE id = ?',
+            args: [friendId],
+          });
+          const linkedUserId = friendResult.rows[0]?.linkedUserId as string | null;
+
+          await client.execute({
+            sql: 'INSERT INTO trip_collaborators (id, tripId, friendId, userId, role, joinedAt) VALUES (?, ?, ?, ?, ?, ?)',
+            args: [randomUUID(), trip.id, friendId, linkedUserId, 'collaborator', now.toISOString()],
+          });
+        }
+      }
+
+      return trip;
+    },
+
+    update: async (id: string, userId: string, data: {
+      title?: string;
+      description?: string;
+      status?: TripSession['status'];
+      startDate?: Date | null;
+      endDate?: Date | null;
+      location?: string | null;
+      locationDetails?: string | null;
+    }): Promise<TripSession | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Check ownership or collaboration
+      const existing = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [id, userId, userId],
+      });
+
+      if (existing.rows.length === 0) return null;
+
+      const row = existing.rows[0];
+      const now = new Date();
+
+      const updated: TripSession = {
+        id: row.id as string,
+        userId: row.userId as string,
+        title: data.title ?? row.title as string,
+        description: data.description !== undefined ? data.description : row.description as string | null,
+        status: data.status ?? row.status as TripSession['status'],
+        startDate: data.startDate !== undefined ? data.startDate : (row.startDate ? new Date(row.startDate as string) : null),
+        endDate: data.endDate !== undefined ? data.endDate : (row.endDate ? new Date(row.endDate as string) : null),
+        location: data.location !== undefined ? data.location : row.location as string | null,
+        locationDetails: data.locationDetails !== undefined ? data.locationDetails : row.locationDetails as string | null,
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: now,
+      };
+
+      await client.execute({
+        sql: `UPDATE trip_sessions SET title = ?, description = ?, status = ?, startDate = ?, endDate = ?, location = ?, locationDetails = ?, updatedAt = ?
+              WHERE id = ?`,
+        args: [
+          updated.title,
+          updated.description,
+          updated.status,
+          updated.startDate?.toISOString() || null,
+          updated.endDate?.toISOString() || null,
+          updated.location,
+          updated.locationDetails,
+          updated.updatedAt.toISOString(),
+          id,
+        ],
+      });
+
+      // Update goal progress based on changes
+      if (data.startDate !== undefined || data.endDate !== undefined) {
+        const hasValidDates = updated.startDate && updated.endDate;
+        await client.execute({
+          sql: `UPDATE trip_goal_progress SET status = ?, completedAt = ? WHERE tripId = ? AND goalType = 'dates'`,
+          args: [hasValidDates ? 'completed' : 'pending', hasValidDates ? now.toISOString() : null, id],
+        });
+      }
+
+      if (data.location !== undefined) {
+        const hasLocation = !!updated.location;
+        await client.execute({
+          sql: `UPDATE trip_goal_progress SET status = ?, completedAt = ? WHERE tripId = ? AND goalType = 'location'`,
+          args: [hasLocation ? 'completed' : 'pending', hasLocation ? now.toISOString() : null, id],
+        });
+      }
+
+      return updated;
+    },
+
+    delete: async (id: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Only owner can delete
+      const existing = await client.execute({
+        sql: 'SELECT * FROM trip_sessions WHERE id = ? AND userId = ?',
+        args: [id, userId],
+      });
+
+      if (existing.rows.length === 0) return false;
+
+      await client.execute({
+        sql: 'DELETE FROM trip_sessions WHERE id = ?',
+        args: [id],
+      });
+
+      return true;
+    },
+  },
+
+  // Trip Collaborators
+  tripCollaborator: {
+    add: async (tripId: string, friendIds: string[], userId: string): Promise<TripCollaborator[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify user has access to trip
+      const accessCheck = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [tripId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Trip not found or access denied');
+      }
+
+      const now = new Date();
+      const added: TripCollaborator[] = [];
+
+      for (const friendId of friendIds) {
+        // Check if already a collaborator
+        const existing = await client.execute({
+          sql: 'SELECT id FROM trip_collaborators WHERE tripId = ? AND friendId = ?',
+          args: [tripId, friendId],
+        });
+
+        if (existing.rows.length > 0) continue;
+
+        // Get friend's linkedUserId
+        const friendResult = await client.execute({
+          sql: 'SELECT linkedUserId FROM friends WHERE id = ?',
+          args: [friendId],
+        });
+        const linkedUserId = friendResult.rows[0]?.linkedUserId as string | null;
+
+        const collaborator: TripCollaborator = {
+          id: randomUUID(),
+          tripId,
+          friendId,
+          userId: linkedUserId,
+          role: 'collaborator',
+          joinedAt: now,
+        };
+
+        await client.execute({
+          sql: 'INSERT INTO trip_collaborators (id, tripId, friendId, userId, role, joinedAt) VALUES (?, ?, ?, ?, ?, ?)',
+          args: [collaborator.id, tripId, friendId, linkedUserId, 'collaborator', now.toISOString()],
+        });
+
+        added.push(collaborator);
+      }
+
+      return added;
+    },
+
+    remove: async (tripId: string, friendId: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify user has access to trip
+      const accessCheck = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [tripId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) return false;
+
+      await client.execute({
+        sql: 'DELETE FROM trip_collaborators WHERE tripId = ? AND friendId = ?',
+        args: [tripId, friendId],
+      });
+
+      return true;
+    },
+  },
+
+  // Trip Daily Plans and Events
+  tripDailyPlan: {
+    create: async (tripId: string, dayNumber: number, date: Date | null, userId: string): Promise<TripDailyPlan> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify access
+      const accessCheck = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [tripId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Trip not found or access denied');
+      }
+
+      const plan: TripDailyPlan = {
+        id: randomUUID(),
+        tripId,
+        dayNumber,
+        date,
+      };
+
+      await client.execute({
+        sql: 'INSERT INTO trip_daily_plans (id, tripId, dayNumber, date) VALUES (?, ?, ?, ?)',
+        args: [plan.id, tripId, dayNumber, date?.toISOString() || null],
+      });
+
+      return plan;
+    },
+
+    update: async (id: string, data: { date?: Date | null }, userId: string): Promise<TripDailyPlan | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await client.execute({
+        sql: `SELECT dp.* FROM trip_daily_plans dp
+              JOIN trip_sessions ts ON dp.tripId = ts.id
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE dp.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [id, userId, userId],
+      });
+
+      if (existing.rows.length === 0) return null;
+
+      const row = existing.rows[0];
+      const updated: TripDailyPlan = {
+        id: row.id as string,
+        tripId: row.tripId as string,
+        dayNumber: row.dayNumber as number,
+        date: data.date !== undefined ? data.date : (row.date ? new Date(row.date as string) : null),
+      };
+
+      await client.execute({
+        sql: 'UPDATE trip_daily_plans SET date = ? WHERE id = ?',
+        args: [updated.date?.toISOString() || null, id],
+      });
+
+      return updated;
+    },
+  },
+
+  tripEvent: {
+    create: async (dailyPlanId: string, data: {
+      title: string;
+      description?: string;
+      startTime?: string;
+      endTime?: string;
+      location?: string;
+      category?: string;
+      externalUrl?: string;
+      estimatedCost?: number;
+      notes?: string;
+    }, userId: string): Promise<TripEvent> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify access through daily plan
+      const accessCheck = await client.execute({
+        sql: `SELECT dp.* FROM trip_daily_plans dp
+              JOIN trip_sessions ts ON dp.tripId = ts.id
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE dp.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [dailyPlanId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Daily plan not found or access denied');
+      }
+
+      // Get max order
+      const maxOrderResult = await client.execute({
+        sql: 'SELECT MAX("order") as maxOrder FROM trip_events WHERE dailyPlanId = ?',
+        args: [dailyPlanId],
+      });
+      const maxOrder = (maxOrderResult.rows[0]?.maxOrder as number) || 0;
+
+      const now = new Date();
+      const event: TripEvent = {
+        id: randomUUID(),
+        dailyPlanId,
+        title: data.title,
+        description: data.description || null,
+        startTime: data.startTime || null,
+        endTime: data.endTime || null,
+        location: data.location || null,
+        category: data.category || null,
+        externalUrl: data.externalUrl || null,
+        estimatedCost: data.estimatedCost || null,
+        notes: data.notes || null,
+        order: maxOrder + 1,
+        createdById: userId,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await client.execute({
+        sql: `INSERT INTO trip_events (id, dailyPlanId, title, description, startTime, endTime, location, category, externalUrl, estimatedCost, notes, "order", createdById, createdAt, updatedAt)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          event.id, dailyPlanId, event.title, event.description, event.startTime, event.endTime,
+          event.location, event.category, event.externalUrl, event.estimatedCost, event.notes,
+          event.order, userId, now.toISOString(), now.toISOString(),
+        ],
+      });
+
+      // Update goal progress
+      const tripId = accessCheck.rows[0].tripId as string;
+      await client.execute({
+        sql: `UPDATE trip_goal_progress SET status = 'in_progress' WHERE tripId = ? AND goalType = 'daily_events' AND status = 'pending'`,
+        args: [tripId],
+      });
+
+      return event;
+    },
+
+    update: async (id: string, data: Partial<Omit<TripEvent, 'id' | 'dailyPlanId' | 'createdById' | 'createdAt'>>, userId: string): Promise<TripEvent | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await client.execute({
+        sql: `SELECT e.* FROM trip_events e
+              JOIN trip_daily_plans dp ON e.dailyPlanId = dp.id
+              JOIN trip_sessions ts ON dp.tripId = ts.id
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE e.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [id, userId, userId],
+      });
+
+      if (existing.rows.length === 0) return null;
+
+      const row = existing.rows[0];
+      const now = new Date();
+      const updated: TripEvent = {
+        id: row.id as string,
+        dailyPlanId: row.dailyPlanId as string,
+        title: data.title ?? row.title as string,
+        description: data.description !== undefined ? data.description : row.description as string | null,
+        startTime: data.startTime !== undefined ? data.startTime : row.startTime as string | null,
+        endTime: data.endTime !== undefined ? data.endTime : row.endTime as string | null,
+        location: data.location !== undefined ? data.location : row.location as string | null,
+        category: data.category !== undefined ? data.category : row.category as string | null,
+        externalUrl: data.externalUrl !== undefined ? data.externalUrl : row.externalUrl as string | null,
+        estimatedCost: data.estimatedCost !== undefined ? data.estimatedCost : row.estimatedCost as number | null,
+        notes: data.notes !== undefined ? data.notes : row.notes as string | null,
+        order: data.order ?? row.order as number,
+        createdById: row.createdById as string,
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: now,
+      };
+
+      await client.execute({
+        sql: `UPDATE trip_events SET title = ?, description = ?, startTime = ?, endTime = ?, location = ?, category = ?, externalUrl = ?, estimatedCost = ?, notes = ?, "order" = ?, updatedAt = ?
+              WHERE id = ?`,
+        args: [
+          updated.title, updated.description, updated.startTime, updated.endTime, updated.location,
+          updated.category, updated.externalUrl, updated.estimatedCost, updated.notes, updated.order,
+          now.toISOString(), id,
+        ],
+      });
+
+      return updated;
+    },
+
+    delete: async (id: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await client.execute({
+        sql: `SELECT e.* FROM trip_events e
+              JOIN trip_daily_plans dp ON e.dailyPlanId = dp.id
+              JOIN trip_sessions ts ON dp.tripId = ts.id
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE e.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [id, userId, userId],
+      });
+
+      if (existing.rows.length === 0) return false;
+
+      await client.execute({
+        sql: 'DELETE FROM trip_events WHERE id = ?',
+        args: [id],
+      });
+
+      return true;
+    },
+  },
+
+  // Trip Tickets
+  tripTicket: {
+    create: async (tripId: string, data: {
+      type: TripTicket['type'];
+      title: string;
+      description?: string;
+      collaboratorId?: string;
+      confirmationNum?: string;
+      departureTime?: Date;
+      arrivalTime?: Date;
+      location?: string;
+      cost?: number;
+      currency?: string;
+      url?: string;
+    }, userId: string): Promise<TripTicket> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify access
+      const accessCheck = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [tripId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Trip not found or access denied');
+      }
+
+      const now = new Date();
+      const ticket: TripTicket = {
+        id: randomUUID(),
+        tripId,
+        collaboratorId: data.collaboratorId || null,
+        type: data.type,
+        title: data.title,
+        description: data.description || null,
+        confirmationNum: data.confirmationNum || null,
+        departureTime: data.departureTime || null,
+        arrivalTime: data.arrivalTime || null,
+        location: data.location || null,
+        cost: data.cost || null,
+        currency: data.currency || 'USD',
+        url: data.url || null,
+        createdById: userId,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await client.execute({
+        sql: `INSERT INTO trip_tickets (id, tripId, collaboratorId, type, title, description, confirmationNum, departureTime, arrivalTime, location, cost, currency, url, createdById, createdAt, updatedAt)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          ticket.id, tripId, ticket.collaboratorId, ticket.type, ticket.title, ticket.description,
+          ticket.confirmationNum, ticket.departureTime?.toISOString() || null, ticket.arrivalTime?.toISOString() || null,
+          ticket.location, ticket.cost, ticket.currency, ticket.url, userId, now.toISOString(), now.toISOString(),
+        ],
+      });
+
+      // Update goal progress
+      await client.execute({
+        sql: `UPDATE trip_goal_progress SET status = 'in_progress' WHERE tripId = ? AND goalType = 'tickets' AND status = 'pending'`,
+        args: [tripId],
+      });
+
+      return ticket;
+    },
+
+    update: async (id: string, data: Partial<Omit<TripTicket, 'id' | 'tripId' | 'createdById' | 'createdAt'>>, userId: string): Promise<TripTicket | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await client.execute({
+        sql: `SELECT t.* FROM trip_tickets t
+              JOIN trip_sessions ts ON t.tripId = ts.id
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE t.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [id, userId, userId],
+      });
+
+      if (existing.rows.length === 0) return null;
+
+      const row = existing.rows[0];
+      const now = new Date();
+      const updated: TripTicket = {
+        id: row.id as string,
+        tripId: row.tripId as string,
+        collaboratorId: data.collaboratorId !== undefined ? data.collaboratorId : row.collaboratorId as string | null,
+        type: data.type ?? row.type as TripTicket['type'],
+        title: data.title ?? row.title as string,
+        description: data.description !== undefined ? data.description : row.description as string | null,
+        confirmationNum: data.confirmationNum !== undefined ? data.confirmationNum : row.confirmationNum as string | null,
+        departureTime: data.departureTime !== undefined ? data.departureTime : (row.departureTime ? new Date(row.departureTime as string) : null),
+        arrivalTime: data.arrivalTime !== undefined ? data.arrivalTime : (row.arrivalTime ? new Date(row.arrivalTime as string) : null),
+        location: data.location !== undefined ? data.location : row.location as string | null,
+        cost: data.cost !== undefined ? data.cost : row.cost as number | null,
+        currency: data.currency ?? row.currency as string,
+        url: data.url !== undefined ? data.url : row.url as string | null,
+        createdById: row.createdById as string,
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: now,
+      };
+
+      await client.execute({
+        sql: `UPDATE trip_tickets SET collaboratorId = ?, type = ?, title = ?, description = ?, confirmationNum = ?, departureTime = ?, arrivalTime = ?, location = ?, cost = ?, currency = ?, url = ?, updatedAt = ?
+              WHERE id = ?`,
+        args: [
+          updated.collaboratorId, updated.type, updated.title, updated.description, updated.confirmationNum,
+          updated.departureTime?.toISOString() || null, updated.arrivalTime?.toISOString() || null,
+          updated.location, updated.cost, updated.currency, updated.url, now.toISOString(), id,
+        ],
+      });
+
+      return updated;
+    },
+
+    delete: async (id: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await client.execute({
+        sql: `SELECT t.* FROM trip_tickets t
+              JOIN trip_sessions ts ON t.tripId = ts.id
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE t.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [id, userId, userId],
+      });
+
+      if (existing.rows.length === 0) return false;
+
+      await client.execute({
+        sql: 'DELETE FROM trip_tickets WHERE id = ?',
+        args: [id],
+      });
+
+      return true;
+    },
+  },
+
+  // Trip Messages
+  tripMessage: {
+    findMany: async (tripId: string, userId: string, options?: { context?: string; since?: Date }): Promise<TripMessage[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify access
+      const accessCheck = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [tripId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) return [];
+
+      let sql = 'SELECT * FROM trip_messages WHERE tripId = ?';
+      const args: any[] = [tripId];
+
+      if (options?.context) {
+        sql += ' AND context = ?';
+        args.push(options.context);
+      }
+
+      if (options?.since) {
+        sql += ' AND createdAt > ?';
+        args.push(options.since.toISOString());
+      }
+
+      sql += ' ORDER BY createdAt ASC';
+
+      const result = await client.execute({ sql, args });
+
+      return result.rows.map((row: any) => ({
+        id: row.id,
+        tripId: row.tripId,
+        userId: row.userId,
+        friendId: row.friendId,
+        context: row.context,
+        role: row.role,
+        content: row.content,
+        createdAt: new Date(row.createdAt as string),
+      }));
+    },
+
+    create: async (tripId: string, data: {
+      content: string;
+      context?: TripMessage['context'];
+      role?: TripMessage['role'];
+    }, userId: string): Promise<TripMessage> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify access
+      const accessCheck = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [tripId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Trip not found or access denied');
+      }
+
+      const now = new Date();
+      const message: TripMessage = {
+        id: randomUUID(),
+        tripId,
+        userId,
+        friendId: null,
+        context: data.context || 'general',
+        role: data.role || 'user',
+        content: data.content,
+        createdAt: now,
+      };
+
+      await client.execute({
+        sql: 'INSERT INTO trip_messages (id, tripId, userId, friendId, context, role, content, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [message.id, tripId, userId, null, message.context, message.role, message.content, now.toISOString()],
+      });
+
+      return message;
+    },
+  },
+
+  // Trip Polls
+  tripPoll: {
+    findMany: async (tripId: string, userId: string, context?: string): Promise<TripPoll[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify access
+      const accessCheck = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [tripId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) return [];
+
+      let sql = 'SELECT * FROM trip_polls WHERE tripId = ?';
+      const args: any[] = [tripId];
+
+      if (context) {
+        sql += ' AND context = ?';
+        args.push(context);
+      }
+
+      sql += ' ORDER BY createdAt DESC';
+
+      const result = await client.execute({ sql, args });
+
+      return result.rows.map((row: any) => ({
+        id: row.id,
+        tripId: row.tripId,
+        context: row.context,
+        question: row.question,
+        status: row.status,
+        createdById: row.createdById,
+        createdAt: new Date(row.createdAt as string),
+        closedAt: row.closedAt ? new Date(row.closedAt as string) : null,
+      }));
+    },
+
+    create: async (tripId: string, data: {
+      context: TripPoll['context'];
+      question: string;
+      options: { label: string; url?: string }[];
+    }, userId: string): Promise<TripPoll & { options: TripPollOption[] }> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify access
+      const accessCheck = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [tripId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Trip not found or access denied');
+      }
+
+      const now = new Date();
+      const poll: TripPoll = {
+        id: randomUUID(),
+        tripId,
+        context: data.context,
+        question: data.question,
+        status: 'active',
+        createdById: userId,
+        createdAt: now,
+        closedAt: null,
+      };
+
+      await client.execute({
+        sql: 'INSERT INTO trip_polls (id, tripId, context, question, status, createdById, createdAt, closedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [poll.id, tripId, poll.context, poll.question, poll.status, userId, now.toISOString(), null],
+      });
+
+      const options: TripPollOption[] = [];
+      for (let i = 0; i < data.options.length; i++) {
+        const opt = data.options[i];
+        const option: TripPollOption = {
+          id: randomUUID(),
+          pollId: poll.id,
+          label: opt.label,
+          url: opt.url || null,
+          order: i,
+        };
+
+        await client.execute({
+          sql: 'INSERT INTO trip_poll_options (id, pollId, label, url, "order") VALUES (?, ?, ?, ?, ?)',
+          args: [option.id, poll.id, option.label, option.url, i],
+        });
+
+        options.push(option);
+      }
+
+      return { ...poll, options };
+    },
+
+    close: async (pollId: string, userId: string): Promise<TripPoll | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await client.execute({
+        sql: `SELECT p.* FROM trip_polls p
+              JOIN trip_sessions ts ON p.tripId = ts.id
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE p.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [pollId, userId, userId],
+      });
+
+      if (existing.rows.length === 0) return null;
+
+      const row = existing.rows[0];
+      const now = new Date();
+
+      await client.execute({
+        sql: 'UPDATE trip_polls SET status = ?, closedAt = ? WHERE id = ?',
+        args: ['closed', now.toISOString(), pollId],
+      });
+
+      return {
+        id: row.id as string,
+        tripId: row.tripId as string,
+        context: row.context as TripPoll['context'],
+        question: row.question as string,
+        status: 'closed',
+        createdById: row.createdById as string,
+        createdAt: new Date(row.createdAt as string),
+        closedAt: now,
+      };
+    },
+
+    vote: async (optionId: string, userId: string): Promise<TripPollVote> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify poll is active and user has access
+      const optionCheck = await client.execute({
+        sql: `SELECT o.*, p.tripId, p.status as pollStatus FROM trip_poll_options o
+              JOIN trip_polls p ON o.pollId = p.id
+              JOIN trip_sessions ts ON p.tripId = ts.id
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE o.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [optionId, userId, userId],
+      });
+
+      if (optionCheck.rows.length === 0) {
+        throw new Error('Poll option not found or access denied');
+      }
+
+      if (optionCheck.rows[0].pollStatus !== 'active') {
+        throw new Error('Poll is closed');
+      }
+
+      // Remove existing vote by this user on this poll
+      const pollId = (await client.execute({
+        sql: 'SELECT pollId FROM trip_poll_options WHERE id = ?',
+        args: [optionId],
+      })).rows[0]?.pollId as string;
+
+      await client.execute({
+        sql: `DELETE FROM trip_poll_votes WHERE visitorId = ? AND optionId IN (SELECT id FROM trip_poll_options WHERE pollId = ?)`,
+        args: [userId, pollId],
+      });
+
+      const now = new Date();
+      const vote: TripPollVote = {
+        id: randomUUID(),
+        optionId,
+        visitorId: userId,
+        friendId: null,
+        votedAt: now,
+      };
+
+      await client.execute({
+        sql: 'INSERT INTO trip_poll_votes (id, optionId, visitorId, friendId, votedAt) VALUES (?, ?, ?, ?, ?)',
+        args: [vote.id, optionId, userId, null, now.toISOString()],
+      });
+
+      return vote;
+    },
+
+    removeVote: async (optionId: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: 'DELETE FROM trip_poll_votes WHERE optionId = ? AND visitorId = ?',
+        args: [optionId, userId],
+      });
+
+      return result.rowsAffected > 0;
+    },
+  },
+
+  // Trip Goal Progress
+  tripGoalProgress: {
+    findByTripId: async (tripId: string, userId: string): Promise<TripGoalProgress[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify access
+      const accessCheck = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [tripId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) return [];
+
+      const result = await client.execute({
+        sql: 'SELECT * FROM trip_goal_progress WHERE tripId = ?',
+        args: [tripId],
+      });
+
+      return result.rows.map((row: any) => ({
+        id: row.id,
+        tripId: row.tripId,
+        goalType: row.goalType,
+        status: row.status,
+        completedAt: row.completedAt ? new Date(row.completedAt as string) : null,
+      }));
+    },
+
+    update: async (tripId: string, goalType: string, status: TripGoalProgress['status'], userId: string): Promise<TripGoalProgress | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify access
+      const accessCheck = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [tripId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) return null;
+
+      const now = status === 'completed' ? new Date() : null;
+
+      await client.execute({
+        sql: 'UPDATE trip_goal_progress SET status = ?, completedAt = ? WHERE tripId = ? AND goalType = ?',
+        args: [status, now?.toISOString() || null, tripId, goalType],
+      });
+
+      const result = await client.execute({
+        sql: 'SELECT * FROM trip_goal_progress WHERE tripId = ? AND goalType = ?',
+        args: [tripId, goalType],
+      });
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+      return {
+        id: row.id as string,
+        tripId: row.tripId as string,
+        goalType: row.goalType as TripGoalProgress['goalType'],
+        status: row.status as TripGoalProgress['status'],
+        completedAt: row.completedAt ? new Date(row.completedAt as string) : null,
+      };
+    },
+  },
+
+  // Trip Sync - for real-time collaborative updates
+  tripSync: {
+    getChanges: async (tripId: string, userId: string, lastSync: Date): Promise<{
+      messages: TripMessage[];
+      polls: TripPoll[];
+      goalProgress: TripGoalProgress[];
+      tripUpdated: boolean;
+      lastUpdated: Date;
+    }> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify access
+      const accessCheck = await client.execute({
+        sql: `SELECT ts.* FROM trip_sessions ts
+              LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
+              WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
+        args: [tripId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Trip not found or access denied');
+      }
+
+      const tripRow = accessCheck.rows[0];
+      const tripUpdatedAt = new Date(tripRow.updatedAt as string);
+      const tripUpdated = tripUpdatedAt > lastSync;
+
+      // Get new messages
+      const messagesResult = await client.execute({
+        sql: 'SELECT * FROM trip_messages WHERE tripId = ? AND createdAt > ? ORDER BY createdAt ASC',
+        args: [tripId, lastSync.toISOString()],
+      });
+
+      // Get recently updated polls
+      const pollsResult = await client.execute({
+        sql: 'SELECT * FROM trip_polls WHERE tripId = ? AND (createdAt > ? OR closedAt > ?) ORDER BY createdAt DESC',
+        args: [tripId, lastSync.toISOString(), lastSync.toISOString()],
+      });
+
+      // Get goal progress
+      const goalsResult = await client.execute({
+        sql: 'SELECT * FROM trip_goal_progress WHERE tripId = ?',
+        args: [tripId],
+      });
+
+      return {
+        messages: messagesResult.rows.map((row: any) => ({
+          id: row.id,
+          tripId: row.tripId,
+          userId: row.userId,
+          friendId: row.friendId,
+          context: row.context,
+          role: row.role,
+          content: row.content,
+          createdAt: new Date(row.createdAt as string),
+        })),
+        polls: pollsResult.rows.map((row: any) => ({
+          id: row.id,
+          tripId: row.tripId,
+          context: row.context,
+          question: row.question,
+          status: row.status,
+          createdById: row.createdById,
+          createdAt: new Date(row.createdAt as string),
+          closedAt: row.closedAt ? new Date(row.closedAt as string) : null,
+        })),
+        goalProgress: goalsResult.rows.map((row: any) => ({
+          id: row.id,
+          tripId: row.tripId,
+          goalType: row.goalType,
+          status: row.status,
+          completedAt: row.completedAt ? new Date(row.completedAt as string) : null,
+        })),
+        tripUpdated,
+        lastUpdated: new Date(),
+      };
     },
   },
 };

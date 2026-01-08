@@ -32,6 +32,9 @@ model User {
   // Shared items
   itemsShared    SharedItem[] @relation("SharedByUser")
   itemsReceived  SharedItem[] @relation("SharedWithUser")
+  // Trip planning
+  tripSessions   TripSession[]
+  tripMessages   TripMessage[]
 }
 
 // Google OAuth account for Calendar integration
@@ -74,6 +77,7 @@ model Friend {
   memories     Memory[]
   events       Event[]
   diaryNoteTags DiaryNoteTag[]
+  tripCollaborations TripCollaborator[]
 }
 
 model Memory {
@@ -178,4 +182,183 @@ model WishlistItem {
   purchased   Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// Collaborative Trip Planning Models
+
+model TripSession {
+  id              String   @id @default(cuid())
+  userId          String   // Creator of the trip
+  title           String
+  description     String?
+  status          String   @default("planning") // "planning", "confirmed", "completed", "cancelled"
+
+  // Trip Goals (nullable until decided)
+  startDate       DateTime?
+  endDate         DateTime?
+  location        String?
+  locationDetails String?  // JSON string: {city, country, coordinates, etc.}
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collaborators   TripCollaborator[]
+  dailyPlans      TripDailyPlan[]
+  tickets         TripTicket[]
+  messages        TripMessage[]
+  polls           TripPoll[]
+  goalProgress    TripGoalProgress[]
+
+  @@index([userId])
+}
+
+model TripCollaborator {
+  id          String   @id @default(cuid())
+  tripId      String
+  friendId    String   // Reference to Friend model (can be linked Amika user)
+  userId      String?  // If friend is a linked Amika user, store their userId
+  role        String   @default("collaborator") // "owner", "collaborator"
+  joinedAt    DateTime @default(now())
+
+  trip        TripSession @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  friend      Friend      @relation(fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, friendId])
+  @@index([tripId])
+  @@index([userId])
+}
+
+model TripDailyPlan {
+  id          String   @id @default(cuid())
+  tripId      String
+  dayNumber   Int      // Day 1, Day 2, etc.
+  date        DateTime?
+
+  events      TripEvent[]
+  trip        TripSession @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, dayNumber])
+  @@index([tripId])
+}
+
+model TripEvent {
+  id            String   @id @default(cuid())
+  dailyPlanId   String
+  title         String
+  description   String?
+  startTime     String?  // "09:00", "14:30" etc.
+  endTime       String?
+  location      String?
+  category      String?  // "experiences", "restaurants", "places", "fitness", "virtual"
+  externalUrl   String?  // Link to event/venue
+  estimatedCost Float?
+  notes         String?
+  order         Int      @default(0) // For drag-drop reordering
+
+  createdById   String   // Who added this event
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  dailyPlan     TripDailyPlan @relation(fields: [dailyPlanId], references: [id], onDelete: Cascade)
+
+  @@index([dailyPlanId])
+}
+
+model TripTicket {
+  id              String   @id @default(cuid())
+  tripId          String
+  collaboratorId  String?  // Which collaborator this ticket is for
+  type            String   // "flight", "train", "bus", "accommodation", "activity", "other"
+  title           String
+  description     String?
+  confirmationNum String?
+  departureTime   DateTime?
+  arrivalTime     DateTime?
+  location        String?
+  cost            Float?
+  currency        String   @default("USD")
+  url             String?  // Booking link
+
+  createdById     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  trip            TripSession @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+  @@index([collaboratorId])
+}
+
+model TripMessage {
+  id          String   @id @default(cuid())
+  tripId      String
+  userId      String   // Who sent the message
+  friendId    String?  // If sent by a non-Amika friend (display purposes)
+  context     String   @default("general") // "general", "dates", "location", "events", "tickets"
+  role        String   // "user", "assistant" (for Amika AI responses)
+  content     String
+  createdAt   DateTime @default(now())
+
+  trip        TripSession @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user        User?       @relation(fields: [userId], references: [id])
+
+  @@index([tripId, context])
+  @@index([tripId, createdAt])
+}
+
+model TripPoll {
+  id          String   @id @default(cuid())
+  tripId      String
+  context     String   // "dates", "location", "events", "tickets"
+  question    String
+  status      String   @default("active") // "active", "closed"
+  createdById String
+  createdAt   DateTime @default(now())
+  closedAt    DateTime?
+
+  options     TripPollOption[]
+  trip        TripSession @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, context])
+}
+
+model TripPollOption {
+  id          String   @id @default(cuid())
+  pollId      String
+  label       String
+  url         String?  // Optional link (e.g., to event, venue, etc.)
+  order       Int      @default(0)
+
+  votes       TripPollVote[]
+  poll        TripPoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+
+  @@index([pollId])
+}
+
+model TripPollVote {
+  id          String   @id @default(cuid())
+  optionId    String
+  visitorId   String?  // If voter is Amika user
+  friendId    String?  // If voter is a non-linked friend
+  votedAt     DateTime @default(now())
+
+  option      TripPollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([optionId, visitorId])
+  @@unique([optionId, friendId])
+  @@index([optionId])
+}
+
+model TripGoalProgress {
+  id          String   @id @default(cuid())
+  tripId      String
+  goalType    String   // "dates", "location", "daily_events", "tickets"
+  status      String   @default("pending") // "pending", "in_progress", "completed"
+  completedAt DateTime?
+
+  trip        TripSession @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, goalType])
+  @@index([tripId])
 }
