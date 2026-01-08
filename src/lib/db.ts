@@ -644,15 +644,28 @@ async function ensureTablesExist() {
 
     // Add share and join tokens for events
     try {
-      await client.execute(`ALTER TABLE events ADD COLUMN shareToken TEXT UNIQUE`);
+      await client.execute(`ALTER TABLE events ADD COLUMN shareToken TEXT`);
     } catch (e) {
       // Column might already exist
     }
 
     try {
-      await client.execute(`ALTER TABLE events ADD COLUMN joinToken TEXT UNIQUE`);
+      await client.execute(`ALTER TABLE events ADD COLUMN joinToken TEXT`);
     } catch (e) {
       // Column might already exist
+    }
+
+    // Create unique indexes for share/join tokens (SQLite doesn't support UNIQUE in ALTER TABLE)
+    try {
+      await client.execute(`CREATE UNIQUE INDEX IF NOT EXISTS idx_events_shareToken ON events(shareToken)`);
+    } catch (e) {
+      // Index might already exist
+    }
+
+    try {
+      await client.execute(`CREATE UNIQUE INDEX IF NOT EXISTS idx_events_joinToken ON events(joinToken)`);
+    } catch (e) {
+      // Index might already exist
     }
 
     // Create diary_note_amika_tags table (legacy - keep for backward compatibility)
