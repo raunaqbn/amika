@@ -230,8 +230,13 @@ export function TripTicketsSection({
           tripId={tripId}
           context="tickets"
           messages={allMessages}
+          currentUser={currentUser}
+          collaborators={collaborators}
+          tripOwnerId={trip.userId}
           onNewMessage={handleNewMessage}
           onCreatePoll={() => setShowCreatePoll(true)}
+          typingUsers={typingUsers}
+          activeUsers={activeUsers}
         />
       </div>
 
@@ -346,20 +351,6 @@ export function TripTicketsSection({
           </div>
         )}
       </div>
-
-      {/* Chat */}
-      <TripChat
-        tripId={tripId}
-        context="tickets"
-        messages={allMessages}
-        currentUser={currentUser}
-        collaborators={collaborators}
-        tripOwnerId={trip.userId}
-        onNewMessage={handleNewMessage}
-        onCreatePoll={() => setShowCreatePoll(true)}
-        typingUsers={typingUsers}
-        activeUsers={activeUsers}
-      />
 
       {/* Create Poll Dialog */}
       <CreatePollDialog

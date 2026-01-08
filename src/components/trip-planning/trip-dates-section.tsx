@@ -132,8 +132,13 @@ export function TripDatesSection({
           tripId={tripId}
           context="dates"
           messages={allMessages}
+          currentUser={currentUser}
+          collaborators={collaborators}
+          tripOwnerId={trip.userId}
           onNewMessage={handleNewMessage}
           onCreatePoll={() => setShowCreatePoll(true)}
+          typingUsers={typingUsers}
+          activeUsers={activeUsers}
         />
       </div>
 
@@ -256,20 +261,6 @@ export function TripDatesSection({
           </div>
         )}
       </div>
-
-      {/* Chat */}
-      <TripChat
-        tripId={tripId}
-        context="dates"
-        messages={allMessages}
-        currentUser={currentUser}
-        collaborators={collaborators}
-        tripOwnerId={trip.userId}
-        onNewMessage={handleNewMessage}
-        onCreatePoll={() => setShowCreatePoll(true)}
-        typingUsers={typingUsers}
-        activeUsers={activeUsers}
-      />
 
       {/* Create Poll Dialog */}
       <CreatePollDialog
