@@ -14,6 +14,7 @@ import { TripLocationSection } from '@/components/trip-planning/trip-location-se
 import { TripEventsSection } from '@/components/trip-planning/trip-events-section';
 import { TripTicketsSection } from '@/components/trip-planning/trip-tickets-section';
 import { ShareTripDialog } from '@/components/trip-planning/share-trip-dialog';
+import { TripChat } from '@/components/trip-planning/trip-chat';
 import { useTripSync } from '@/hooks/use-trip-sync';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -173,7 +174,7 @@ export default function TripPlanningPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('dates');
-  const [messages, setMessages] = useState<Record<string, Message[]>>({});
+  const [messages, setMessages] = useState<Message[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
@@ -225,21 +226,23 @@ export default function TripPlanningPage() {
   // Set up sync with context for typing indicators
   const { isConnected, typingUsers, activeUsers } = useTripSync(tripId, {
     enabled: !!trip,
-    context: activeTab,
+    context: 'general',
     onNewMessages: (newMessages) => {
       setMessages((prev) => {
-        const updated = { ...prev };
-        newMessages.forEach((msg) => {
-          const context = msg.context || 'general';
-          if (!updated[context]) {
-            updated[context] = [];
-          }
-          // Avoid duplicates
-          if (!updated[context].find((m) => m.id === msg.id)) {
-            updated[context] = [...updated[context], msg];
-          }
+        const existingIds = new Set(prev.map((m) => m.id));
+        const uniqueNewMessages = newMessages.filter((msg) => !existingIds.has(msg.id));
+        return [...prev, ...uniqueNewMessages];
+      });
+    },
+    onPollsUpdated: (updatedPolls) => {
+      setTrip((prev) => {
+        if (!prev) return null;
+        // Merge updated polls into existing polls
+        const pollsMap = new Map(prev.polls.map((p) => [p.id, p]));
+        updatedPolls.forEach((poll: TripPoll) => {
+          pollsMap.set(poll.id, poll);
         });
-        return updated;
+        return { ...prev, polls: Array.from(pollsMap.values()) };
       });
     },
     onGoalsUpdated: (goals) => {
@@ -247,6 +250,16 @@ export default function TripPlanningPage() {
     },
     onTripUpdated: fetchTrip,
   });
+
+  // Handle new message from unified chat
+  const handleNewMessage = (message: Message) => {
+    setMessages((prev) => {
+      if (prev.find((m) => m.id === message.id)) {
+        return prev;
+      }
+      return [...prev, message];
+    });
+  };
 
   const handleUpdateTrip = async (updates: Partial<Trip>) => {
     try {
@@ -426,109 +439,95 @@ export default function TripPlanningPage() {
           </div>
 
           {/* Main content area */}
-          <div className="flex-1">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 mb-4 scrollbar-hide">
-                <TabsList className="w-max md:w-auto">
-                  <TabsTrigger value="dates" className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    Dates
-                  </TabsTrigger>
-                  <TabsTrigger value="location" className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    Location
-                  </TabsTrigger>
-                  <TabsTrigger value="events" className="flex items-center gap-2">
-                    <CalendarDays className="w-4 h-4" />
-                    Events
-                  </TabsTrigger>
-                  <TabsTrigger value="tickets" className="flex items-center gap-2">
-                    <Ticket className="w-4 h-4" />
-                    Tickets
-                  </TabsTrigger>
-                </TabsList>
-              </div>
+          <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
+            {/* Unified Chat - Left Column */}
+            <div className="flex-1 order-2 lg:order-1 flex flex-col min-h-0">
+              <TripChat
+                tripId={tripId}
+                context="general"
+                messages={messages}
+                currentUser={{
+                  id: user?.id || currentUserId || '',
+                  name: user?.name || 'You',
+                  profileImage: user?.profileImage || null,
+                }}
+                collaborators={trip.collaborators}
+                tripOwnerId={trip.userId}
+                onNewMessage={handleNewMessage}
+                typingUsers={typingUsers}
+                activeUsers={activeUsers}
+              />
+            </div>
 
-              <TabsContent value="dates">
-                <TripDatesSection
-                  trip={trip}
-                  onUpdate={handleUpdateTrip}
-                  messages={messages['dates'] || []}
-                  polls={trip.polls.filter((p) => p.context === 'dates')}
-                  tripId={tripId}
-                  currentUserId={currentUserId || undefined}
-                  onRefresh={fetchTrip}
-                  currentUser={{
-                    id: user?.id || currentUserId || '',
-                    name: user?.name || 'You',
-                    profileImage: user?.profileImage || null,
-                  }}
-                  collaborators={trip.collaborators}
-                  typingUsers={typingUsers}
-                  activeUsers={activeUsers}
-                />
-              </TabsContent>
+            {/* Tab Content - Right Column */}
+            <div className="w-full lg:w-96 order-1 lg:order-2">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 mb-4 scrollbar-hide">
+                  <TabsList className="w-max md:w-auto">
+                    <TabsTrigger value="dates" className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      Dates
+                    </TabsTrigger>
+                    <TabsTrigger value="location" className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      Location
+                    </TabsTrigger>
+                    <TabsTrigger value="events" className="flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4" />
+                      Events
+                    </TabsTrigger>
+                    <TabsTrigger value="tickets" className="flex items-center gap-2">
+                      <Ticket className="w-4 h-4" />
+                      Tickets
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
 
-              <TabsContent value="location">
-                <TripLocationSection
-                  trip={trip}
-                  onUpdate={handleUpdateTrip}
-                  messages={messages['location'] || []}
-                  polls={trip.polls.filter((p) => p.context === 'location')}
-                  tripId={tripId}
-                  currentUserId={currentUserId || undefined}
-                  onRefresh={fetchTrip}
-                  currentUser={{
-                    id: user?.id || currentUserId || '',
-                    name: user?.name || 'You',
-                    profileImage: user?.profileImage || null,
-                  }}
-                  collaborators={trip.collaborators}
-                  typingUsers={typingUsers}
-                  activeUsers={activeUsers}
-                />
-              </TabsContent>
+                <TabsContent value="dates">
+                  <TripDatesSection
+                    trip={trip}
+                    onUpdate={handleUpdateTrip}
+                    polls={trip.polls.filter((p) => p.context === 'dates')}
+                    tripId={tripId}
+                    currentUserId={currentUserId || undefined}
+                    onRefresh={fetchTrip}
+                  />
+                </TabsContent>
 
-              <TabsContent value="events">
-                <TripEventsSection
-                  trip={trip}
-                  dailyPlans={trip.dailyPlans}
-                  messages={messages['events'] || []}
-                  polls={trip.polls.filter((p) => p.context === 'events')}
-                  tripId={tripId}
-                  currentUserId={currentUserId || undefined}
-                  onRefresh={fetchTrip}
-                  currentUser={{
-                    id: user?.id || '',
-                    name: user?.name || 'You',
-                    profileImage: user?.profileImage || null,
-                  }}
-                  collaborators={trip.collaborators}
-                  typingUsers={typingUsers}
-                  activeUsers={activeUsers}
-                />
-              </TabsContent>
+                <TabsContent value="location">
+                  <TripLocationSection
+                    trip={trip}
+                    onUpdate={handleUpdateTrip}
+                    polls={trip.polls.filter((p) => p.context === 'location')}
+                    tripId={tripId}
+                    currentUserId={currentUserId || undefined}
+                    onRefresh={fetchTrip}
+                  />
+                </TabsContent>
 
-              <TabsContent value="tickets">
-                <TripTicketsSection
-                  trip={trip}
-                  tickets={trip.tickets}
-                  collaborators={trip.collaborators}
-                  messages={messages['tickets'] || []}
-                  polls={trip.polls.filter((p) => p.context === 'tickets')}
-                  tripId={tripId}
-                  currentUserId={currentUserId || undefined}
-                  onRefresh={fetchTrip}
-                  currentUser={{
-                    id: user?.id || '',
-                    name: user?.name || 'You',
-                    profileImage: user?.profileImage || null,
-                  }}
-                  typingUsers={typingUsers}
-                  activeUsers={activeUsers}
-                />
-              </TabsContent>
-            </Tabs>
+                <TabsContent value="events">
+                  <TripEventsSection
+                    dailyPlans={trip.dailyPlans}
+                    polls={trip.polls.filter((p) => p.context === 'events')}
+                    tripId={tripId}
+                    currentUserId={currentUserId || undefined}
+                    onRefresh={fetchTrip}
+                  />
+                </TabsContent>
+
+                <TabsContent value="tickets">
+                  <TripTicketsSection
+                    trip={trip}
+                    tickets={trip.tickets}
+                    collaborators={trip.collaborators}
+                    polls={trip.polls.filter((p) => p.context === 'tickets')}
+                    tripId={tripId}
+                    currentUserId={currentUserId || undefined}
+                    onRefresh={fetchTrip}
+                  />
+                </TabsContent>
+              </Tabs>
+            </div>
           </div>
         </div>
       </div>

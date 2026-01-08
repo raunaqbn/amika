@@ -887,9 +887,12 @@ export const prisma = {
       await ensureTablesExist();
       const client = getClient();
 
+      // Normalize email: trim whitespace and convert to lowercase
+      const normalizedEmail = email.trim().toLowerCase();
+
       const result = await client.execute({
         sql: 'SELECT * FROM users WHERE email = ?',
-        args: [email.toLowerCase()],
+        args: [normalizedEmail],
       });
 
       if (result.rows.length === 0) return null;
@@ -979,14 +982,17 @@ export const prisma = {
       await ensureTablesExist();
       const client = getClient();
 
-      const existing = await prisma.user.findByEmail(data.email);
+      // Normalize email: trim whitespace and convert to lowercase
+      const normalizedEmail = data.email.trim().toLowerCase();
+
+      const existing = await prisma.user.findByEmail(normalizedEmail);
       if (existing) {
         throw new Error('User with this email already exists');
       }
 
       const user: User = {
         id: randomUUID(),
-        email: data.email.toLowerCase(),
+        email: normalizedEmail,
         passwordHash: hashPassword(data.password),
         name: data.name,
         birthday: data.birthday ?? null,
@@ -999,23 +1005,33 @@ export const prisma = {
         createdAt: new Date(),
       };
 
-      await client.execute({
-        sql: 'INSERT INTO users (id, email, passwordHash, name, birthday, profileImage, phone, location, googleId, isTemporary, interests, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        args: [
-          user.id,
-          user.email,
-          user.passwordHash,
-          user.name,
-          user.birthday ? user.birthday.toISOString() : null,
-          user.profileImage,
-          user.phone,
-          user.location,
-          user.googleId,
-          user.isTemporary ? 1 : 0,
-          user.interests,
-          user.createdAt.toISOString(),
-        ],
-      });
+      try {
+        await client.execute({
+          sql: 'INSERT INTO users (id, email, passwordHash, name, birthday, profileImage, phone, location, googleId, isTemporary, interests, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          args: [
+            user.id,
+            user.email,
+            user.passwordHash,
+            user.name,
+            user.birthday ? user.birthday.toISOString() : null,
+            user.profileImage,
+            user.phone,
+            user.location,
+            user.googleId,
+            user.isTemporary ? 1 : 0,
+            user.interests,
+            user.createdAt.toISOString(),
+          ],
+        });
+      } catch (error: any) {
+        // Handle race condition: if database UNIQUE constraint catches a duplicate
+        if (error.message?.includes('UNIQUE constraint failed') ||
+            error.message?.includes('duplicate key') ||
+            error.code === 'SQLITE_CONSTRAINT') {
+          throw new Error('User with this email already exists');
+        }
+        throw error;
+      }
 
       return user;
     },
@@ -5388,11 +5404,80 @@ export const prisma = {
         args: [tripId, lastSync.toISOString()],
       });
 
-      // Get recently updated polls
+      // Get recently updated polls (created, closed, or with new votes)
+      // First, find polls with recent votes
+      const pollsWithRecentVotes = await client.execute({
+        sql: `SELECT DISTINCT p.id FROM trip_polls p
+              JOIN trip_poll_options o ON p.id = o.pollId
+              JOIN trip_poll_votes v ON o.id = v.optionId
+              WHERE p.tripId = ? AND v.votedAt > ?`,
+        args: [tripId, lastSync.toISOString()],
+      });
+
+      const pollIdsWithVotes = pollsWithRecentVotes.rows.map((r: any) => r.id as string);
+
+      // Get polls that were created, closed, or have recent votes
       const pollsResult = await client.execute({
         sql: 'SELECT * FROM trip_polls WHERE tripId = ? AND (createdAt > ? OR closedAt > ?) ORDER BY createdAt DESC',
         args: [tripId, lastSync.toISOString(), lastSync.toISOString()],
       });
+
+      // Combine poll IDs (created/closed + with votes)
+      const allUpdatedPollIds = new Set<string>([
+        ...pollsResult.rows.map((r: any) => r.id as string),
+        ...pollIdsWithVotes,
+      ]);
+
+      // Fetch full poll data with options and votes for all updated polls
+      const polls: any[] = [];
+      for (const pollId of Array.from(allUpdatedPollIds)) {
+        const pollResult = await client.execute({
+          sql: 'SELECT * FROM trip_polls WHERE id = ?',
+          args: [pollId],
+        });
+
+        if (pollResult.rows.length === 0) continue;
+        const poll = pollResult.rows[0];
+
+        const optionsResult = await client.execute({
+          sql: 'SELECT * FROM trip_poll_options WHERE pollId = ? ORDER BY "order" ASC',
+          args: [pollId],
+        });
+
+        const optionsWithVotes: any[] = [];
+        for (const opt of optionsResult.rows) {
+          const votesResult = await client.execute({
+            sql: 'SELECT * FROM trip_poll_votes WHERE optionId = ?',
+            args: [opt.id as string],
+          });
+          optionsWithVotes.push({
+            id: opt.id,
+            pollId: opt.pollId,
+            label: opt.label,
+            url: opt.url,
+            order: opt.order,
+            votes: votesResult.rows.map((v: any) => ({
+              id: v.id,
+              optionId: v.optionId,
+              visitorId: v.visitorId,
+              friendId: v.friendId,
+              votedAt: new Date(v.votedAt as string),
+            })),
+          });
+        }
+
+        polls.push({
+          id: poll.id,
+          tripId: poll.tripId,
+          context: poll.context,
+          question: poll.question,
+          status: poll.status,
+          createdById: poll.createdById,
+          createdAt: new Date(poll.createdAt as string),
+          closedAt: poll.closedAt ? new Date(poll.closedAt as string) : null,
+          options: optionsWithVotes,
+        });
+      }
 
       // Get goal progress
       const goalsResult = await client.execute({
@@ -5411,16 +5496,7 @@ export const prisma = {
           content: row.content,
           createdAt: new Date(row.createdAt as string),
         })),
-        polls: pollsResult.rows.map((row: any) => ({
-          id: row.id,
-          tripId: row.tripId,
-          context: row.context,
-          question: row.question,
-          status: row.status,
-          createdById: row.createdById,
-          createdAt: new Date(row.createdAt as string),
-          closedAt: row.closedAt ? new Date(row.closedAt as string) : null,
-        })),
+        polls,
         goalProgress: goalsResult.rows.map((row: any) => ({
           id: row.id,
           tripId: row.tripId,
