@@ -5,7 +5,6 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
-import { TripChat } from './trip-chat';
 import { TripPollComponent } from './trip-poll';
 import { CreatePollDialog } from './create-poll-dialog';
 import {
@@ -37,17 +36,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
-
-interface Message {
-  id: string;
-  tripId: string;
-  userId: string;
-  friendId: string | null;
-  context: string;
-  role: string;
-  content: string;
-  createdAt: Date;
-}
 
 interface TripPoll {
   id: string;
@@ -84,55 +72,12 @@ interface DailyPlan {
   events: TripEvent[];
 }
 
-interface Trip {
-  id: string;
-  userId: string;
-  startDate: Date | null;
-  endDate: Date | null;
-}
-
-interface Collaborator {
-  id: string;
-  tripId: string;
-  friendId: string;
-  userId: string | null;
-  role: string;
-  joinedAt: Date;
-  friendName: string;
-  profileImage: string | null;
-  linkedUserId: string | null;
-}
-
-interface CurrentUser {
-  id: string;
-  name: string;
-  profileImage: string | null;
-}
-
-interface TypingUser {
-  id: string;
-  name: string;
-}
-
-interface ActiveUser {
-  id: string;
-  name: string;
-  profileImage: string | null;
-  lastSeen: Date;
-}
-
 interface TripEventsSectionProps {
-  trip: Trip;
   dailyPlans: DailyPlan[];
-  messages: Message[];
   polls: TripPoll[];
   tripId: string;
   currentUserId?: string;
   onRefresh: () => void;
-  currentUser: CurrentUser;
-  collaborators: Collaborator[];
-  typingUsers?: TypingUser[];
-  activeUsers?: ActiveUser[];
 }
 
 const categoryIcons: Record<string, any> = {
@@ -144,32 +89,17 @@ const categoryIcons: Record<string, any> = {
 };
 
 export function TripEventsSection({
-  trip,
   dailyPlans,
-  messages,
   polls,
   tripId,
   currentUserId,
   onRefresh,
-  currentUser,
-  collaborators,
-  typingUsers = [],
-  activeUsers = [],
 }: TripEventsSectionProps) {
   const [openDays, setOpenDays] = useState<Record<number, boolean>>({ 1: true });
-  const [localMessages, setLocalMessages] = useState<Message[]>(messages);
   const [showCreatePoll, setShowCreatePoll] = useState(false);
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [selectedDayPlanId, setSelectedDayPlanId] = useState<string | null>(null);
   const [addingDay, setAddingDay] = useState(false);
-
-  const handleNewMessage = (message: Message) => {
-    setLocalMessages((prev) => [...prev, message]);
-  };
-
-  const allMessages = [...messages, ...localMessages.filter(
-    (m) => !messages.find((msg) => msg.id === m.id)
-  )];
 
   const toggleDay = (dayNumber: number) => {
     setOpenDays((prev) => ({ ...prev, [dayNumber]: !prev[dayNumber] }));
@@ -211,26 +141,9 @@ export function TripEventsSection({
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4">
-      {/* Left Column - Chat */}
-      <div className="flex-1 order-2 lg:order-1">
-        <TripChat
-          tripId={tripId}
-          context="events"
-          messages={allMessages}
-          currentUser={currentUser}
-          collaborators={collaborators}
-          tripOwnerId={trip.userId}
-          onNewMessage={handleNewMessage}
-          typingUsers={typingUsers}
-          activeUsers={activeUsers}
-        />
-      </div>
-
-      {/* Right Column - Daily Plans and Polls */}
-      <div className="w-full lg:w-96 space-y-4 order-1 lg:order-2">
-        {/* Daily Plans */}
-        <Card className="p-4">
+    <div className="space-y-4">
+      {/* Daily Plans */}
+      <Card className="p-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <CalendarDays className="w-5 h-5 text-[#A8C5A8]" />
@@ -434,7 +347,6 @@ export function TripEventsSection({
               ))}
           </div>
         )}
-      </div>
 
       {/* Create Poll Dialog */}
       <CreatePollDialog
