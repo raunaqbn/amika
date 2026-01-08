@@ -239,7 +239,7 @@ export function TripChat({
   const othersTyping = typingUsers.filter(u => u.id !== currentUser.id);
 
   return (
-    <Card className="p-4 flex flex-col h-full min-h-[500px] lg:min-h-[600px]">
+    <Card className="p-4 flex flex-col h-full min-h-[500px] max-h-[600px] lg:min-h-[600px] lg:max-h-[calc(100vh-180px)]">
       <div className="flex items-center gap-2 mb-3">
         <h4 className="font-medium text-sm">Discussion</h4>
         {/* Active users indicator */}
