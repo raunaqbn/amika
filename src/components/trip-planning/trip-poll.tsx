@@ -13,6 +13,8 @@ interface PollVote {
   visitorId: string | null;
   friendId: string | null;
   votedAt: Date;
+  voterName?: string;
+  voterProfileImage?: string;
 }
 
 interface PollOption {
@@ -56,45 +58,61 @@ export function TripPollComponent({
   const [voting, setVoting] = useState(false);
   const [closing, setClosing] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [optimisticVoteOptionId, setOptimisticVoteOptionId] = useState<string | null>(null);
+  // Track optimistic votes: Map of optionId -> true (voted) or false (unvoted)
+  const [optimisticVotes, setOptimisticVotes] = useState<Map<string, boolean>>(new Map());
 
   const totalVotes = poll.options?.reduce(
     (sum, opt) => sum + (opt.votes?.length || 0),
     0
   ) || 0;
 
-  const serverVotedOptionId = poll.options?.find((opt) =>
-    opt.votes?.some((v) => v.visitorId === currentUserId)
-  )?.id;
+  // Get all option IDs the user voted for from server state
+  const serverVotedOptionIds = new Set(
+    poll.options
+      ?.filter((opt) => opt.votes?.some((v) => v.visitorId === currentUserId))
+      .map((opt) => opt.id) || []
+  );
 
-  // Use optimistic vote if available, otherwise use server state
-  // Note: '' means explicitly no vote, null means use server state
-  const userVotedOptionId = optimisticVoteOptionId !== null
-    ? (optimisticVoteOptionId || undefined) // '' becomes undefined (no vote)
-    : serverVotedOptionId;
+  // Compute effective voted options: apply optimistic updates to server state
+  const userVotedOptionIds = new Set(serverVotedOptionIds);
+  optimisticVotes.forEach((voted, optionId) => {
+    if (voted) {
+      userVotedOptionIds.add(optionId);
+    } else {
+      userVotedOptionIds.delete(optionId);
+    }
+  });
 
   // Reset optimistic state when server data catches up
   useEffect(() => {
-    if (optimisticVoteOptionId !== null) {
-      // If we optimistically set a vote and server now shows the same, reset
-      if (optimisticVoteOptionId && serverVotedOptionId === optimisticVoteOptionId) {
-        setOptimisticVoteOptionId(null);
-      }
-      // If we optimistically removed vote (empty string) and server shows no vote, reset
-      if (optimisticVoteOptionId === '' && !serverVotedOptionId) {
-        setOptimisticVoteOptionId(null);
+    if (optimisticVotes.size > 0) {
+      const newOptimistic = new Map(optimisticVotes);
+      let changed = false;
+      optimisticVotes.forEach((voted, optionId) => {
+        const serverHasVote = serverVotedOptionIds.has(optionId);
+        if (voted === serverHasVote) {
+          newOptimistic.delete(optionId);
+          changed = true;
+        }
+      });
+      if (changed) {
+        setOptimisticVotes(newOptimistic);
       }
     }
-  }, [optimisticVoteOptionId, serverVotedOptionId]);
+  }, [optimisticVotes, serverVotedOptionIds]);
 
   const handleVote = async (optionId: string) => {
     if (poll.status !== 'active' || voting) return;
 
     // Check if user is clicking on already voted option (toggle off)
-    const isUnvoting = optionId === userVotedOptionId;
+    const isUnvoting = userVotedOptionIds.has(optionId);
 
     // Optimistically update the UI immediately
-    setOptimisticVoteOptionId(isUnvoting ? '' : optionId); // '' means no vote (different from null which means use server state)
+    setOptimisticVotes((prev) => {
+      const next = new Map(prev);
+      next.set(optionId, !isUnvoting);
+      return next;
+    });
     setVoting(true);
 
     try {
@@ -111,7 +129,11 @@ export function TripPollComponent({
           onVote?.();
         } else {
           // Revert optimistic update on failure
-          setOptimisticVoteOptionId(null);
+          setOptimisticVotes((prev) => {
+            const next = new Map(prev);
+            next.delete(optionId);
+            return next;
+          });
         }
       } else {
         // Cast a vote
@@ -128,13 +150,21 @@ export function TripPollComponent({
           onVote?.();
         } else {
           // Revert optimistic update on failure
-          setOptimisticVoteOptionId(null);
+          setOptimisticVotes((prev) => {
+            const next = new Map(prev);
+            next.delete(optionId);
+            return next;
+          });
         }
       }
     } catch (error) {
       console.error('Error voting:', error);
       // Revert optimistic update on error
-      setOptimisticVoteOptionId(null);
+      setOptimisticVotes((prev) => {
+        const next = new Map(prev);
+        next.delete(optionId);
+        return next;
+      });
     } finally {
       setVoting(false);
     }
@@ -231,7 +261,7 @@ export function TripPollComponent({
         {poll.options?.map((option) => {
           const voteCount = option.votes?.length || 0;
           const percentage = totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0;
-          const isVoted = option.id === userVotedOptionId;
+          const isVoted = userVotedOptionIds.has(option.id);
 
           return (
             <button
@@ -270,12 +300,15 @@ export function TripPollComponent({
                   <span className="text-sm text-muted-foreground">
                     {voteCount} ({Math.round(percentage)}%)
                   </span>
-                  {/* Mini voter avatars */}
+                  {/* Mini voter avatars with profile pictures */}
                   <div className="flex -space-x-1">
                     {option.votes?.slice(0, 3).map((vote) => (
-                      <Avatar key={vote.id} className="h-5 w-5 border border-white">
+                      <Avatar key={vote.id} className="h-5 w-5 border border-white" title={vote.voterName || 'Voter'}>
+                        {vote.voterProfileImage && (
+                          <AvatarImage src={vote.voterProfileImage} alt={vote.voterName || 'Voter'} />
+                        )}
                         <AvatarFallback className="bg-[#D4A5A5] text-white text-[10px]">
-                          ?
+                          {vote.voterName ? vote.voterName.charAt(0).toUpperCase() : '?'}
                         </AvatarFallback>
                       </Avatar>
                     ))}
