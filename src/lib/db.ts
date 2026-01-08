@@ -4086,7 +4086,7 @@ export const prisma = {
       const trips: (TripSession & { collaborators: any[] })[] = [];
       for (const row of result.rows) {
         const colResult = await client.execute({
-          sql: `SELECT tc.*, f.name as friendName, f.profileImage, f.customProfileImage, f.linkedUserId
+          sql: `SELECT tc.*, f.name as friendName, f.profileImage, f.customProfileImage, f.linkedUserId, f.interests
                 FROM trip_collaborators tc
                 JOIN friends f ON tc.friendId = f.id
                 WHERE tc.tripId = ?`,
@@ -4117,6 +4117,7 @@ export const prisma = {
             friendName: c.friendName,
             profileImage: c.customProfileImage || c.profileImage,
             linkedUserId: c.linkedUserId,
+            interests: c.interests,
           })),
         });
       }
@@ -4150,7 +4151,7 @@ export const prisma = {
 
       // Get collaborators
       const colResult = await client.execute({
-        sql: `SELECT tc.*, f.name as friendName, f.profileImage, f.customProfileImage, f.linkedUserId
+        sql: `SELECT tc.*, f.name as friendName, f.profileImage, f.customProfileImage, f.linkedUserId, f.interests
               FROM trip_collaborators tc
               JOIN friends f ON tc.friendId = f.id
               WHERE tc.tripId = ?`,
@@ -4285,6 +4286,7 @@ export const prisma = {
           friendName: c.friendName,
           profileImage: c.customProfileImage || c.profileImage,
           linkedUserId: c.linkedUserId,
+          interests: c.interests,
         })),
         dailyPlans,
         tickets: ticketsResult.rows.map((t: any) => ({
@@ -4571,7 +4573,7 @@ export const prisma = {
 
       // Get collaborators
       const colResult = await client.execute({
-        sql: `SELECT tc.*, f.name as friendName, f.profileImage, f.customProfileImage, f.linkedUserId
+        sql: `SELECT tc.*, f.name as friendName, f.profileImage, f.customProfileImage, f.linkedUserId, f.interests
               FROM trip_collaborators tc
               JOIN friends f ON tc.friendId = f.id
               WHERE tc.tripId = ?`,
@@ -4706,6 +4708,7 @@ export const prisma = {
           friendName: c.friendName,
           profileImage: c.customProfileImage || c.profileImage,
           linkedUserId: c.linkedUserId,
+          interests: c.interests,
         })),
         dailyPlans,
         tickets: ticketsResult.rows.map((t: any) => ({
