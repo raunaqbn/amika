@@ -186,7 +186,7 @@ export function ShareTripDialog({
       if (response.ok) {
         onJoinTokenGenerated(data.joinToken);
       } else {
-        setError(data.error || 'Failed to generate link');
+        setError(data.error + (data.details ? `: ${data.details}` : '') || 'Failed to generate link');
       }
     } catch (err) {
       console.error('Error generating invite link:', err);

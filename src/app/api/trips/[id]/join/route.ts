@@ -26,10 +26,11 @@ export async function POST(
     }
 
     return NextResponse.json({ joinToken });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating join link:', error);
+    console.error('Error details:', error?.message, error?.stack);
     return NextResponse.json(
-      { error: 'Failed to generate join link' },
+      { error: 'Failed to generate join link', details: error?.message },
       { status: 500 }
     );
   }
