@@ -200,7 +200,8 @@ model TripSession {
   locationDetails String?  // JSON string: {city, country, coordinates, etc.}
 
   // Public sharing
-  shareToken      String?  @unique  // Token for public shareable link
+  shareToken      String?  @unique  // Token for public shareable link (read-only)
+  joinToken       String?  @unique  // Token for invite link (allows joining as collaborator)
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
