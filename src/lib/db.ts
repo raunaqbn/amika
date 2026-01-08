@@ -275,6 +275,30 @@ export type TripGoalProgress = {
 
 let clientInstance: Client | null = null;
 let tablesInitialized = false;
+let joinTokenColumnChecked = false;
+
+// Separate migration for joinToken column (runs independently of tablesInitialized)
+async function ensureJoinTokenColumn() {
+  if (joinTokenColumnChecked) return;
+
+  try {
+    const client = getClient();
+    const tableInfo = await client.execute(`PRAGMA table_info(trip_sessions)`);
+    const hasJoinToken = tableInfo.rows.some((row: any) => row.name === 'joinToken' || row[1] === 'joinToken');
+
+    if (!hasJoinToken) {
+      console.log('Migration: Adding joinToken column to trip_sessions...');
+      await client.execute(`ALTER TABLE trip_sessions ADD COLUMN joinToken TEXT UNIQUE`);
+      console.log('Migration: joinToken column added successfully');
+    }
+
+    joinTokenColumnChecked = true;
+  } catch (error) {
+    console.error('Error in joinToken migration:', error);
+    // Still mark as checked to avoid repeated failed attempts
+    joinTokenColumnChecked = true;
+  }
+}
 
 // Password hashing utilities
 function hashPassword(password: string): string {
@@ -4327,6 +4351,9 @@ export const prisma = {
         console.log('generateJoinToken called with tripId:', id, 'userId:', userId);
         await ensureTablesExist();
         console.log('ensureTablesExist completed');
+        // Ensure joinToken column exists (separate migration)
+        await ensureJoinTokenColumn();
+        console.log('ensureJoinTokenColumn completed');
         const client = getClient();
         console.log('getClient completed');
 
