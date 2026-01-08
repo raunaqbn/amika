@@ -77,7 +77,7 @@ export default function PublicWishlistPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#A8C5A8]/10 to-white flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-[#A8C5A8]/10 to-white flex items-center justify-center md:pt-16 pb-20 md:pb-0">
         <Loader2 className="w-8 h-8 animate-spin text-[#A8C5A8]" />
       </div>
     );
@@ -85,7 +85,7 @@ export default function PublicWishlistPage() {
 
   if (error || !data?.user) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#A8C5A8]/10 to-white flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-[#A8C5A8]/10 to-white flex items-center justify-center md:pt-16 pb-20 md:pb-0">
         <div className="text-center">
           <Gift className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h1 className="text-xl font-semibold text-gray-700 mb-2">
@@ -108,7 +108,7 @@ export default function PublicWishlistPage() {
     .slice(0, 2);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#A8C5A8]/10 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-[#A8C5A8]/10 to-white md:pt-16 pb-20 md:pb-0">
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
