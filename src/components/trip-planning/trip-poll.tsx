@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -53,20 +53,34 @@ export function TripPollComponent({
 }: TripPollComponentProps) {
   const [voting, setVoting] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [optimisticVoteOptionId, setOptimisticVoteOptionId] = useState<string | null>(null);
 
   const totalVotes = poll.options?.reduce(
     (sum, opt) => sum + (opt.votes?.length || 0),
     0
   ) || 0;
 
-  const userVotedOptionId = poll.options?.find((opt) =>
+  const serverVotedOptionId = poll.options?.find((opt) =>
     opt.votes?.some((v) => v.visitorId === currentUserId)
   )?.id;
+
+  // Use optimistic vote if available, otherwise use server state
+  const userVotedOptionId = optimisticVoteOptionId ?? serverVotedOptionId;
+
+  // Reset optimistic state when server data catches up
+  useEffect(() => {
+    if (optimisticVoteOptionId && serverVotedOptionId === optimisticVoteOptionId) {
+      setOptimisticVoteOptionId(null);
+    }
+  }, [optimisticVoteOptionId, serverVotedOptionId]);
 
   const handleVote = async (optionId: string) => {
     if (poll.status !== 'active' || voting) return;
 
+    // Optimistically update the UI immediately
+    setOptimisticVoteOptionId(optionId);
     setVoting(true);
+
     try {
       const response = await fetch(
         `/api/trips/${tripId}/polls/${poll.id}/vote`,
@@ -79,9 +93,14 @@ export function TripPollComponent({
 
       if (response.ok) {
         onVote?.();
+      } else {
+        // Revert optimistic update on failure
+        setOptimisticVoteOptionId(null);
       }
     } catch (error) {
       console.error('Error voting:', error);
+      // Revert optimistic update on error
+      setOptimisticVoteOptionId(null);
     } finally {
       setVoting(false);
     }
