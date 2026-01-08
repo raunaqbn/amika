@@ -126,6 +126,7 @@ interface TripEventsSectionProps {
   messages: Message[];
   polls: TripPoll[];
   tripId: string;
+  currentUserId?: string;
   onRefresh: () => void;
   currentUser: CurrentUser;
   collaborators: Collaborator[];
@@ -147,6 +148,7 @@ export function TripEventsSection({
   messages,
   polls,
   tripId,
+  currentUserId,
   onRefresh,
   currentUser,
   collaborators,
@@ -388,6 +390,8 @@ export function TripEventsSection({
                   key={poll.id}
                   poll={poll}
                   tripId={tripId}
+                  currentUserId={currentUserId}
+                  onVote={onRefresh}
                   onDelete={onRefresh}
                   onClose={onRefresh}
                 />
@@ -408,6 +412,7 @@ export function TripEventsSection({
                   key={poll.id}
                   poll={poll}
                   tripId={tripId}
+                  currentUserId={currentUserId}
                   onDelete={onRefresh}
                 />
               ))}

@@ -68,37 +68,68 @@ export function TripPollComponent({
   )?.id;
 
   // Use optimistic vote if available, otherwise use server state
-  const userVotedOptionId = optimisticVoteOptionId ?? serverVotedOptionId;
+  // Note: '' means explicitly no vote, null means use server state
+  const userVotedOptionId = optimisticVoteOptionId !== null
+    ? (optimisticVoteOptionId || undefined) // '' becomes undefined (no vote)
+    : serverVotedOptionId;
 
   // Reset optimistic state when server data catches up
   useEffect(() => {
-    if (optimisticVoteOptionId && serverVotedOptionId === optimisticVoteOptionId) {
-      setOptimisticVoteOptionId(null);
+    if (optimisticVoteOptionId !== null) {
+      // If we optimistically set a vote and server now shows the same, reset
+      if (optimisticVoteOptionId && serverVotedOptionId === optimisticVoteOptionId) {
+        setOptimisticVoteOptionId(null);
+      }
+      // If we optimistically removed vote (empty string) and server shows no vote, reset
+      if (optimisticVoteOptionId === '' && !serverVotedOptionId) {
+        setOptimisticVoteOptionId(null);
+      }
     }
   }, [optimisticVoteOptionId, serverVotedOptionId]);
 
   const handleVote = async (optionId: string) => {
     if (poll.status !== 'active' || voting) return;
 
+    // Check if user is clicking on already voted option (toggle off)
+    const isUnvoting = optionId === userVotedOptionId;
+
     // Optimistically update the UI immediately
-    setOptimisticVoteOptionId(optionId);
+    setOptimisticVoteOptionId(isUnvoting ? '' : optionId); // '' means no vote (different from null which means use server state)
     setVoting(true);
 
     try {
-      const response = await fetch(
-        `/api/trips/${tripId}/polls/${poll.id}/vote`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ optionId }),
-        }
-      );
+      if (isUnvoting) {
+        // Remove the vote
+        const response = await fetch(
+          `/api/trips/${tripId}/polls/${poll.id}/vote?optionId=${optionId}`,
+          {
+            method: 'DELETE',
+          }
+        );
 
-      if (response.ok) {
-        onVote?.();
+        if (response.ok) {
+          onVote?.();
+        } else {
+          // Revert optimistic update on failure
+          setOptimisticVoteOptionId(null);
+        }
       } else {
-        // Revert optimistic update on failure
-        setOptimisticVoteOptionId(null);
+        // Cast a vote
+        const response = await fetch(
+          `/api/trips/${tripId}/polls/${poll.id}/vote`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ optionId }),
+          }
+        );
+
+        if (response.ok) {
+          onVote?.();
+        } else {
+          // Revert optimistic update on failure
+          setOptimisticVoteOptionId(null);
+        }
       }
     } catch (error) {
       console.error('Error voting:', error);

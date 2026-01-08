@@ -75,6 +75,7 @@ interface TripLocationSectionProps {
   messages: Message[];
   polls: TripPoll[];
   tripId: string;
+  currentUserId?: string;
   onRefresh?: () => void;
   currentUser: CurrentUser;
   collaborators: Collaborator[];
@@ -88,6 +89,7 @@ export function TripLocationSection({
   messages,
   polls,
   tripId,
+  currentUserId,
   onRefresh,
   currentUser,
   collaborators,
@@ -206,6 +208,8 @@ export function TripLocationSection({
                   key={poll.id}
                   poll={poll}
                   tripId={tripId}
+                  currentUserId={currentUserId}
+                  onVote={onRefresh}
                   onDelete={onRefresh}
                   onClose={onRefresh}
                 />
@@ -226,6 +230,7 @@ export function TripLocationSection({
                   key={poll.id}
                   poll={poll}
                   tripId={tripId}
+                  currentUserId={currentUserId}
                   onDelete={onRefresh}
                 />
               ))}

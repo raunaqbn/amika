@@ -584,6 +584,7 @@ export default function TripPlanningPage() {
                   messages={messages['dates'] || []}
                   polls={trip.polls.filter((p) => p.context === 'dates')}
                   tripId={tripId}
+                  currentUserId={currentUserId || undefined}
                   onRefresh={fetchTrip}
                   currentUser={{
                     id: user?.id || currentUserId || '',
@@ -603,6 +604,7 @@ export default function TripPlanningPage() {
                   messages={messages['location'] || []}
                   polls={trip.polls.filter((p) => p.context === 'location')}
                   tripId={tripId}
+                  currentUserId={currentUserId || undefined}
                   onRefresh={fetchTrip}
                   currentUser={{
                     id: user?.id || currentUserId || '',
@@ -622,6 +624,7 @@ export default function TripPlanningPage() {
                   messages={messages['events'] || []}
                   polls={trip.polls.filter((p) => p.context === 'events')}
                   tripId={tripId}
+                  currentUserId={currentUserId || undefined}
                   onRefresh={fetchTrip}
                   currentUser={{
                     id: user?.id || '',
@@ -642,6 +645,7 @@ export default function TripPlanningPage() {
                   messages={messages['tickets'] || []}
                   polls={trip.polls.filter((p) => p.context === 'tickets')}
                   tripId={tripId}
+                  currentUserId={currentUserId || undefined}
                   onRefresh={fetchTrip}
                   currentUser={{
                     id: user?.id || '',
