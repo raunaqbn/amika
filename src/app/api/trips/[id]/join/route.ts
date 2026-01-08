@@ -11,11 +11,13 @@ export async function POST(
 ) {
   try {
     const userId = await getUserId();
+    console.log('Join route - userId from session:', userId);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id } = await params;
+    console.log('Join route - tripId from params:', id);
     const joinToken = await prisma.tripSession.generateJoinToken(id, userId);
 
     if (!joinToken) {
