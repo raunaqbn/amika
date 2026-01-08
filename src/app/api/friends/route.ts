@@ -250,6 +250,15 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Friend ID required' }, { status: 400 });
     }
 
+    // Get the friend to check if it's an Amika friend (linked to another user)
+    const friends = await prisma.friend.findMany({ userId });
+    const friendToDelete = friends.find((f: { id: string }) => f.id === id);
+
+    if (friendToDelete && friendToDelete.linkedUserId) {
+      // Also delete the UserConnection so the friend won't be auto-recreated
+      await prisma.userConnection.deleteConnection(userId, friendToDelete.linkedUserId);
+    }
+
     await prisma.friend.delete({
       where: { id, userId },
     });
