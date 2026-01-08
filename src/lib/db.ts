@@ -2470,6 +2470,21 @@ export const prisma = {
 
       return result.rows.length > 0;
     },
+
+    // Delete connection between two users (unfriend)
+    deleteConnection: async (userId1: string, userId2: string): Promise<{ success: boolean }> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      await client.execute({
+        sql: `DELETE FROM user_connections
+              WHERE (requesterId = ? AND addresseeId = ?)
+              OR (requesterId = ? AND addresseeId = ?)`,
+        args: [userId1, userId2, userId2, userId1],
+      });
+
+      return { success: true };
+    },
   },
 
   // Shared items between users
