@@ -85,8 +85,39 @@ interface DailyPlan {
 
 interface Trip {
   id: string;
+  userId: string;
   startDate: Date | null;
   endDate: Date | null;
+}
+
+interface Collaborator {
+  id: string;
+  tripId: string;
+  friendId: string;
+  userId: string | null;
+  role: string;
+  joinedAt: Date;
+  friendName: string;
+  profileImage: string | null;
+  linkedUserId: string | null;
+}
+
+interface CurrentUser {
+  id: string;
+  name: string;
+  profileImage: string | null;
+}
+
+interface TypingUser {
+  id: string;
+  name: string;
+}
+
+interface ActiveUser {
+  id: string;
+  name: string;
+  profileImage: string | null;
+  lastSeen: Date;
 }
 
 interface TripEventsSectionProps {
@@ -96,6 +127,10 @@ interface TripEventsSectionProps {
   polls: TripPoll[];
   tripId: string;
   onRefresh: () => void;
+  currentUser: CurrentUser;
+  collaborators: Collaborator[];
+  typingUsers?: TypingUser[];
+  activeUsers?: ActiveUser[];
 }
 
 const categoryIcons: Record<string, any> = {
@@ -113,6 +148,10 @@ export function TripEventsSection({
   polls,
   tripId,
   onRefresh,
+  currentUser,
+  collaborators,
+  typingUsers = [],
+  activeUsers = [],
 }: TripEventsSectionProps) {
   const [openDays, setOpenDays] = useState<Record<number, boolean>>({ 1: true });
   const [localMessages, setLocalMessages] = useState<Message[]>(messages);
@@ -359,8 +398,13 @@ export function TripEventsSection({
         tripId={tripId}
         context="events"
         messages={allMessages}
+        currentUser={currentUser}
+        collaborators={collaborators}
+        tripOwnerId={trip.userId}
         onNewMessage={handleNewMessage}
         onCreatePoll={() => setShowCreatePoll(true)}
+        typingUsers={typingUsers}
+        activeUsers={activeUsers}
       />
 
       {/* Create Poll Dialog */}

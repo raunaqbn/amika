@@ -14,6 +14,7 @@ import { TripLocationSection } from '@/components/trip-planning/trip-location-se
 import { TripEventsSection } from '@/components/trip-planning/trip-events-section';
 import { TripTicketsSection } from '@/components/trip-planning/trip-tickets-section';
 import { useTripSync } from '@/hooks/use-trip-sync';
+import { useAuth } from '@/lib/auth-context';
 import {
   ArrowLeft,
   Calendar,
@@ -179,6 +180,7 @@ export default function TripPlanningPage() {
   const router = useRouter();
   const params = useParams();
   const tripId = params.id as string;
+  const { user } = useAuth();
 
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
@@ -221,9 +223,10 @@ export default function TripPlanningPage() {
     fetchTrip();
   }, [fetchTrip]);
 
-  // Set up sync
-  const { isConnected } = useTripSync(tripId, {
+  // Set up sync with context for typing indicators
+  const { isConnected, typingUsers, activeUsers } = useTripSync(tripId, {
     enabled: !!trip,
+    context: activeTab,
     onNewMessages: (newMessages) => {
       setMessages((prev) => {
         const updated = { ...prev };
@@ -564,6 +567,14 @@ export default function TripPlanningPage() {
                   messages={messages['dates'] || []}
                   polls={trip.polls.filter((p) => p.context === 'dates')}
                   tripId={tripId}
+                  currentUser={{
+                    id: user?.id || '',
+                    name: user?.name || 'You',
+                    profileImage: user?.profileImage || null,
+                  }}
+                  collaborators={trip.collaborators}
+                  typingUsers={typingUsers}
+                  activeUsers={activeUsers}
                 />
               </TabsContent>
 
@@ -574,6 +585,14 @@ export default function TripPlanningPage() {
                   messages={messages['location'] || []}
                   polls={trip.polls.filter((p) => p.context === 'location')}
                   tripId={tripId}
+                  currentUser={{
+                    id: user?.id || '',
+                    name: user?.name || 'You',
+                    profileImage: user?.profileImage || null,
+                  }}
+                  collaborators={trip.collaborators}
+                  typingUsers={typingUsers}
+                  activeUsers={activeUsers}
                 />
               </TabsContent>
 
@@ -585,6 +604,14 @@ export default function TripPlanningPage() {
                   polls={trip.polls.filter((p) => p.context === 'events')}
                   tripId={tripId}
                   onRefresh={fetchTrip}
+                  currentUser={{
+                    id: user?.id || '',
+                    name: user?.name || 'You',
+                    profileImage: user?.profileImage || null,
+                  }}
+                  collaborators={trip.collaborators}
+                  typingUsers={typingUsers}
+                  activeUsers={activeUsers}
                 />
               </TabsContent>
 
@@ -597,6 +624,13 @@ export default function TripPlanningPage() {
                   polls={trip.polls.filter((p) => p.context === 'tickets')}
                   tripId={tripId}
                   onRefresh={fetchTrip}
+                  currentUser={{
+                    id: user?.id || '',
+                    name: user?.name || 'You',
+                    profileImage: user?.profileImage || null,
+                  }}
+                  typingUsers={typingUsers}
+                  activeUsers={activeUsers}
                 />
               </TabsContent>
             </Tabs>
