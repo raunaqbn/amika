@@ -288,8 +288,12 @@ async function ensureJoinTokenColumn() {
 
     if (!hasJoinToken) {
       console.log('Migration: Adding joinToken column to trip_sessions...');
-      await client.execute(`ALTER TABLE trip_sessions ADD COLUMN joinToken TEXT UNIQUE`);
-      console.log('Migration: joinToken column added successfully');
+      // SQLite doesn't allow adding UNIQUE columns via ALTER TABLE
+      // Add column first, then create unique index separately
+      await client.execute(`ALTER TABLE trip_sessions ADD COLUMN joinToken TEXT`);
+      console.log('Migration: joinToken column added, creating unique index...');
+      await client.execute(`CREATE UNIQUE INDEX IF NOT EXISTS idx_trip_sessions_joinToken ON trip_sessions(joinToken)`);
+      console.log('Migration: joinToken column and index added successfully');
     }
 
     joinTokenColumnChecked = true;
@@ -753,7 +757,9 @@ async function ensureTablesExist() {
       const hasJoinToken = tableInfo.rows.some((row: any) => row.name === 'joinToken');
       if (!hasJoinToken) {
         console.log('Adding joinToken column to trip_sessions...');
-        await client.execute(`ALTER TABLE trip_sessions ADD COLUMN joinToken TEXT UNIQUE`);
+        // SQLite doesn't allow UNIQUE in ALTER TABLE, add column then create index
+        await client.execute(`ALTER TABLE trip_sessions ADD COLUMN joinToken TEXT`);
+        await client.execute(`CREATE UNIQUE INDEX IF NOT EXISTS idx_trip_sessions_joinToken ON trip_sessions(joinToken)`);
         console.log('joinToken column added successfully');
       }
     } catch (error) {
