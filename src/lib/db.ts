@@ -642,6 +642,32 @@ async function ensureTablesExist() {
       // Column might already exist
     }
 
+    // Add share and join tokens for events
+    try {
+      await client.execute(`ALTER TABLE events ADD COLUMN shareToken TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
+
+    try {
+      await client.execute(`ALTER TABLE events ADD COLUMN joinToken TEXT`);
+    } catch (e) {
+      // Column might already exist
+    }
+
+    // Create unique indexes for share/join tokens (SQLite doesn't support UNIQUE in ALTER TABLE)
+    try {
+      await client.execute(`CREATE UNIQUE INDEX IF NOT EXISTS idx_events_shareToken ON events(shareToken)`);
+    } catch (e) {
+      // Index might already exist
+    }
+
+    try {
+      await client.execute(`CREATE UNIQUE INDEX IF NOT EXISTS idx_events_joinToken ON events(joinToken)`);
+    } catch (e) {
+      // Index might already exist
+    }
+
     // Create diary_note_amika_tags table (legacy - keep for backward compatibility)
     await client.execute(`
       CREATE TABLE IF NOT EXISTS diary_note_amika_tags (
@@ -2324,6 +2350,350 @@ export const prisma = {
       });
 
       return updated;
+    },
+
+    // Share token operations for events
+    generateShareToken: async (id: string, userId: string): Promise<string | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Only owner can generate share link
+      const existing = await client.execute({
+        sql: 'SELECT * FROM events WHERE id = ? AND userId = ?',
+        args: [id, userId],
+      });
+
+      if (existing.rows.length === 0) return null;
+
+      // Generate a unique share token
+      const shareToken = randomUUID().replace(/-/g, '').substring(0, 16);
+
+      await client.execute({
+        sql: 'UPDATE events SET shareToken = ? WHERE id = ?',
+        args: [shareToken, id],
+      });
+
+      return shareToken;
+    },
+
+    revokeShareToken: async (id: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Only owner can revoke share link
+      const existing = await client.execute({
+        sql: 'SELECT * FROM events WHERE id = ? AND userId = ?',
+        args: [id, userId],
+      });
+
+      if (existing.rows.length === 0) return false;
+
+      await client.execute({
+        sql: 'UPDATE events SET shareToken = NULL WHERE id = ?',
+        args: [id],
+      });
+
+      return true;
+    },
+
+    findByShareToken: async (shareToken: string): Promise<{
+      id: string;
+      title: string;
+      description: string | null;
+      eventDate: Date;
+      location: string | null;
+      category: string | null;
+      ownerName: string;
+      friendName: string;
+    } | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: `SELECT e.*, u.name as ownerName, f.name as friendName
+              FROM events e
+              JOIN users u ON e.userId = u.id
+              LEFT JOIN friends f ON e.friendId = f.id
+              WHERE e.shareToken = ?`,
+        args: [shareToken],
+      });
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+
+      return {
+        id: row.id as string,
+        title: row.title as string,
+        description: row.description as string | null,
+        eventDate: new Date(row.eventDate as string),
+        location: row.location as string | null,
+        category: row.category as string | null,
+        ownerName: row.ownerName as string,
+        friendName: row.friendName as string || 'Someone',
+      };
+    },
+
+    // Join token operations for events
+    generateJoinToken: async (id: string, userId: string): Promise<string | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Only owner can generate join link
+      const existing = await client.execute({
+        sql: 'SELECT * FROM events WHERE id = ? AND userId = ?',
+        args: [id, userId],
+      });
+
+      if (existing.rows.length === 0) return null;
+
+      // Generate a unique join token
+      const joinToken = randomUUID().replace(/-/g, '').substring(0, 16);
+
+      await client.execute({
+        sql: 'UPDATE events SET joinToken = ? WHERE id = ?',
+        args: [joinToken, id],
+      });
+
+      return joinToken;
+    },
+
+    revokeJoinToken: async (id: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Only owner can revoke join link
+      const existing = await client.execute({
+        sql: 'SELECT * FROM events WHERE id = ? AND userId = ?',
+        args: [id, userId],
+      });
+
+      if (existing.rows.length === 0) return false;
+
+      await client.execute({
+        sql: 'UPDATE events SET joinToken = NULL WHERE id = ?',
+        args: [id],
+      });
+
+      return true;
+    },
+
+    findByJoinToken: async (joinToken: string): Promise<{
+      id: string;
+      title: string;
+      description: string | null;
+      eventDate: Date;
+      location: string | null;
+      category: string | null;
+      ownerName: string;
+      ownerId: string;
+    } | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: `SELECT e.id, e.title, e.description, e.eventDate, e.location, e.category, e.userId, u.name as ownerName
+              FROM events e
+              JOIN users u ON e.userId = u.id
+              WHERE e.joinToken = ?`,
+        args: [joinToken],
+      });
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+
+      return {
+        id: row.id as string,
+        title: row.title as string,
+        description: row.description as string | null,
+        eventDate: new Date(row.eventDate as string),
+        location: row.location as string | null,
+        category: row.category as string | null,
+        ownerName: row.ownerName as string,
+        ownerId: row.userId as string,
+      };
+    },
+
+    joinEventByToken: async (joinToken: string, userId: string, userName: string): Promise<{ eventId: string } | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Find the event by join token
+      const eventResult = await client.execute({
+        sql: 'SELECT id, userId, title, friendId FROM events WHERE joinToken = ?',
+        args: [joinToken],
+      });
+
+      if (eventResult.rows.length === 0) return null;
+
+      const eventId = eventResult.rows[0].id as string;
+      const eventOwnerId = eventResult.rows[0].userId as string;
+      const eventTitle = eventResult.rows[0].title as string;
+      const eventFriendId = eventResult.rows[0].friendId as string;
+
+      // Check if user is the owner
+      if (eventOwnerId === userId) {
+        return { eventId };
+      }
+
+      // Check if user already has a friend entry for the event owner with linkedUserId = userId
+      const existingFriend = await client.execute({
+        sql: 'SELECT id FROM friends WHERE userId = ? AND linkedUserId = ?',
+        args: [eventOwnerId, userId],
+      });
+
+      let friendId: string;
+
+      if (existingFriend.rows.length > 0) {
+        friendId = existingFriend.rows[0].id as string;
+      } else {
+        // Create a new friend entry for the event owner
+        friendId = randomUUID();
+        const now = new Date().toISOString();
+        await client.execute({
+          sql: `INSERT INTO friends (id, userId, name, linkedUserId, createdAt)
+                VALUES (?, ?, ?, ?, ?)`,
+          args: [friendId, eventOwnerId, userName, userId, now],
+        });
+      }
+
+      // Check if already in event_friends junction table
+      const existingEventFriend = await client.execute({
+        sql: 'SELECT * FROM event_friends WHERE eventId = ? AND friendId = ?',
+        args: [eventId, friendId],
+      });
+
+      if (existingEventFriend.rows.length === 0) {
+        // Add user to event_friends junction table
+        await client.execute({
+          sql: 'INSERT INTO event_friends (eventId, friendId, createdAt) VALUES (?, ?, ?)',
+          args: [eventId, friendId, new Date().toISOString()],
+        });
+      }
+
+      // Also create a reverse friend entry so the joining user has the event owner as their friend
+      const reverseCheck = await client.execute({
+        sql: 'SELECT id FROM friends WHERE userId = ? AND linkedUserId = ?',
+        args: [userId, eventOwnerId],
+      });
+
+      if (reverseCheck.rows.length === 0) {
+        // Get the owner's name
+        const ownerResult = await client.execute({
+          sql: 'SELECT name FROM users WHERE id = ?',
+          args: [eventOwnerId],
+        });
+
+        if (ownerResult.rows.length > 0) {
+          const ownerName = ownerResult.rows[0].name as string;
+          const reverseFriendId = randomUUID();
+          const now = new Date().toISOString();
+          await client.execute({
+            sql: `INSERT INTO friends (id, userId, name, linkedUserId, createdAt)
+                  VALUES (?, ?, ?, ?, ?)`,
+            args: [reverseFriendId, userId, ownerName, eventOwnerId, now],
+          });
+        }
+      }
+
+      // Create a copy of the event for the joining user
+      const originalEvent = await client.execute({
+        sql: 'SELECT * FROM events WHERE id = ?',
+        args: [eventId],
+      });
+
+      if (originalEvent.rows.length > 0) {
+        const orig = originalEvent.rows[0];
+
+        // Find the friend ID for the joining user's perspective (should be the event owner as their friend)
+        const joinerFriendResult = await client.execute({
+          sql: 'SELECT id FROM friends WHERE userId = ? AND linkedUserId = ?',
+          args: [userId, eventOwnerId],
+        });
+
+        if (joinerFriendResult.rows.length > 0) {
+          const joinerFriendId = joinerFriendResult.rows[0].id as string;
+
+          // Check if a similar event already exists for the joining user
+          const existingJoinerEvent = await client.execute({
+            sql: 'SELECT id FROM events WHERE userId = ? AND title = ? AND eventDate = ?',
+            args: [userId, orig.title as string, orig.eventDate as string],
+          });
+
+          if (existingJoinerEvent.rows.length === 0) {
+            const newEventId = randomUUID();
+            const now = new Date().toISOString();
+            await client.execute({
+              sql: `INSERT INTO events (id, userId, title, description, eventDate, location, category, friendId, sharedWithFriend, completed, createdAt)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              args: [
+                newEventId,
+                userId,
+                orig.title as string,
+                orig.description as string | null,
+                orig.eventDate as string,
+                orig.location as string | null,
+                orig.category as string | null,
+                joinerFriendId,
+                1, // sharedWithFriend = true
+                orig.completed ? 1 : 0,
+                now,
+              ],
+            });
+          }
+        }
+      }
+
+      return { eventId };
+    },
+
+    // Find event by id with owner info and tokens
+    findByIdWithDetails: async (id: string, userId: string): Promise<{
+      id: string;
+      userId: string;
+      title: string;
+      description: string | null;
+      eventDate: Date;
+      location: string | null;
+      category: string | null;
+      friendId: string;
+      shareToken: string | null;
+      joinToken: string | null;
+      completed: boolean;
+      sharedWithFriend: boolean;
+      createdAt: Date;
+      isOwner: boolean;
+    } | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: 'SELECT * FROM events WHERE id = ?',
+        args: [id],
+      });
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+      const eventUserId = row.userId as string;
+
+      return {
+        id: row.id as string,
+        userId: eventUserId,
+        title: row.title as string,
+        description: row.description as string | null,
+        eventDate: new Date(row.eventDate as string),
+        location: row.location as string | null,
+        category: row.category as string | null,
+        friendId: row.friendId as string,
+        shareToken: row.shareToken as string | null,
+        joinToken: row.joinToken as string | null,
+        completed: Boolean(row.completed),
+        sharedWithFriend: Boolean(row.sharedWithFriend),
+        createdAt: new Date(row.createdAt as string),
+        isOwner: eventUserId === userId,
+      };
     },
   },
   chatTranscript: {

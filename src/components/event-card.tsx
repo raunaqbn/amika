@@ -1,9 +1,10 @@
 'use client';
 
-import { Calendar, MapPin, Trash2, Check, Edit2, Share2 } from 'lucide-react';
+import { Calendar, MapPin, Trash2, Check, Edit2, Share2, Link2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { ShareItemDialog } from '@/components/share-item-dialog';
+import { EventShareDialog } from '@/components/event-share-dialog';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useState } from 'react';
 
@@ -121,6 +122,22 @@ export function EventCard({ event, friendName, onDelete, onToggleComplete, onEdi
         </div>
 
         <div className="flex gap-1">
+          {/* Share via link */}
+          <EventShareDialog
+            eventId={event.id}
+            eventTitle={event.title}
+            trigger={
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-400 hover:text-[#A8C5A8]"
+                title="Share via link"
+              >
+                <Link2 className="w-4 h-4" />
+              </Button>
+            }
+          />
+          {/* Share with Amika friends */}
           <ShareItemDialog
             itemType="event"
             itemId={event.id}
@@ -129,7 +146,8 @@ export function EventCard({ event, friendName, onDelete, onToggleComplete, onEdi
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-gray-400 hover:text-[#A8C5A8]"
+                className="text-gray-400 hover:text-[#D4A5A5]"
+                title="Share with friends"
               >
                 <Share2 className="w-4 h-4" />
               </Button>
