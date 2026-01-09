@@ -1,12 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Textarea } from '../ui/textarea';
 import { EventPlanPollComponent } from './event-plan-poll';
 import { CreatePollDialog } from './create-poll-dialog';
+import { AddEventDialog } from '../add-event-dialog';
 import {
   Plus,
   Sparkles,
@@ -53,6 +52,13 @@ interface EventPlanPoll {
   options?: any[];
 }
 
+interface FriendWithLinkedUser {
+  id: string;
+  name: string;
+  email?: string | null;
+  linkedUserId?: string | null;
+}
+
 interface CandidatesSectionProps {
   eventPlanId: string;
   candidates: EventPlanCandidate[];
@@ -72,101 +78,27 @@ export function CandidatesSection({
   onSelectEvent,
   onRefresh,
 }: CandidatesSectionProps) {
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [editingCandidate, setEditingCandidate] = useState<EventPlanCandidate | null>(null);
   const [showCreatePoll, setShowCreatePoll] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [friends, setFriends] = useState<FriendWithLinkedUser[]>([]);
 
-  // Form state
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    location: '',
-    category: '',
-    externalUrl: '',
-    eventTime: '',
-    estimatedCost: '',
-    notes: '',
-  });
-
-  const resetForm = () => {
-    setFormData({
-      title: '',
-      description: '',
-      location: '',
-      category: '',
-      externalUrl: '',
-      eventTime: '',
-      estimatedCost: '',
-      notes: '',
-    });
-    setShowAddForm(false);
-    setEditingId(null);
-  };
-
-  const handleAdd = async () => {
-    if (!formData.title.trim()) return;
-
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/event-plans/${eventPlanId}/candidates`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: formData.title.trim(),
-          description: formData.description.trim() || undefined,
-          location: formData.location.trim() || undefined,
-          category: formData.category || undefined,
-          externalUrl: formData.externalUrl.trim() || undefined,
-          eventTime: formData.eventTime || undefined,
-          estimatedCost: formData.estimatedCost ? parseFloat(formData.estimatedCost) : undefined,
-          notes: formData.notes.trim() || undefined,
-        }),
-      });
-
-      if (response.ok) {
-        resetForm();
-        onRefresh();
+  // Fetch friends for the dialog
+  useEffect(() => {
+    const fetchFriends = async () => {
+      try {
+        const response = await fetch('/api/friends');
+        if (response.ok) {
+          const data = await response.json();
+          setFriends(data);
+        }
+      } catch (error) {
+        console.error('Error fetching friends:', error);
       }
-    } catch (error) {
-      console.error('Error adding candidate:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleUpdate = async () => {
-    if (!editingId || !formData.title.trim()) return;
-
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/event-plans/${eventPlanId}/candidates`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          candidateId: editingId,
-          title: formData.title.trim(),
-          description: formData.description.trim() || null,
-          location: formData.location.trim() || null,
-          category: formData.category || null,
-          externalUrl: formData.externalUrl.trim() || null,
-          eventTime: formData.eventTime || null,
-          estimatedCost: formData.estimatedCost ? parseFloat(formData.estimatedCost) : null,
-          notes: formData.notes.trim() || null,
-        }),
-      });
-
-      if (response.ok) {
-        resetForm();
-        onRefresh();
-      }
-    } catch (error) {
-      console.error('Error updating candidate:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
+    };
+    fetchFriends();
+  }, []);
 
   const handleDelete = async (candidateId: string) => {
     if (!confirm('Are you sure you want to remove this event option?')) return;
@@ -192,18 +124,37 @@ export function CandidatesSection({
   };
 
   const startEditing = (candidate: EventPlanCandidate) => {
-    setFormData({
-      title: candidate.title,
-      description: candidate.description || '',
-      location: candidate.location || '',
-      category: candidate.category || '',
-      externalUrl: candidate.externalUrl || '',
-      eventTime: candidate.eventTime || '',
-      estimatedCost: candidate.estimatedCost?.toString() || '',
-      notes: candidate.notes || '',
-    });
-    setEditingId(candidate.id);
-    setShowAddForm(false);
+    setEditingCandidate(candidate);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      setShowAddDialog(false);
+      setEditingCandidate(null);
+    }
+  };
+
+  const handleEventOptionAdded = () => {
+    setShowAddDialog(false);
+    onRefresh();
+  };
+
+  const handleEventOptionUpdated = () => {
+    setEditingCandidate(null);
+    onRefresh();
+  };
+
+  const handleFriendsUpdated = async () => {
+    // Refetch friends list after a new friend is added
+    try {
+      const response = await fetch('/api/friends');
+      if (response.ok) {
+        const data = await response.json();
+        setFriends(data);
+      }
+    } catch (error) {
+      console.error('Error fetching friends:', error);
+    }
   };
 
   const selectedCandidate = candidates.find(c => c.id === selectedEventId);
@@ -255,71 +206,6 @@ export function CandidatesSection({
         </Card>
       )}
 
-      {/* Add New Candidate Form */}
-      {(showAddForm || editingId) && (
-        <Card className="p-6">
-          <h4 className="font-medium mb-4">
-            {editingId ? 'Edit Event Option' : 'Add Event Option'}
-          </h4>
-          <div className="space-y-3">
-            <Input
-              placeholder="Event name *"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            />
-            <Textarea
-              placeholder="Description (optional)"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={2}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                placeholder="Location"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              />
-              <Input
-                placeholder="Time (e.g., 7:00 PM)"
-                value={formData.eventTime}
-                onChange={(e) => setFormData({ ...formData, eventTime: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                placeholder="Estimated cost"
-                type="number"
-                value={formData.estimatedCost}
-                onChange={(e) => setFormData({ ...formData, estimatedCost: e.target.value })}
-              />
-              <Input
-                placeholder="Link/URL"
-                value={formData.externalUrl}
-                onChange={(e) => setFormData({ ...formData, externalUrl: e.target.value })}
-              />
-            </div>
-            <Textarea
-              placeholder="Notes (optional)"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              rows={2}
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={resetForm}>
-                Cancel
-              </Button>
-              <Button
-                onClick={editingId ? handleUpdate : handleAdd}
-                disabled={saving || !formData.title.trim()}
-                className="bg-[#A8C5A8] hover:bg-[#97b497]"
-              >
-                {saving ? 'Saving...' : editingId ? 'Update' : 'Add'}
-              </Button>
-            </div>
-          </div>
-        </Card>
-      )}
-
       {/* Event Options List */}
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
@@ -327,16 +213,14 @@ export function CandidatesSection({
             <Sparkles className="w-5 h-5 text-[#A8C5A8]" />
             <h3 className="font-semibold">Event Options</h3>
           </div>
-          {!showAddForm && !editingId && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAddForm(true)}
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Add Option
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAddDialog(true)}
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Add Option
+          </Button>
         </div>
 
         {candidates.length === 0 ? (
@@ -512,6 +396,42 @@ export function CandidatesSection({
         context="event"
         onPollCreated={onRefresh}
       />
+
+      {/* Add Event Option Dialog */}
+      <AddEventDialog
+        open={showAddDialog}
+        onOpenChange={handleDialogClose}
+        friends={friends}
+        mode="eventOption"
+        eventPlanId={eventPlanId}
+        onEventOptionAdded={handleEventOptionAdded}
+        onFriendsUpdated={handleFriendsUpdated}
+      />
+
+      {/* Edit Event Option Dialog */}
+      {editingCandidate && (
+        <AddEventDialog
+          open={!!editingCandidate}
+          onOpenChange={(open) => !open && setEditingCandidate(null)}
+          friends={friends}
+          mode="eventOption"
+          eventPlanId={eventPlanId}
+          eventOptionToEdit={{
+            id: editingCandidate.id,
+            title: editingCandidate.title,
+            description: editingCandidate.description,
+            eventDate: editingCandidate.eventDate,
+            eventTime: editingCandidate.eventTime,
+            location: editingCandidate.location,
+            category: editingCandidate.category,
+            estimatedCost: editingCandidate.estimatedCost,
+            externalUrl: editingCandidate.externalUrl,
+            notes: editingCandidate.notes,
+          }}
+          onEventOptionUpdated={handleEventOptionUpdated}
+          onFriendsUpdated={handleFriendsUpdated}
+        />
+      )}
     </div>
   );
 }

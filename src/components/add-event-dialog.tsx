@@ -60,6 +60,19 @@ interface FriendWithLinkedUser {
   linkedUserId?: string | null;
 }
 
+interface EventOptionToEdit {
+  id: string;
+  title: string;
+  description: string | null;
+  eventDate: Date | null;
+  eventTime: string | null;
+  location: string | null;
+  category?: string | null;
+  estimatedCost?: number | null;
+  externalUrl?: string | null;
+  notes?: string | null;
+}
+
 interface AddEventDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -68,6 +81,12 @@ interface AddEventDialogProps {
   eventToEdit?: EventToEdit | null;
   onEventUpdated?: () => void;
   onFriendsUpdated?: () => void;
+  // Event option mode props
+  mode?: 'event' | 'eventOption';
+  eventPlanId?: string;
+  eventOptionToEdit?: EventOptionToEdit | null;
+  onEventOptionAdded?: () => void;
+  onEventOptionUpdated?: () => void;
 }
 
 export function AddEventDialog({
@@ -78,6 +97,11 @@ export function AddEventDialog({
   eventToEdit,
   onEventUpdated,
   onFriendsUpdated,
+  mode = 'event',
+  eventPlanId,
+  eventOptionToEdit,
+  onEventOptionAdded,
+  onEventOptionUpdated,
 }: AddEventDialogProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -88,6 +112,11 @@ export function AddEventDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shareWithFriends, setShareWithFriends] = useState(false);
+
+  // Event option specific fields
+  const [estimatedCost, setEstimatedCost] = useState('');
+  const [externalUrl, setExternalUrl] = useState('');
+  const [notes, setNotes] = useState('');
 
   // Quick event mode
   const [quickMode, setQuickMode] = useState(false);
@@ -114,7 +143,8 @@ export function AddEventDialog({
     lastContact: '',
   });
 
-  const isEditMode = !!eventToEdit;
+  const isEditMode = mode === 'event' ? !!eventToEdit : !!eventOptionToEdit;
+  const isEventOptionMode = mode === 'eventOption';
 
   // Check Google Calendar connection status
   useEffect(() => {
@@ -156,7 +186,7 @@ export function AddEventDialog({
 
   // Pre-fill form when editing
   useEffect(() => {
-    if (eventToEdit && open) {
+    if (eventToEdit && open && mode === 'event') {
       setTitle(eventToEdit.title);
       setDescription(eventToEdit.description || '');
       setLocation(eventToEdit.location || '');
@@ -171,7 +201,31 @@ export function AddEventDialog({
       setQuickMode(false);
       setQuickEventType(null);
     }
-  }, [eventToEdit, open]);
+  }, [eventToEdit, open, mode]);
+
+  // Pre-fill form when editing event option
+  useEffect(() => {
+    if (eventOptionToEdit && open && mode === 'eventOption') {
+      setTitle(eventOptionToEdit.title);
+      setDescription(eventOptionToEdit.description || '');
+      setLocation(eventOptionToEdit.location || '');
+      setCategory(eventOptionToEdit.category || null);
+      setEstimatedCost(eventOptionToEdit.estimatedCost?.toString() || '');
+      setExternalUrl(eventOptionToEdit.externalUrl || '');
+      setNotes(eventOptionToEdit.notes || '');
+      // Format date for datetime-local input if available
+      if (eventOptionToEdit.eventDate) {
+        const date = new Date(eventOptionToEdit.eventDate);
+        setEventDate(format(date, "yyyy-MM-dd'T'HH:mm"));
+      } else if (eventOptionToEdit.eventTime) {
+        // If only time is available, set it with today's date
+        setEventDate('');
+      }
+      // Disable quick mode when editing
+      setQuickMode(false);
+      setQuickEventType(null);
+    }
+  }, [eventOptionToEdit, open, mode]);
 
   const handleQuickEventSelect = (eventType: { label: string; title: string }) => {
     if (eventType.label === 'Custom') {
@@ -256,6 +310,10 @@ export function AddEventDialog({
       notes: '',
       lastContact: '',
     });
+    // Reset event option fields
+    setEstimatedCost('');
+    setExternalUrl('');
+    setNotes('');
   };
 
   const resetAddFriendForm = () => {
@@ -346,16 +404,103 @@ export function AddEventDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!title.trim() || !eventDate || selectedFriendIds.length === 0) {
-      setError('Title, date, and at least one friend are required');
-      return;
+    // Event option mode has different requirements - friends are optional
+    if (isEventOptionMode) {
+      if (!title.trim()) {
+        setError('Title is required');
+        return;
+      }
+    } else {
+      if (!title.trim() || !eventDate || selectedFriendIds.length === 0) {
+        setError('Title, date, and at least one friend are required');
+        return;
+      }
     }
 
     setSaving(true);
     setError(null);
 
     try {
-      if (isEditMode && eventToEdit) {
+      if (isEventOptionMode) {
+        // Event Option Mode - save to candidates API
+        const eventDateIso = eventDate ? new Date(eventDate).toISOString() : null;
+        const eventTimeStr = eventDate ? format(new Date(eventDate), 'HH:mm') : null;
+
+        if (isEditMode && eventOptionToEdit) {
+          // Update existing event option
+          const response = await fetch(`/api/event-plans/${eventPlanId}/candidates`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              candidateId: eventOptionToEdit.id,
+              title: title.trim(),
+              description: description.trim() || null,
+              location: location.trim() || null,
+              category: category,
+              eventDate: eventDateIso,
+              eventTime: eventTimeStr,
+              estimatedCost: estimatedCost ? parseFloat(estimatedCost) : null,
+              externalUrl: externalUrl.trim() || null,
+              notes: notes.trim() || null,
+              friendIds: selectedFriendIds.length > 0 ? selectedFriendIds : undefined,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to update event option');
+          }
+
+          // Send calendar invites if enabled and we have friends selected
+          if (sendCalendarInvite && canSendCalendarInvites && eventDateIso) {
+            await sendGoogleCalendarInvite(
+              title.trim(),
+              description.trim() || null,
+              location.trim() || null,
+              eventDateIso
+            );
+          }
+
+          resetForm();
+          onOpenChange(false);
+          onEventOptionUpdated?.();
+        } else {
+          // Create new event option
+          const response = await fetch(`/api/event-plans/${eventPlanId}/candidates`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: title.trim(),
+              description: description.trim() || null,
+              location: location.trim() || null,
+              category: category,
+              eventDate: eventDateIso,
+              eventTime: eventTimeStr,
+              estimatedCost: estimatedCost ? parseFloat(estimatedCost) : null,
+              externalUrl: externalUrl.trim() || null,
+              notes: notes.trim() || null,
+              friendIds: selectedFriendIds.length > 0 ? selectedFriendIds : undefined,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to create event option');
+          }
+
+          // Send calendar invites if enabled and we have friends selected
+          if (sendCalendarInvite && canSendCalendarInvites && eventDateIso) {
+            await sendGoogleCalendarInvite(
+              title.trim(),
+              description.trim() || null,
+              location.trim() || null,
+              eventDateIso
+            );
+          }
+
+          resetForm();
+          onOpenChange(false);
+          onEventOptionAdded?.();
+        }
+      } else if (isEditMode && eventToEdit) {
         // Update existing event
         const eventDateIso = new Date(eventDate).toISOString();
         const response = await fetch('/api/events', {
@@ -429,7 +574,7 @@ export function AddEventDialog({
       }
     } catch (err) {
       console.error('Error saving event:', err);
-      setError(isEditMode ? 'Failed to update event. Please try again.' : 'Failed to create event. Please try again.');
+      setError(isEditMode ? 'Failed to update. Please try again.' : 'Failed to create. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -460,7 +605,11 @@ export function AddEventDialog({
               <DialogTitle>Add Friend Manually</DialogTitle>
             </div>
           ) : (
-            <DialogTitle>{isEditMode ? 'Edit Event' : 'Plan an Event'}</DialogTitle>
+            <DialogTitle>
+              {isEventOptionMode
+                ? (isEditMode ? 'Edit Event Option' : 'Add Event Option')
+                : (isEditMode ? 'Edit Event' : 'Plan an Event')}
+            </DialogTitle>
           )}
         </DialogHeader>
 
@@ -545,8 +694,8 @@ export function AddEventDialog({
           </div>
         ) : (
         <>
-        {/* Quick event type buttons - only show when not editing */}
-        {!isEditMode && (
+        {/* Quick event type buttons - only show when not editing and not in event option mode */}
+        {!isEditMode && !isEventOptionMode && (
         <div className="grid grid-cols-4 gap-2 pb-4 border-b">
           {quickEventTypes.map((type) => (
             <button
@@ -568,8 +717,8 @@ export function AddEventDialog({
         </div>
         )}
 
-        {/* Quick mode form - simplified for phone/message */}
-        {!isEditMode && quickMode && (quickEventType === 'Phone Call' || quickEventType === 'Message') ? (
+        {/* Quick mode form - simplified for phone/message (not for event option mode) */}
+        {!isEditMode && !isEventOptionMode && quickMode && (quickEventType === 'Phone Call' || quickEventType === 'Message') ? (
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Friends* {selectedFriendIds.length > 0 && `(${selectedFriendIds.length} selected)`}</label>
@@ -676,7 +825,12 @@ export function AddEventDialog({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Friends* {selectedFriendIds.length > 0 && `(${selectedFriendIds.length} selected)`}</label>
+              <label className="text-sm font-medium">
+                {isEventOptionMode ? 'Invite Friends' : 'Friends*'} {selectedFriendIds.length > 0 && `(${selectedFriendIds.length} selected)`}
+              </label>
+              {isEventOptionMode && (
+                <p className="text-xs text-gray-500">Select friends to send calendar invites when this event option is chosen</p>
+              )}
               <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-2 space-y-1">
                 {friends.map((friend) => (
                   <label
@@ -713,12 +867,12 @@ export function AddEventDialog({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Date & Time*</label>
+              <label className="text-sm font-medium">{isEventOptionMode ? 'Date & Time' : 'Date & Time*'}</label>
               <Input
                 type="datetime-local"
                 value={eventDate}
                 onChange={(e) => setEventDate(e.target.value)}
-                required
+                required={!isEventOptionMode}
               />
             </div>
 
@@ -764,8 +918,49 @@ export function AddEventDialog({
               />
             </div>
 
-            {/* Share with Amika friends option */}
-            {hasAmikaFriends && (
+            {/* Event option specific fields */}
+            {isEventOptionMode && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Estimated Cost</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={estimatedCost}
+                        onChange={(e) => setEstimatedCost(e.target.value)}
+                        placeholder="0.00"
+                        className="pl-7"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">External Link</label>
+                    <Input
+                      type="url"
+                      value={externalUrl}
+                      onChange={(e) => setExternalUrl(e.target.value)}
+                      placeholder="https://..."
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Notes</label>
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                    placeholder="Any additional notes about this option..."
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Share with Amika friends option - only for regular events */}
+            {!isEventOptionMode && hasAmikaFriends && (
               <div className="space-y-2 p-3 bg-[#A8C5A8]/10 rounded-lg">
                 <div className="flex items-center gap-2">
                   <Share2 className="w-4 h-4 text-[#A8C5A8]" />
