@@ -39,7 +39,7 @@ interface EventPlan {
   title: string;
   description: string | null;
   status: string;
-  eventDate: Date | null;
+  eventDate: Date | string | null;
   eventTime: string | null;
   selectedEventId: string | null;
   shareToken: string | null;
