@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { MapPin, Check, Edit2 } from 'lucide-react';
+import { LocationAutocomplete } from '../location-autocomplete';
 
 interface EventPlan {
   id: string;
@@ -52,11 +52,10 @@ export function EventPlanLocationSection({
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium mb-1 block">Location</label>
-            <Input
-              type="text"
+            <LocationAutocomplete
               value={eventLocation}
-              onChange={(e) => setEventLocation(e.target.value)}
-              placeholder="e.g., San Francisco, CA or 123 Main St"
+              onChange={setEventLocation}
+              placeholder="Search for a location..."
             />
             <p className="text-xs text-muted-foreground mt-1">
               This location will be used as the default for Amika recommendations
