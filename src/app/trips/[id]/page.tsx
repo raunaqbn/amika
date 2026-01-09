@@ -42,6 +42,7 @@ interface Trip {
   id: string;
   userId: string;
   ownerName: string | null;
+  ownerProfileImage: string | null;
   title: string;
   description: string | null;
   status: string;
@@ -455,6 +456,7 @@ export default function TripPlanningPage() {
                 collaborators={trip.collaborators}
                 tripOwnerId={trip.userId}
                 tripOwnerName={trip.ownerName}
+                tripOwnerProfileImage={trip.ownerProfileImage}
                 onNewMessage={handleNewMessage}
                 typingUsers={typingUsers}
                 activeUsers={activeUsers}
