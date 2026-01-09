@@ -110,7 +110,7 @@ function HighlightMentions({ text, isUser, mentionNames }: { text: string; isUse
               key={index}
               className={`px-1 py-0.5 rounded font-medium text-xs ${
                 isUser
-                  ? 'bg-white/25 text-white'
+                  ? 'bg-white/40 text-[#3d5c6e]'
                   : 'bg-[#D4A5A5]/20 text-[#D4A5A5]'
               }`}
             >
