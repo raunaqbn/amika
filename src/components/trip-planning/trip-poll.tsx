@@ -5,7 +5,8 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Check, X, ExternalLink, Lock, Trash2 } from 'lucide-react';
+import { Check, X, ExternalLink, Lock, Trash2, Pencil } from 'lucide-react';
+import { EditPollDialog } from './edit-poll-dialog';
 
 interface PollVote {
   id: string;
@@ -45,6 +46,7 @@ interface TripPollComponentProps {
   onVote?: () => void;
   onClose?: () => void;
   onDelete?: () => void;
+  onEdit?: () => void;
 }
 
 export function TripPollComponent({
@@ -54,10 +56,12 @@ export function TripPollComponent({
   onVote,
   onClose,
   onDelete,
+  onEdit,
 }: TripPollComponentProps) {
   const [voting, setVoting] = useState(false);
   const [closing, setClosing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   // Track optimistic votes: Map of optionId -> true (voted) or false (unvoted)
   const [optimisticVotes, setOptimisticVotes] = useState<Map<string, boolean>>(new Map());
 
@@ -234,15 +238,25 @@ export function TripPollComponent({
         {poll.createdById === currentUserId && (
           <div className="flex items-center gap-1">
             {isActive && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClosePoll}
-                disabled={closing}
-              >
-                <X className="w-4 h-4 mr-1" />
-                Close
-              </Button>
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditDialogOpen(true)}
+                  title="Edit poll"
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClosePoll}
+                  disabled={closing}
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Close
+                </Button>
+              </>
             )}
             <Button
               variant="ghost"
@@ -319,6 +333,16 @@ export function TripPollComponent({
           );
         })}
       </div>
+
+      <EditPollDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        tripId={tripId}
+        poll={poll}
+        onPollUpdated={() => {
+          onEdit?.();
+        }}
+      />
     </Card>
   );
 }
