@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Users, BookOpen, User, LogIn, Eye, Upload, CalendarDays, Heart, Plane, Shield } from 'lucide-react';
 import { NotificationsDropdown, NotificationsBellMobile } from '@/components/notifications-dropdown';
 import { useAuth } from '@/lib/auth-context';
+import { useNotificationSound } from '@/hooks/use-notification-sound';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,39 @@ export function Nav() {
   const [pendingCount, setPendingCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const prevChatNotificationsRef = useRef<number>(0);
+  const isFirstFetchRef = useRef(true);
+
+  const { playNotificationSound } = useNotificationSound();
+
+  // Check if user is currently on a chat page (event plan or trip)
+  const isOnChatPage = pathname?.startsWith('/events/plan/') || pathname?.startsWith('/trips/');
+
+  const fetchPendingCount = useCallback(async () => {
+    try {
+      const response = await fetch('/api/shared-items?pendingCount=true');
+      if (response.ok) {
+        const data = await response.json();
+        const newChatNotifications = data.chatNotifications || 0;
+
+        // Play sound if there are new chat notifications and user is not on a chat page
+        // Skip sound on first fetch to avoid sound on page load
+        if (
+          !isFirstFetchRef.current &&
+          newChatNotifications > prevChatNotificationsRef.current &&
+          !isOnChatPage
+        ) {
+          playNotificationSound();
+        }
+
+        prevChatNotificationsRef.current = newChatNotifications;
+        isFirstFetchRef.current = false;
+        setPendingCount(data.connectionRequests + data.sharedItems + newChatNotifications);
+      }
+    } catch (error) {
+      console.error('Error fetching pending count:', error);
+    }
+  }, [isOnChatPage, playNotificationSound]);
 
   // Fetch pending notification count
   useEffect(() => {
@@ -32,19 +66,7 @@ export function Nav() {
       const interval = setInterval(fetchPendingCount, 30000);
       return () => clearInterval(interval);
     }
-  }, [user]);
-
-  const fetchPendingCount = async () => {
-    try {
-      const response = await fetch('/api/shared-items?pendingCount=true');
-      if (response.ok) {
-        const data = await response.json();
-        setPendingCount(data.connectionRequests + data.sharedItems + (data.chatNotifications || 0));
-      }
-    } catch (error) {
-      console.error('Error fetching pending count:', error);
-    }
-  };
+  }, [user, fetchPendingCount]);
 
   // Close dropdown when clicking outside
   useEffect(() => {

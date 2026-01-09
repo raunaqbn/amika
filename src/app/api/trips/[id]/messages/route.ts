@@ -145,10 +145,11 @@ export async function POST(
       // Notify all collaborators with linked Amika accounts (except the sender)
       const recipientUserIds = new Set<string>();
 
-      // Add collaborators with userId
+      // Add collaborators with userId or linkedUserId (linkedUserId is from the friends table and may be more up-to-date)
       for (const collab of tripForNotify.collaborators) {
-        if (collab.userId && collab.userId !== userId) {
-          recipientUserIds.add(collab.userId);
+        const recipientId = collab.userId || collab.linkedUserId;
+        if (recipientId && recipientId !== userId) {
+          recipientUserIds.add(recipientId);
         }
       }
 
