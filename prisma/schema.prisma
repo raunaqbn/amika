@@ -453,6 +453,8 @@ model EventPlanMessage {
   content     String
   createdAt   DateTime @default(now())
 
+  eventPlan   EventPlanSession @relation(fields: [eventPlanId], references: [id], onDelete: Cascade)
+
   @@index([eventPlanId, context])
   @@index([eventPlanId, createdAt])
 }
