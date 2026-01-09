@@ -45,7 +45,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { title, description, status, eventDate, eventTime, selectedEventId } = body;
+    const { title, description, status, eventDate, eventTime, selectedEventId, eventLocation } = body;
 
     const eventPlan = await prisma.eventPlanSession.update(id, userId, {
       title,
@@ -54,6 +54,7 @@ export async function PUT(
       eventDate: eventDate ? new Date(eventDate) : undefined,
       eventTime,
       selectedEventId,
+      eventLocation,
     });
 
     if (!eventPlan) {
