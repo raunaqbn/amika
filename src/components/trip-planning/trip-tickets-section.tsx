@@ -279,6 +279,7 @@ export function TripTicketsSection({
                   onVote={onRefresh}
                   onDelete={onRefresh}
                   onClose={onRefresh}
+                  onEdit={onRefresh}
                 />
               ))
           ) : (

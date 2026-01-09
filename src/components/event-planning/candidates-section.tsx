@@ -474,6 +474,7 @@ export function CandidatesSection({
                 onVote={onRefresh}
                 onDelete={onRefresh}
                 onClose={onRefresh}
+                onEdit={onRefresh}
               />
             ))
         ) : (
