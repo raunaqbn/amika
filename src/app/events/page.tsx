@@ -8,7 +8,8 @@ import { EventCard } from '@/components/event-card';
 import { AddEventDialog } from '@/components/add-event-dialog';
 import { FindEventsDialog } from '@/components/find-events-dialog';
 import { PlanEventDialog } from '@/components/event-planning/plan-event-dialog';
-import { Calendar, Plus, Sparkles, Clock, CheckCircle2, Utensils, MapPin, Dumbbell, Video, CalendarDays } from 'lucide-react';
+import { EventPlanCard } from '@/components/event-planning/event-plan-card';
+import { Calendar, Plus, Sparkles, Clock, CheckCircle2, Utensils, MapPin, Dumbbell, Video, CalendarDays, Users, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface Friend {
   id: string;
@@ -30,6 +31,26 @@ interface Event {
   friends?: { id: string; name: string }[];
 }
 
+interface Collaborator {
+  id: string;
+  friendId: string;
+  friendName: string;
+  profileImage: string | null;
+}
+
+interface EventPlan {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  eventDate: string | null;
+  eventTime: string | null;
+  selectedEventId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  collaborators: Collaborator[];
+}
+
 // Category definitions
 const categories = [
   { value: null, label: 'All', icon: Calendar },
@@ -44,6 +65,7 @@ export default function EventsPage() {
   const router = useRouter();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  const [eventPlans, setEventPlans] = useState<EventPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
   const [findEventsDialogOpen, setFindEventsDialogOpen] = useState(false);
@@ -51,10 +73,12 @@ export default function EventsPage() {
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showAllPlanningSessions, setShowAllPlanningSessions] = useState(false);
 
   useEffect(() => {
     fetchFriends();
     fetchEvents();
+    fetchEventPlans();
   }, []);
 
   const fetchFriends = async () => {
@@ -92,6 +116,23 @@ export default function EventsPage() {
     } catch (error) {
       console.error('Error fetching events:', error);
       setEvents([]);
+    }
+  };
+
+  const fetchEventPlans = async () => {
+    try {
+      const response = await fetch('/api/event-plans');
+      if (!response.ok) {
+        if (response.status === 401) {
+          return;
+        }
+        throw new Error('Failed to fetch event plans');
+      }
+      const data = await response.json();
+      setEventPlans(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching event plans:', error);
+      setEventPlans([]);
     }
   };
 
@@ -257,6 +298,47 @@ export default function EventsPage() {
           })}
         </div>
 
+        {/* Planning Sessions Section */}
+        {eventPlans.filter(ep => ep.status === 'planning' || ep.status === 'confirmed').length > 0 && (
+          <section className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-[#7BA3C9]" />
+                <h2 className="text-lg font-semibold text-gray-900">Planning Sessions</h2>
+                <span className="text-sm text-gray-500">
+                  ({eventPlans.filter(ep => ep.status === 'planning' || ep.status === 'confirmed').length})
+                </span>
+              </div>
+              {eventPlans.filter(ep => ep.status === 'planning' || ep.status === 'confirmed').length > 3 && (
+                <button
+                  onClick={() => setShowAllPlanningSessions(!showAllPlanningSessions)}
+                  className="flex items-center gap-1 text-sm text-[#7BA3C9] hover:text-[#7BA3C9]/80 transition-colors"
+                >
+                  {showAllPlanningSessions ? (
+                    <>
+                      Show less
+                      <ChevronUp className="w-4 h-4" />
+                    </>
+                  ) : (
+                    <>
+                      View all
+                      <ChevronDown className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+            <div className="space-y-3">
+              {eventPlans
+                .filter(ep => ep.status === 'planning' || ep.status === 'confirmed')
+                .slice(0, showAllPlanningSessions ? undefined : 3)
+                .map((eventPlan) => (
+                  <EventPlanCard key={eventPlan.id} eventPlan={eventPlan} />
+                ))}
+            </div>
+          </section>
+        )}
+
         {/* Events List */}
         {activeTab === 'upcoming' && (
           <section>
@@ -372,6 +454,9 @@ export default function EventsPage() {
             name: f.name,
             linkedUserId: f.linkedUserId,
           }))}
+          onEventCreated={() => {
+            fetchEventPlans();
+          }}
         />
       </div>
     </div>
