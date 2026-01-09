@@ -464,7 +464,7 @@ export default function TripPlanningPage() {
             </div>
 
             {/* Tab Content - Right Column */}
-            <div className="w-full lg:w-96 order-1 lg:order-2">
+            <div className="w-full lg:w-80 order-1 lg:order-2">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 mb-4 scrollbar-hide">
                   <TabsList className="w-max md:w-auto">
