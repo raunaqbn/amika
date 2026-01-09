@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { GoalsSidebar } from '@/components/event-planning/goals-sidebar';
 import { EventPlanDateSection } from '@/components/event-planning/event-plan-date-section';
+import { EventPlanLocationSection } from '@/components/event-planning/event-plan-location-section';
 import { CandidatesSection } from '@/components/event-planning/candidates-section';
 import { ShareEventDialog } from '@/components/event-planning/share-event-dialog';
 import { EventPlanChat } from '@/components/event-planning/event-plan-chat';
@@ -41,6 +42,7 @@ interface EventPlan {
   status: string;
   eventDate: Date | null;
   eventTime: string | null;
+  eventLocation: string | null;
   selectedEventId: string | null;
   shareToken: string | null;
   joinToken: string | null;
@@ -438,7 +440,7 @@ export default function EventPlanningPage() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="date" className="mt-4">
+              <TabsContent value="date" className="mt-4 space-y-4">
                 <EventPlanDateSection
                   eventPlan={eventPlan}
                   onUpdate={handleUpdateEventPlan}
@@ -446,6 +448,10 @@ export default function EventPlanningPage() {
                   eventPlanId={eventPlanId}
                   currentUserId={currentUserId || undefined}
                   onRefresh={fetchEventPlan}
+                />
+                <EventPlanLocationSection
+                  eventPlan={eventPlan}
+                  onUpdate={handleUpdateEventPlan}
                 />
               </TabsContent>
 

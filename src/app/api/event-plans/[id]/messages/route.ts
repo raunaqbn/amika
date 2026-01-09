@@ -161,6 +161,7 @@ Event Plan: ${eventPlan.title}
 ${eventPlan.description ? `Description: ${eventPlan.description}` : ''}
 Event Date: ${eventPlan.eventDate ? eventPlan.eventDate.toLocaleDateString() : 'Not yet decided'}
 Event Time: ${eventPlan.eventTime || 'Not yet decided'}
+Event Location: ${eventPlan.eventLocation || 'Not yet decided'}
 Event Candidates: ${candidatesList || 'None added yet'}
 ${locationContext}
 Current section: ${context}
@@ -183,6 +184,11 @@ Help the group with their event planning by:
 - Providing practical tips
 - Being inclusive of all collaborators' preferences
 - Using location context when searching for venues or events
+
+IMPORTANT: When searching for venues, restaurants, events, or activities:
+- ALWAYS use the Event Location (${eventPlan.eventLocation || 'ask the user for a location'}) as the default search location if one is set
+- If the event date is set (${eventPlan.eventDate ? eventPlan.eventDate.toLocaleDateString() : 'not set'}), consider it when recommending time-sensitive activities or checking availability
+- If no location is set, ask the user where they're planning the event or make reasonable suggestions
 
 Keep responses concise and actionable. If suggesting events or venues, format them with **bold** titles so they can be recognized.`;
 

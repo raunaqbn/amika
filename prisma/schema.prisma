@@ -385,6 +385,7 @@ model EventPlanSession {
   // Event Plan Goals (nullable until decided)
   eventDate       DateTime?
   eventTime       String?   // "19:00" etc.
+  eventLocation   String?   // Default location for the event
   selectedEventId String?   // Reference to the chosen EventPlanCandidate
 
   // Public sharing
