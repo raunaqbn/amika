@@ -375,11 +375,26 @@ export function EventPlanChat({
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentionStartPos, setMentionStartPos] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const prevMessageCountRef = useRef<number>(0);
   const prevLastMessageIdRef = useRef<string | null>(null);
+
+  // Build mention options: amika + collaborators
+  const mentionOptions = [
+    { id: 'amika', name: 'amika', type: 'ai' as const },
+    ...collaborators.map(c => ({ id: c.friendId, name: c.friendName, type: 'collaborator' as const })),
+  ];
+
+  // Filter mentions based on query
+  const filteredMentions = mentionOptions.filter(m =>
+    m.name.toLowerCase().includes(mentionQuery.toLowerCase())
+  );
 
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
@@ -410,11 +425,32 @@ export function EventPlanChat({
     }
   }, [eventPlanId, context]);
 
-  // Handle input change with typing indicator
+  // Handle input change with typing indicator and mention detection
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
+    const value = e.target.value;
+    const cursorPos = e.target.selectionStart || 0;
+    setInput(value);
 
-    if (!isTyping && e.target.value.trim()) {
+    // Detect @ mention
+    const textBeforeCursor = value.slice(0, cursorPos);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+      // Check if there's no space after @ (user is still typing the mention)
+      if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n')) {
+        setShowMentions(true);
+        setMentionQuery(textAfterAt);
+        setMentionStartPos(lastAtIndex);
+        setMentionIndex(0);
+      } else {
+        setShowMentions(false);
+      }
+    } else {
+      setShowMentions(false);
+    }
+
+    if (!isTyping && value.trim()) {
       setIsTyping(true);
       sendTypingIndicator(true);
     }
@@ -427,6 +463,25 @@ export function EventPlanChat({
       setIsTyping(false);
       sendTypingIndicator(false);
     }, 2000);
+  };
+
+  // Handle selecting a mention from the dropdown
+  const handleSelectMention = (mention: { id: string; name: string; type: 'ai' | 'collaborator' }) => {
+    const beforeMention = input.slice(0, mentionStartPos);
+    const afterMention = input.slice(textareaRef.current?.selectionStart || mentionStartPos + mentionQuery.length + 1);
+    const newValue = `${beforeMention}@${mention.name} ${afterMention}`;
+    setInput(newValue);
+    setShowMentions(false);
+    setMentionQuery('');
+
+    // Focus back on textarea and set cursor position
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        const newPos = mentionStartPos + mention.name.length + 2; // +2 for @ and space
+        textareaRef.current.setSelectionRange(newPos, newPos);
+      }
+    }, 0);
   };
 
   const handleSend = async () => {
@@ -467,6 +522,30 @@ export function EventPlanChat({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Handle mention dropdown navigation
+    if (showMentions && filteredMentions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionIndex(prev => (prev + 1) % filteredMentions.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIndex(prev => (prev - 1 + filteredMentions.length) % filteredMentions.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        handleSelectMention(filteredMentions[mentionIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowMentions(false);
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -683,33 +762,69 @@ export function EventPlanChat({
       </div>
 
       {/* Input */}
-      <div className="flex gap-2">
-        <Textarea
-          ref={textareaRef}
-          value={input}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message... (use @amika for AI help)"
-          rows={1}
-          className="resize-none"
-          disabled={sending}
-        />
-        <EmojiPickerButton
-          onEmojiSelect={handleEmojiSelect}
-          disabled={sending}
-        />
-        <Button
-          onClick={handleSend}
-          disabled={!input.trim() || sending}
-          size="sm"
-          className="bg-[#A8C5A8] hover:bg-[#97b497]"
-        >
-          {sending ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Send className="w-4 h-4" />
-          )}
-        </Button>
+      <div className="relative">
+        {/* Mention dropdown */}
+        {showMentions && filteredMentions.length > 0 && (
+          <div className="absolute bottom-full left-0 mb-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+            {filteredMentions.map((mention, idx) => (
+              <button
+                key={mention.id}
+                className={`w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-50 ${
+                  idx === mentionIndex ? 'bg-gray-100' : ''
+                }`}
+                onClick={() => handleSelectMention(mention)}
+                onMouseEnter={() => setMentionIndex(idx)}
+              >
+                <Avatar className="h-6 w-6">
+                  {mention.type === 'ai' ? (
+                    <AvatarFallback className="bg-[#A8C5A8] text-white text-xs">
+                      <Sparkles className="w-3 h-3" />
+                    </AvatarFallback>
+                  ) : (
+                    <AvatarFallback className="bg-[#D4A5A5] text-white text-xs">
+                      {mention.name.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-gray-900">@{mention.name}</span>
+                  {mention.type === 'ai' && (
+                    <span className="ml-2 text-xs text-[#A8C5A8]">AI Assistant</span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <Textarea
+            ref={textareaRef}
+            value={input}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message... (use @amika for AI help)"
+            rows={1}
+            className="resize-none"
+            disabled={sending}
+          />
+          <EmojiPickerButton
+            onEmojiSelect={handleEmojiSelect}
+            disabled={sending}
+          />
+          <Button
+            onClick={handleSend}
+            disabled={!input.trim() || sending}
+            size="sm"
+            className="bg-[#A8C5A8] hover:bg-[#97b497]"
+          >
+            {sending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
       </div>
     </Card>
   );
