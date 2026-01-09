@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, BookOpen, User, LogIn, Eye, Upload, CalendarDays, Heart, Plane } from 'lucide-react';
+import { Home, Users, BookOpen, User, LogIn, Eye, Upload, CalendarDays, Heart, Plane, Shield } from 'lucide-react';
 import { NotificationsDropdown, NotificationsBellMobile } from '@/components/notifications-dropdown';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -206,6 +206,20 @@ export function Nav() {
                       <User className="w-4 h-4" />
                       View profile
                     </Link>
+                    {/* Admin Dashboard - only visible to admin */}
+                    {user.email === 'raunaq.naidu@gmail.com' && (
+                      <>
+                        <div className="border-t border-gray-100 my-2" />
+                        <Link
+                          href="/admin"
+                          onClick={() => setShowDropdown(false)}
+                          className="w-full px-4 py-2 text-left text-sm text-purple-700 hover:bg-purple-50 flex items-center gap-3 transition-colors"
+                        >
+                          <Shield className="w-4 h-4" />
+                          Admin Dashboard
+                        </Link>
+                      </>
+                    )}
                   </div>
                 )}
                 <input
