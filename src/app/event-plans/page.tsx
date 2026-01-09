@@ -24,7 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 interface Friend {
   id: string;
@@ -238,7 +238,7 @@ export default function EventPlansPage() {
                       <div className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
                         {eventPlan.eventDate
-                          ? format(new Date(eventPlan.eventDate), 'MMM d, yyyy')
+                          ? format(parseISO(eventPlan.eventDate.split('T')[0]), 'MMM d, yyyy')
                           : 'Date not set'}
                       </div>
                       {eventPlan.eventTime && (

@@ -7,7 +7,7 @@ import { Input } from '../ui/input';
 import { EventPlanPollComponent } from './event-plan-poll';
 import { CreatePollDialog } from './create-poll-dialog';
 import { Calendar, Check, Edit2, BarChart2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 interface EventPlanPoll {
   id: string;
@@ -47,7 +47,7 @@ export function EventPlanDateSection({
 }: EventPlanDateSectionProps) {
   const [editing, setEditing] = useState(false);
   const [eventDate, setEventDate] = useState(
-    eventPlan.eventDate ? format(new Date(eventPlan.eventDate), 'yyyy-MM-dd') : ''
+    eventPlan.eventDate ? (typeof eventPlan.eventDate === 'string' ? eventPlan.eventDate.split('T')[0] : format(eventPlan.eventDate, 'yyyy-MM-dd')) : ''
   );
   const [eventTime, setEventTime] = useState(eventPlan.eventTime || '');
   const [showCreatePoll, setShowCreatePoll] = useState(false);
@@ -119,7 +119,7 @@ export function EventPlanDateSection({
                 <div className="bg-[#A8C5A8]/10 px-4 py-3 rounded-lg">
                   <p className="text-xs text-muted-foreground">Date</p>
                   <p className="font-semibold">
-                    {format(new Date(eventPlan.eventDate!), 'EEEE, MMMM d, yyyy')}
+                    {format(parseISO(typeof eventPlan.eventDate === 'string' ? eventPlan.eventDate.split('T')[0] : eventPlan.eventDate!.toISOString().split('T')[0]), 'EEEE, MMMM d, yyyy')}
                   </p>
                 </div>
                 {eventPlan.eventTime && (

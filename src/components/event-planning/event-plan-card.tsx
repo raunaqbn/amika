@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Calendar, Clock, Users, ArrowRight, Sparkles } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 
 interface Collaborator {
@@ -71,7 +71,7 @@ export function EventPlanCard({ eventPlan }: EventPlanCardProps) {
             <div className="flex items-center gap-1">
               <Calendar className="w-4 h-4" />
               {eventPlan.eventDate
-                ? format(new Date(eventPlan.eventDate), 'MMM d, yyyy')
+                ? format(parseISO(eventPlan.eventDate.split('T')[0]), 'MMM d, yyyy')
                 : 'Date not set'}
             </div>
             {eventPlan.eventTime && (
