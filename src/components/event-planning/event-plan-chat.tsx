@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
@@ -67,32 +67,56 @@ interface EventPlanChatProps {
 }
 
 // Component to render text with highlighted @mentions
-function HighlightMentions({ text, isAssistant }: { text: string; isAssistant: boolean }) {
-  const pattern = /@amika/gi;
-  const parts = text.split(pattern);
-  const matches = text.match(pattern) || [];
+function HighlightMentions({ text, isUser, mentionNames }: { text: string; isUser: boolean; mentionNames: string[] }) {
+  const allNames = ['amika', ...mentionNames];
+  if (allNames.length === 0) return <>{text}</>;
 
-  if (matches.length === 0) return <>{text}</>;
+  const escapedNames = allNames.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const pattern = new RegExp(`(@(?:${escapedNames.join('|')}))(?=\\s|$|[.,!?])`, 'gi');
+
+  const parts = text.split(pattern);
 
   return (
     <>
-      {parts.map((part, index) => (
-        <React.Fragment key={index}>
-          {part}
-          {index < matches.length && (
+      {parts.map((part, index) => {
+        const isAmikaMention = part.toLowerCase() === '@amika';
+        const isMention = part.startsWith('@') && mentionNames.some(
+          name => part.toLowerCase() === `@${name.toLowerCase()}`
+        );
+
+        if (isAmikaMention) {
+          return (
             <span
-              className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md font-medium ${
-                isAssistant
-                  ? 'bg-[#A8C5A8]/20 text-[#A8C5A8]'
-                  : 'bg-[#1877F2]/20 text-[#1877F2]'
+              key={index}
+              className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded font-medium text-xs ${
+                isUser
+                  ? 'bg-[#1877F2]/20 text-[#1877F2]'
+                  : 'bg-[#A8C5A8]/20 text-[#A8C5A8]'
               }`}
             >
-              <Sparkles className="w-3 h-3" />
-              {matches[index]}
+              <Sparkles className="w-2.5 h-2.5" />
+              {part}
             </span>
-          )}
-        </React.Fragment>
-      ))}
+          );
+        }
+
+        if (isMention) {
+          return (
+            <span
+              key={index}
+              className={`px-1 py-0.5 rounded font-medium text-xs ${
+                isUser
+                  ? 'bg-white/40 text-[#3d5c6e]'
+                  : 'bg-[#D4A5A5]/20 text-[#D4A5A5]'
+              }`}
+            >
+              {part}
+            </span>
+          );
+        }
+
+        return <span key={index}>{part}</span>;
+      })}
     </>
   );
 }
@@ -305,14 +329,14 @@ function ToolResultCards({ toolResultsJson }: { toolResultsJson: string }) {
 }
 
 // Markdown renderer component for chat messages
-function MarkdownMessage({ content, isAssistant }: { content: string; isAssistant: boolean }) {
+function MarkdownMessage({ content, isUser, mentionNames }: { content: string; isUser: boolean; mentionNames: string[] }) {
   return (
     <ReactMarkdown
       components={{
         p: ({ children }) => {
           const processedChildren = React.Children.map(children, (child) => {
             if (typeof child === 'string') {
-              return <HighlightMentions text={child} isAssistant={isAssistant} />;
+              return <HighlightMentions text={child} isUser={isUser} mentionNames={mentionNames} />;
             }
             return child;
           });
@@ -323,7 +347,7 @@ function MarkdownMessage({ content, isAssistant }: { content: string; isAssistan
         li: ({ children }) => {
           const processedChildren = React.Children.map(children, (child) => {
             if (typeof child === 'string') {
-              return <HighlightMentions text={child} isAssistant={isAssistant} />;
+              return <HighlightMentions text={child} isUser={isUser} mentionNames={mentionNames} />;
             }
             return child;
           });
@@ -335,12 +359,12 @@ function MarkdownMessage({ content, isAssistant }: { content: string; isAssistan
         h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
         h3: ({ children }) => <h3 className="text-sm font-bold mb-1">{children}</h3>,
         code: ({ children }) => (
-          <code className={`px-1 py-0.5 rounded text-xs ${isAssistant ? 'bg-[#A8C5A8]/10' : 'bg-gray-200'}`}>
+          <code className={`px-1 py-0.5 rounded text-xs ${!isUser ? 'bg-[#A8C5A8]/10' : 'bg-gray-200'}`}>
             {children}
           </code>
         ),
         pre: ({ children }) => (
-          <pre className={`p-2 rounded text-xs overflow-x-auto my-2 ${isAssistant ? 'bg-[#A8C5A8]/10' : 'bg-gray-200'}`}>
+          <pre className={`p-2 rounded text-xs overflow-x-auto my-2 ${!isUser ? 'bg-[#A8C5A8]/10' : 'bg-gray-200'}`}>
             {children}
           </pre>
         ),
@@ -380,6 +404,56 @@ export function EventPlanChat({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const prevMessageCountRef = useRef<number>(0);
   const prevLastMessageIdRef = useRef<string | null>(null);
+
+  // Mention state
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState('');
+  const [mentionPosition, setMentionPosition] = useState(0);
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+
+  // Get all mentionable names (collaborators)
+  const allMentionableNames = useMemo(() => {
+    const names = new Set<string>();
+    collaborators.forEach(c => names.add(c.friendName));
+    return Array.from(names);
+  }, [collaborators]);
+
+  // Amika as a special mention option
+  const amikaOption = { id: 'amika', name: 'amika', isAmika: true, profileImage: null };
+
+  // Combined list of mention options
+  const mentionOptions = useMemo(() => {
+    const search = mentionSearch.toLowerCase();
+
+    // Filter collaborators by search
+    const filteredCollaborators = collaborators.filter(c =>
+      !mentionSearch || c.friendName.toLowerCase().includes(search)
+    );
+
+    // Check if 'amika' matches the search
+    const amikaMatches = !mentionSearch || 'amika'.includes(search);
+
+    return [
+      ...(amikaMatches ? [amikaOption] : []),
+      ...filteredCollaborators.map(c => ({
+        id: c.friendId,
+        name: c.friendName,
+        isAmika: false,
+        profileImage: c.profileImage,
+      })),
+    ];
+  }, [collaborators, mentionSearch]);
+
+  const handleMentionSelect = (optionName: string) => {
+    const beforeMention = input.slice(0, mentionPosition);
+    const afterMention = input.slice(mentionPosition + mentionSearch.length);
+    const newValue = beforeMention + optionName + ' ' + afterMention;
+
+    setInput(newValue);
+    setShowMentions(false);
+    setMentionSearch('');
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  };
 
   // Mark chat notifications as read when component mounts
   useEffect(() => {
@@ -426,11 +500,14 @@ export function EventPlanChat({
     }
   }, [eventPlanId, context]);
 
-  // Handle input change with typing indicator
+  // Handle input change with typing indicator and mention detection
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart || 0;
 
-    if (!isTyping && e.target.value.trim()) {
+    setInput(value);
+
+    if (!isTyping && value.trim()) {
       setIsTyping(true);
       sendTypingIndicator(true);
     }
@@ -443,6 +520,32 @@ export function EventPlanChat({
       setIsTyping(false);
       sendTypingIndicator(false);
     }, 2000);
+
+    // Check for @ mentions
+    const textBeforeCursor = value.slice(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtIndex !== -1 && lastAtIndex === cursorPosition - 1) {
+      // @ just typed
+      setShowMentions(true);
+      setMentionPosition(lastAtIndex + 1);
+      setMentionSearch('');
+      setSelectedMentionIndex(0);
+    } else if (lastAtIndex !== -1) {
+      // Check if we're still in a mention
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+      if (!/\s/.test(textAfterAt)) {
+        // No space after @, still in mention
+        setShowMentions(true);
+        setMentionPosition(lastAtIndex + 1);
+        setMentionSearch(textAfterAt);
+        setSelectedMentionIndex(0);
+      } else {
+        setShowMentions(false);
+      }
+    } else {
+      setShowMentions(false);
+    }
   };
 
   const handleSend = async () => {
@@ -482,9 +585,40 @@ export function EventPlanChat({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Handle escape to close mentions dropdown
+    if (showMentions && e.key === 'Escape') {
+      e.preventDefault();
+      setShowMentions(false);
+      return;
+    }
+
+    // Handle navigation and selection when mentions are shown
+    if (showMentions && mentionOptions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedMentionIndex((prev) =>
+          prev < mentionOptions.length - 1 ? prev + 1 : prev
+        );
+        return;
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedMentionIndex((prev) => (prev > 0 ? prev - 1 : 0));
+        return;
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        const selectedOption = mentionOptions[selectedMentionIndex];
+        if (selectedOption) {
+          handleMentionSelect(selectedOption.name);
+        }
+        return;
+      }
+    }
+
+    // Handle Enter to send message (when not selecting a mention)
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      setShowMentions(false);
       handleSend();
     }
   };
@@ -649,7 +783,11 @@ export function EventPlanChat({
                       {sender.isCurrentUser ? 'You' : sender.name}
                     </p>
                     <div className="text-sm break-words text-left prose prose-sm max-w-none">
-                      <MarkdownMessage content={msg.content} isAssistant={sender.isAssistant} />
+                      <MarkdownMessage
+                        content={msg.content}
+                        isUser={sender.isCurrentUser}
+                        mentionNames={allMentionableNames}
+                      />
                     </div>
                     {/* Render tool results as cards for assistant messages */}
                     {sender.isAssistant && msg.toolResults && (
@@ -699,17 +837,60 @@ export function EventPlanChat({
       </div>
 
       {/* Input */}
-      <div className="flex gap-2">
-        <Textarea
-          ref={textareaRef}
-          value={input}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message... (use @amika for AI help)"
-          rows={1}
-          className="resize-none"
-          disabled={sending}
-        />
+      <div className="flex gap-2 relative">
+        <div className="flex-1 relative">
+          <Textarea
+            ref={textareaRef}
+            value={input}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message... (use @amika or @friend name)"
+            rows={1}
+            className="resize-none"
+            disabled={sending}
+          />
+          {/* Mentions dropdown */}
+          {showMentions && (
+            <div className="absolute bottom-full left-0 mb-1 w-full max-w-xs bg-white border border-[#A8C5A8]/30 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
+              {mentionOptions.length > 0 ? (
+                mentionOptions.map((option, index) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => handleMentionSelect(option.name)}
+                    className={`w-full text-left px-3 py-1.5 hover:bg-[#A8C5A8]/10 transition-colors flex items-center gap-2 ${
+                      index === selectedMentionIndex ? 'bg-[#A8C5A8]/20' : ''
+                    }`}
+                  >
+                    {option.isAmika ? (
+                      <>
+                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#A8C5A8]/20">
+                          <Sparkles className="w-3 h-3 text-[#A8C5A8]" />
+                        </span>
+                        <span className="font-medium text-[#A8C5A8] text-sm">amika</span>
+                        <span className="text-xs text-gray-400">AI</span>
+                      </>
+                    ) : (
+                      <>
+                        <Avatar className="w-5 h-5">
+                          <AvatarImage src={option.profileImage || undefined} />
+                          <AvatarFallback className="text-[8px] bg-[#D4A5A5]/20 text-[#D4A5A5]">
+                            {option.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium text-gray-900 text-sm">{option.name}</span>
+                      </>
+                    )}
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-xs text-gray-500">
+                  No matches for &quot;{mentionSearch}&quot;
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <EmojiPickerButton
           onEmojiSelect={handleEmojiSelect}
           disabled={sending}
