@@ -4,6 +4,7 @@ import { getUserId } from '@/lib/auth';
 import { streamText, tool } from 'ai';
 import { getModel } from '@/lib/ai';
 import { z } from 'zod';
+import { parseInterests, formatInterestsForAI } from '@/lib/interests';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,17 +115,61 @@ export async function POST(
         return NextResponse.json({ userMessage });
       }
 
-      // Build AI context
-      const collaboratorNames = eventPlan.collaborators.map((c: any) => c.friendName).join(', ');
-      const candidatesList = eventPlan.candidates.map((c: any) => c.title).join(', ');
+      // Fetch full chat transcript for context
+      const chatHistory = await prisma.eventPlanMessage.findMany(id, userId, { context });
+
+      // Fetch all user's friends to get their interests
+      const userFriends = await prisma.friend.findMany({ userId });
+
+      // Build collaborator context with their interests
+      const collaboratorContext = eventPlan.collaborators.map((c: any) => {
+        const interests = parseInterests(c.interests);
+        const interestLabels = interests.length > 0 ? formatInterestsForAI(interests) : 'Not specified';
+        return `- ${c.friendName}: ${interestLabels}`;
+      }).join('\n');
+
+      // Build all friends' interests context (beyond just collaborators)
+      const allFriendsInterests = userFriends
+        .filter((f: any) => f.interests)
+        .map((f: any) => {
+          const interests = parseInterests(f.interests);
+          if (interests.length === 0) return null;
+          return `- ${f.name}: ${formatInterestsForAI(interests)}`;
+        })
+        .filter(Boolean)
+        .join('\n');
+
+      // Build candidates list with location info
+      const candidatesList = eventPlan.candidates.map((c: any) => {
+        const parts = [c.title];
+        if (c.location) parts.push(`at ${c.location}`);
+        if (c.category) parts.push(`(${c.category})`);
+        return parts.join(' ');
+      }).join(', ');
+
+      // Extract location info from candidates
+      const locations = eventPlan.candidates
+        .filter((c: any) => c.location)
+        .map((c: any) => c.location);
+      const uniqueLocations = [...new Set(locations)];
+      const locationContext = uniqueLocations.length > 0
+        ? `Mentioned locations: ${uniqueLocations.join(', ')}`
+        : '';
+
       const eventPlanContext = `
 Event Plan: ${eventPlan.title}
 ${eventPlan.description ? `Description: ${eventPlan.description}` : ''}
 Event Date: ${eventPlan.eventDate ? eventPlan.eventDate.toLocaleDateString() : 'Not yet decided'}
 Event Time: ${eventPlan.eventTime || 'Not yet decided'}
 Event Candidates: ${candidatesList || 'None added yet'}
-Collaborators: ${collaboratorNames || 'Just the organizer'}
+${locationContext}
 Current section: ${context}
+
+Collaborators and their interests:
+${collaboratorContext || 'No collaborators added yet'}
+
+All friends and their interests (for reference when suggesting activities):
+${allFriendsInterests || 'No friend interests available'}
       `.trim();
 
       const systemPrompt = `You are Amika, a helpful AI assistant helping plan a group event. You're friendly, concise, and practical.
@@ -132,20 +177,32 @@ Current section: ${context}
 ${eventPlanContext}
 
 Help the group with their event planning by:
-- Suggesting events based on their interests
+- Suggesting events based on their interests (use the friend interests above to personalize suggestions)
 - Helping decide on dates and times
 - Recommending venues and experiences
 - Providing practical tips
 - Being inclusive of all collaborators' preferences
+- Using location context when searching for venues or events
 
 Keep responses concise and actionable. If suggesting events or venues, format them with **bold** titles so they can be recognized.`;
 
+      // Build messages array with chat history
+      const aiMessages: { role: 'user' | 'assistant'; content: string }[] = chatHistory
+        .filter((msg: any) => msg.id !== userMessage.id) // Exclude the message we just saved
+        .map((msg: any) => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.role === 'user' ? msg.content.replace(/@amika/gi, '').trim() : msg.content,
+        }));
+
+      // Add the current message
+      aiMessages.push({ role: 'user', content: content.replace(/@amika/gi, '').trim() });
+
       try {
-        // Generate AI response
+        // Generate AI response with full chat history
         const result = await streamText({
           model: getModel() as any,
           system: systemPrompt,
-          messages: [{ role: 'user', content: content.replace(/@amika/gi, '').trim() }],
+          messages: aiMessages,
           tools: SERPAPI_KEY ? {
             searchEvents: tool({
               description: 'Search for events, activities, concerts, festivals happening in a location',
@@ -329,17 +386,32 @@ Keep responses concise and actionable. If suggesting events or venues, format th
           maxSteps: 3,
         });
 
-        // Collect the full response
+        // Collect the full response and tool results
         let aiResponse = '';
         for await (const chunk of result.textStream) {
           aiResponse += chunk;
         }
 
-        // Save AI response
+        // Collect tool results for card rendering
+        const toolResults: any[] = [];
+        const steps = await result.steps;
+        for (const step of steps) {
+          if (step.toolResults) {
+            for (const toolResult of step.toolResults) {
+              toolResults.push({
+                toolName: toolResult.toolName,
+                result: toolResult.result,
+              });
+            }
+          }
+        }
+
+        // Save AI response with tool results
         const aiMessage = await prisma.eventPlanMessage.create(id, {
           content: aiResponse,
           context,
           role: 'assistant',
+          toolResults: toolResults.length > 0 ? JSON.stringify(toolResults) : null,
         }, userId);
 
         return NextResponse.json({ userMessage, aiMessage });
