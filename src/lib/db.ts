@@ -8258,20 +8258,23 @@ export const prisma = {
       const client = getClient();
       const now = new Date().toISOString();
 
-      // Try to update existing notification first (increment count)
+      // Check for ANY existing notification (both read and unread)
+      // This is important because of the UNIQUE constraint on (recipientUserId, chatType, chatId)
       const existing = await client.execute({
         sql: `SELECT * FROM chat_notifications
-              WHERE recipientUserId = ? AND chatType = ? AND chatId = ? AND isRead = 0`,
+              WHERE recipientUserId = ? AND chatType = ? AND chatId = ?`,
         args: [data.recipientUserId, data.chatType, data.chatId],
       });
 
       if (existing.rows.length > 0) {
         const row = existing.rows[0];
-        const newCount = (Number(row.messageCount) || 1) + 1;
+        const wasRead = row.isRead === 1;
+        // If notification was read, reset count to 1; otherwise increment
+        const newCount = wasRead ? 1 : (Number(row.messageCount) || 1) + 1;
 
         await client.execute({
           sql: `UPDATE chat_notifications
-                SET senderUserId = ?, senderName = ?, messagePreview = ?, messageCount = ?, updatedAt = ?
+                SET senderUserId = ?, senderName = ?, messagePreview = ?, messageCount = ?, isRead = 0, updatedAt = ?
                 WHERE id = ?`,
           args: [data.senderUserId, data.senderName, data.messagePreview, newCount, now, row.id],
         });
