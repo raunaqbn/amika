@@ -325,6 +325,7 @@ export type EventPlanMessage = {
   context: 'general' | 'date' | 'event';
   role: 'user' | 'assistant';
   content: string;
+  toolResults: string | null; // JSON string of tool results for card rendering
   createdAt: Date;
 };
 
@@ -1094,10 +1095,18 @@ async function ensureTablesExist() {
         context TEXT DEFAULT 'general',
         role TEXT NOT NULL,
         content TEXT NOT NULL,
+        toolResults TEXT,
         createdAt TEXT NOT NULL,
         FOREIGN KEY (eventPlanId) REFERENCES event_plan_sessions(id) ON DELETE CASCADE
       )
     `);
+
+    // Add toolResults column if it doesn't exist (migration for existing tables)
+    try {
+      await client.execute(`ALTER TABLE event_plan_messages ADD COLUMN toolResults TEXT`);
+    } catch {
+      // Column already exists
+    }
 
     await client.execute(`
       CREATE TABLE IF NOT EXISTS event_plan_polls (
@@ -7446,6 +7455,7 @@ export const prisma = {
         context: row.context,
         role: row.role,
         content: row.content,
+        toolResults: row.toolResults || null,
         createdAt: new Date(row.createdAt as string),
       }));
     },
@@ -7454,6 +7464,7 @@ export const prisma = {
       content: string;
       context?: EventPlanMessage['context'];
       role?: EventPlanMessage['role'];
+      toolResults?: string | null;
     }, userId: string): Promise<EventPlanMessage> => {
       await ensureTablesExist();
       const client = getClient();
@@ -7478,12 +7489,13 @@ export const prisma = {
         context: data.context || 'general',
         role: data.role || 'user',
         content: data.content,
+        toolResults: data.toolResults || null,
         createdAt: now,
       };
 
       await client.execute({
-        sql: 'INSERT INTO event_plan_messages (id, eventPlanId, userId, friendId, context, role, content, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        args: [message.id, eventPlanId, userId, null, message.context, message.role, message.content, now.toISOString()],
+        sql: 'INSERT INTO event_plan_messages (id, eventPlanId, userId, friendId, context, role, content, toolResults, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [message.id, eventPlanId, userId, null, message.context, message.role, message.content, message.toolResults, now.toISOString()],
       });
 
       return message;
@@ -7995,6 +8007,7 @@ export const prisma = {
           context: row.context,
           role: row.role,
           content: row.content,
+          toolResults: row.toolResults || null,
           createdAt: new Date(row.createdAt as string),
         })),
         polls,
