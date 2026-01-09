@@ -6612,8 +6612,12 @@ export const prisma = {
 
         const optionsWithVotes: any[] = [];
         for (const opt of optionsResult.rows) {
+          // Join with users table to get voter profile information
           const votesResult = await client.execute({
-            sql: 'SELECT * FROM event_plan_poll_votes WHERE optionId = ?',
+            sql: `SELECT v.*, u.name as voterName, u.profileImage as voterProfileImage
+                  FROM event_plan_poll_votes v
+                  LEFT JOIN users u ON v.visitorId = u.id
+                  WHERE v.optionId = ?`,
             args: [opt.id as string],
           });
           optionsWithVotes.push({
@@ -6628,6 +6632,8 @@ export const prisma = {
               visitorId: v.visitorId,
               friendId: v.friendId,
               votedAt: new Date(v.votedAt as string),
+              voterName: v.voterName,
+              voterProfileImage: v.voterProfileImage,
             })),
           });
         }
@@ -6984,8 +6990,12 @@ export const prisma = {
 
         const optionsWithVotes: any[] = [];
         for (const opt of optionsResult.rows) {
+          // Join with users table to get voter profile information
           const votesResult = await client.execute({
-            sql: 'SELECT * FROM event_plan_poll_votes WHERE optionId = ?',
+            sql: `SELECT v.*, u.name as voterName, u.profileImage as voterProfileImage
+                  FROM event_plan_poll_votes v
+                  LEFT JOIN users u ON v.visitorId = u.id
+                  WHERE v.optionId = ?`,
             args: [opt.id as string],
           });
           optionsWithVotes.push({
@@ -7000,6 +7010,8 @@ export const prisma = {
               visitorId: v.visitorId,
               friendId: v.friendId,
               votedAt: new Date(v.votedAt as string),
+              voterName: v.voterName,
+              voterProfileImage: v.voterProfileImage,
             })),
           });
         }
@@ -7707,15 +7719,15 @@ export const prisma = {
         throw new Error('Poll is closed');
       }
 
-      const pollId = (await client.execute({
-        sql: 'SELECT pollId FROM event_plan_poll_options WHERE id = ?',
-        args: [optionId],
-      })).rows[0]?.pollId as string;
-
-      await client.execute({
-        sql: `DELETE FROM event_plan_poll_votes WHERE visitorId = ? AND optionId IN (SELECT id FROM event_plan_poll_options WHERE pollId = ?)`,
-        args: [userId, pollId],
+      // Check if user already voted for this specific option (multi-select allowed)
+      const existingVote = await client.execute({
+        sql: 'SELECT id FROM event_plan_poll_votes WHERE optionId = ? AND visitorId = ?',
+        args: [optionId, userId],
       });
+
+      if (existingVote.rows.length > 0) {
+        throw new Error('Already voted for this option');
+      }
 
       const now = new Date();
       const vote: EventPlanPollVote = {
@@ -8012,8 +8024,12 @@ export const prisma = {
 
         const optionsWithVotes: any[] = [];
         for (const opt of optionsResult.rows) {
+          // Join with users table to get voter profile information
           const votesResult = await client.execute({
-            sql: 'SELECT * FROM event_plan_poll_votes WHERE optionId = ?',
+            sql: `SELECT v.*, u.name as voterName, u.profileImage as voterProfileImage
+                  FROM event_plan_poll_votes v
+                  LEFT JOIN users u ON v.visitorId = u.id
+                  WHERE v.optionId = ?`,
             args: [opt.id as string],
           });
           optionsWithVotes.push({
@@ -8028,6 +8044,8 @@ export const prisma = {
               visitorId: v.visitorId,
               friendId: v.friendId,
               votedAt: new Date(v.votedAt as string),
+              voterName: v.voterName,
+              voterProfileImage: v.voterProfileImage,
             })),
           });
         }
