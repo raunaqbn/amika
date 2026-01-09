@@ -825,6 +825,60 @@ async function buildContextualPrompt(userId: string): Promise<string> {
   }
 }
 
+// Build context for tagged friends
+async function buildTaggedFriendsContext(userId: string, friendIds: string[]): Promise<string> {
+  if (!friendIds || friendIds.length === 0) return '';
+
+  try {
+    const friends = await prisma.friend.findMany({
+      userId,
+      include: { memories: { orderBy: { createdAt: 'desc' } } },
+    });
+
+    const taggedFriends = friends.filter((f: { id: string }) => friendIds.includes(f.id));
+    if (taggedFriends.length === 0) return '';
+
+    let context = '\n\n---TAGGED FRIENDS CONTEXT---\n';
+    context += 'The user has tagged the following friends in their message. Use their profiles to provide personalized suggestions:\n';
+
+    for (const friend of taggedFriends as any[]) {
+      context += `\n### ${friend.name}\n`;
+      if (friend.birthday) {
+        context += `- Birthday: ${friend.birthday.toLocaleDateString()}\n`;
+      }
+      if (friend.howWeMet) {
+        context += `- How they met: ${friend.howWeMet}\n`;
+      }
+      if (friend.notes) {
+        context += `- Notes: ${friend.notes}\n`;
+      }
+      if (friend.interests) {
+        const interestsList = parseInterests(friend.interests as string);
+        if (interestsList.length > 0) {
+          context += `- Interests: ${formatInterestsForAI(interestsList)}\n`;
+        }
+      }
+      if (friend.lastContact) {
+        context += `- Last contact: ${formatDistanceToNow(friend.lastContact, { addSuffix: true })}\n`;
+      }
+      if (friend.memories && friend.memories.length > 0) {
+        context += `- Recent memories:\n`;
+        for (const memory of friend.memories.slice(0, 5)) {
+          context += `  * ${memory.content}\n`;
+        }
+      }
+    }
+
+    context += '\nConsider these friends\' interests and preferences when making suggestions.\n';
+    context += '---END TAGGED FRIENDS CONTEXT---\n';
+
+    return context;
+  } catch (error) {
+    console.error('Error building tagged friends context:', error);
+    return '';
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const userId = await getUserId();
@@ -835,7 +889,7 @@ export async function POST(req: Request) {
       });
     }
 
-    const { messages, sessionId, friendContext } = await req.json();
+    const { messages, sessionId, friendContext, taggedFriendIds, chatTranscript, mentionsAmika } = await req.json();
 
     if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: 'Invalid request body: messages must be an array' }), {
@@ -853,6 +907,24 @@ export async function POST(req: Request) {
     // If friend context is provided (from Find Events dialog), add it to help personalize suggestions
     if (friendContext && typeof friendContext === 'string' && friendContext.trim()) {
       enhancedSystemPrompt += `\n\n---PLANNING CONTEXT---\nThe user is planning activities with specific friends. Use their interests and notes to suggest relevant activities:\n${friendContext}\n\nWhen suggesting activities, consider these friends' interests and preferences. Prioritize suggestions that would appeal to them based on the notes provided.\n---END PLANNING CONTEXT---\n`;
+    }
+
+    // Add context for tagged friends (@friend mentions)
+    if (taggedFriendIds && Array.isArray(taggedFriendIds) && taggedFriendIds.length > 0) {
+      const taggedFriendsContext = await buildTaggedFriendsContext(userId, taggedFriendIds);
+      enhancedSystemPrompt += taggedFriendsContext;
+    }
+
+    // If @amika is mentioned and chat transcript is provided, include it for context
+    if (mentionsAmika && chatTranscript && Array.isArray(chatTranscript) && chatTranscript.length > 0) {
+      enhancedSystemPrompt += '\n\n---CONVERSATION CONTEXT---\n';
+      enhancedSystemPrompt += 'The user has mentioned you (@amika) in their message. Here is the full conversation history for context:\n\n';
+      for (const msg of chatTranscript) {
+        const role = msg.role === 'user' ? 'User' : 'Amika';
+        enhancedSystemPrompt += `${role}: ${msg.content}\n\n`;
+      }
+      enhancedSystemPrompt += 'Use this conversation history to provide relevant and contextual responses.\n';
+      enhancedSystemPrompt += '---END CONVERSATION CONTEXT---\n';
     }
 
     // Store chat transcript if sessionId is provided
