@@ -1,12 +1,17 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Send, Loader2, Sparkles, Circle } from 'lucide-react';
 import { EmojiPickerButton } from '../ui/emoji-picker';
+
+interface Friend {
+  id: string;
+  name: string;
+}
 
 interface Message {
   id: string;
@@ -63,6 +68,62 @@ interface TripChatProps {
   onNewMessage?: (message: Message) => void;
   typingUsers?: TypingUser[];
   activeUsers?: ActiveUser[];
+  friends?: Friend[];
+}
+
+// Component to render text with highlighted @mentions
+function HighlightMentions({ text, isUser, mentionNames }: { text: string; isUser: boolean; mentionNames: string[] }) {
+  const allNames = ['amika', ...mentionNames];
+  if (allNames.length === 0) return <>{text}</>;
+
+  const escapedNames = allNames.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const pattern = new RegExp(`(@(?:${escapedNames.join('|')}))(?=\\s|$|[.,!?])`, 'gi');
+
+  const parts = text.split(pattern);
+
+  return (
+    <>
+      {parts.map((part, index) => {
+        const isAmikaMention = part.toLowerCase() === '@amika';
+        const isMention = part.startsWith('@') && mentionNames.some(
+          name => part.toLowerCase() === `@${name.toLowerCase()}`
+        );
+
+        if (isAmikaMention) {
+          return (
+            <span
+              key={index}
+              className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded font-medium text-xs ${
+                isUser
+                  ? 'bg-white/30 text-white'
+                  : 'bg-[#A8C5A8]/20 text-[#A8C5A8]'
+              }`}
+            >
+              <Sparkles className="w-2.5 h-2.5" />
+              {part}
+            </span>
+          );
+        }
+
+        if (isMention) {
+          return (
+            <span
+              key={index}
+              className={`px-1 py-0.5 rounded font-medium text-xs ${
+                isUser
+                  ? 'bg-white/40 text-[#3d5c6e]'
+                  : 'bg-[#D4A5A5]/20 text-[#D4A5A5]'
+              }`}
+            >
+              {part}
+            </span>
+          );
+        }
+
+        return <span key={index}>{part}</span>;
+      })}
+    </>
+  );
 }
 
 export function TripChat({
@@ -77,6 +138,7 @@ export function TripChat({
   onNewMessage,
   typingUsers = [],
   activeUsers = [],
+  friends = [],
 }: TripChatProps) {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -86,6 +148,72 @@ export function TripChat({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const prevMessageCountRef = useRef<number>(0);
   const prevLastMessageIdRef = useRef<string | null>(null);
+
+  // Mention state
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState('');
+  const [mentionPosition, setMentionPosition] = useState(0);
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+
+  // Get all mentionable names (collaborators + friends)
+  const allMentionableNames = useMemo(() => {
+    const names = new Set<string>();
+    // Add collaborator names
+    collaborators.forEach(c => names.add(c.friendName));
+    // Add friend names
+    friends.forEach(f => names.add(f.name));
+    return Array.from(names);
+  }, [collaborators, friends]);
+
+  // Amika as a special mention option
+  const amikaOption = { id: 'amika', name: 'amika', isAmika: true, profileImage: null };
+
+  // Combined list of mention options
+  const mentionOptions = useMemo(() => {
+    const search = mentionSearch.toLowerCase();
+
+    // Filter collaborators by search
+    const filteredCollaborators = collaborators.filter(c =>
+      !mentionSearch || c.friendName.toLowerCase().includes(search)
+    );
+
+    // Filter friends by search (exclude those already in collaborators)
+    const collaboratorNames = new Set(collaborators.map(c => c.friendName.toLowerCase()));
+    const filteredFriends = friends.filter(f =>
+      (!mentionSearch || f.name.toLowerCase().includes(search)) &&
+      !collaboratorNames.has(f.name.toLowerCase())
+    );
+
+    // Check if 'amika' matches the search
+    const amikaMatches = !mentionSearch || 'amika'.includes(search);
+
+    return [
+      ...(amikaMatches ? [amikaOption] : []),
+      ...filteredCollaborators.map(c => ({
+        id: c.friendId,
+        name: c.friendName,
+        isAmika: false,
+        profileImage: c.profileImage,
+      })),
+      ...filteredFriends.map(f => ({
+        id: f.id,
+        name: f.name,
+        isAmika: false,
+        profileImage: null,
+      })),
+    ];
+  }, [collaborators, friends, mentionSearch]);
+
+  const handleMentionSelect = (optionName: string) => {
+    const beforeMention = input.slice(0, mentionPosition);
+    const afterMention = input.slice(mentionPosition + mentionSearch.length);
+    const newValue = beforeMention + optionName + ' ' + afterMention;
+
+    setInput(newValue);
+    setShowMentions(false);
+    setMentionSearch('');
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  };
 
   useEffect(() => {
     // Only scroll when a NEW message is actually added, not on every render
@@ -118,11 +246,14 @@ export function TripChat({
     }
   }, [tripId, context]);
 
-  // Handle input change with typing indicator
+  // Handle input change with typing indicator and mention detection
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart || 0;
 
-    if (!isTyping && e.target.value.trim()) {
+    setInput(value);
+
+    if (!isTyping && value.trim()) {
       setIsTyping(true);
       sendTypingIndicator(true);
     }
@@ -137,6 +268,52 @@ export function TripChat({
       setIsTyping(false);
       sendTypingIndicator(false);
     }, 2000);
+
+    // Check for @ mentions
+    const textBeforeCursor = value.slice(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtIndex !== -1 && lastAtIndex === cursorPosition - 1) {
+      // @ just typed
+      setShowMentions(true);
+      setMentionPosition(lastAtIndex + 1);
+      setMentionSearch('');
+      setSelectedMentionIndex(0);
+    } else if (lastAtIndex !== -1) {
+      // Check if we're still in a mention
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+      if (!/\s/.test(textAfterAt)) {
+        // No space after @, still in mention
+        setShowMentions(true);
+        setMentionPosition(lastAtIndex + 1);
+        setMentionSearch(textAfterAt);
+        setSelectedMentionIndex(0);
+      } else {
+        setShowMentions(false);
+      }
+    } else {
+      setShowMentions(false);
+    }
+  };
+
+  // Extract tagged friend IDs from the message
+  const extractTaggedFriendIds = (text: string): string[] => {
+    const taggedIds: string[] = [];
+    // Check collaborators
+    for (const c of collaborators) {
+      const pattern = new RegExp(`@${c.friendName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=\\s|$|[.,!?])`, 'i');
+      if (pattern.test(text)) {
+        taggedIds.push(c.friendId);
+      }
+    }
+    // Check friends
+    for (const f of friends) {
+      const pattern = new RegExp(`@${f.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=\\s|$|[.,!?])`, 'i');
+      if (pattern.test(text) && !taggedIds.includes(f.id)) {
+        taggedIds.push(f.id);
+      }
+    }
+    return taggedIds;
   };
 
   const handleSend = async () => {
@@ -149,7 +326,20 @@ export function TripChat({
     setIsTyping(false);
     sendTypingIndicator(false);
 
+    // Extract tagged friend IDs
+    const taggedFriendIds = extractTaggedFriendIds(input);
+
+    // Check if @amika is mentioned
+    const mentionsAmika = /@amika(?=\s|$|[.,!?])/i.test(input);
+
+    // Build chat transcript if @amika is tagged
+    const chatTranscript = mentionsAmika ? messages.map(m => ({
+      role: m.role,
+      content: m.content,
+    })) : undefined;
+
     setSending(true);
+    setShowMentions(false);
     try {
       const response = await fetch(`/api/trips/${tripId}/messages`, {
         method: 'POST',
@@ -157,6 +347,8 @@ export function TripChat({
         body: JSON.stringify({
           content: input.trim(),
           context,
+          taggedFriendIds,
+          chatTranscript,
         }),
       });
 
@@ -177,9 +369,40 @@ export function TripChat({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Handle escape to close mentions dropdown
+    if (showMentions && e.key === 'Escape') {
+      e.preventDefault();
+      setShowMentions(false);
+      return;
+    }
+
+    // Handle navigation and selection when mentions are shown
+    if (showMentions && mentionOptions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedMentionIndex((prev) =>
+          prev < mentionOptions.length - 1 ? prev + 1 : prev
+        );
+        return;
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedMentionIndex((prev) => (prev > 0 ? prev - 1 : 0));
+        return;
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        const selectedOption = mentionOptions[selectedMentionIndex];
+        if (selectedOption) {
+          handleMentionSelect(selectedOption.name);
+        }
+        return;
+      }
+    }
+
+    // Handle Enter to send message (when not selecting a mention)
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      setShowMentions(false);
       handleSend();
     }
   };
@@ -353,7 +576,11 @@ export function TripChat({
                       {sender.isCurrentUser ? 'You' : sender.name}
                     </p>
                     <p className="text-sm whitespace-pre-wrap break-words text-left">
-                      {msg.content}
+                      <HighlightMentions
+                        text={msg.content}
+                        isUser={sender.isCurrentUser}
+                        mentionNames={allMentionableNames}
+                      />
                     </p>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -399,17 +626,60 @@ export function TripChat({
       </div>
 
       {/* Input */}
-      <div className="flex gap-2">
-        <Textarea
-          ref={textareaRef}
-          value={input}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message... (mention @amika for AI help)"
-          rows={1}
-          className="resize-none"
-          disabled={sending}
-        />
+      <div className="flex gap-2 relative">
+        <div className="flex-1 relative">
+          <Textarea
+            ref={textareaRef}
+            value={input}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message... (use @amika or @friend name)"
+            rows={1}
+            className="resize-none"
+            disabled={sending}
+          />
+          {/* Mentions dropdown */}
+          {showMentions && (
+            <div className="absolute bottom-full left-0 mb-1 w-full max-w-xs bg-white border border-[#A8C5A8]/30 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
+              {mentionOptions.length > 0 ? (
+                mentionOptions.map((option, index) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => handleMentionSelect(option.name)}
+                    className={`w-full text-left px-3 py-1.5 hover:bg-[#A8C5A8]/10 transition-colors flex items-center gap-2 ${
+                      index === selectedMentionIndex ? 'bg-[#A8C5A8]/20' : ''
+                    }`}
+                  >
+                    {option.isAmika ? (
+                      <>
+                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#A8C5A8]/20">
+                          <Sparkles className="w-3 h-3 text-[#A8C5A8]" />
+                        </span>
+                        <span className="font-medium text-[#A8C5A8] text-sm">amika</span>
+                        <span className="text-xs text-gray-400">AI</span>
+                      </>
+                    ) : (
+                      <>
+                        <Avatar className="w-5 h-5">
+                          <AvatarImage src={option.profileImage || undefined} />
+                          <AvatarFallback className="text-[8px] bg-[#D4A5A5]/20 text-[#D4A5A5]">
+                            {option.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium text-gray-900 text-sm">{option.name}</span>
+                      </>
+                    )}
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-xs text-gray-500">
+                  No matches for &quot;{mentionSearch}&quot;
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <EmojiPickerButton
           onEmojiSelect={handleEmojiSelect}
           disabled={sending}

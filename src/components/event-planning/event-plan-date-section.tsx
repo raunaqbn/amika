@@ -169,6 +169,7 @@ export function EventPlanDateSection({
                 onVote={onRefresh}
                 onDelete={onRefresh}
                 onClose={onRefresh}
+                onEdit={onRefresh}
               />
             ))
         ) : (
