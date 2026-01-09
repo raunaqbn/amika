@@ -305,7 +305,7 @@ export default function EventPlanningPage() {
 
   return (
     <div className="min-h-screen bg-[#FFFBF5] md:pt-20 pb-20 md:pb-8 overflow-x-hidden overflow-y-auto touch-scroll">
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-6 gap-4">
           <div className="flex items-center gap-2 md:gap-4">
@@ -394,11 +394,19 @@ export default function EventPlanningPage() {
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-          {/* Left Column: Chat + Planning Tabs */}
-          <div className="space-y-6">
-            {/* Discussion */}
+        {/* Main Content - 3 Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_360px] gap-6">
+          {/* Left Column: Planning Progress */}
+          <div className="hidden lg:block">
+            <GoalsSidebar
+              goalProgress={eventPlan.goalProgress}
+              collaborators={eventPlan.collaborators}
+              onGoalClick={handleGoalClick}
+            />
+          </div>
+
+          {/* Middle Column: Chat */}
+          <div>
             <EventPlanChat
               eventPlanId={eventPlanId}
               context="general"
@@ -414,8 +422,10 @@ export default function EventPlanningPage() {
               typingUsers={typingUsers}
               activeUsers={activeUsers}
             />
+          </div>
 
-            {/* Planning Tabs */}
+          {/* Right Column: Location & Event Pane with Polls */}
+          <div className="space-y-6 lg:order-none order-first">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="date" className="flex items-center gap-2">
@@ -451,15 +461,6 @@ export default function EventPlanningPage() {
                 />
               </TabsContent>
             </Tabs>
-          </div>
-
-          {/* Right Column: Goals Sidebar */}
-          <div className="hidden lg:block">
-            <GoalsSidebar
-              goalProgress={eventPlan.goalProgress}
-              collaborators={eventPlan.collaborators}
-              onGoalClick={handleGoalClick}
-            />
           </div>
         </div>
       </div>
