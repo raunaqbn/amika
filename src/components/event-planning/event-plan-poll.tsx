@@ -239,7 +239,7 @@ export function EventPlanPollComponent({
               <div className="relative flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {isVoted && <Check className="w-4 h-4 text-[#A8C5A8]" />}
-                  <span className="font-medium">{option.label}</span>
+                  <span className="text-sm font-medium">{option.label}</span>
                   {option.url && (
                     <a
                       href={option.url}
