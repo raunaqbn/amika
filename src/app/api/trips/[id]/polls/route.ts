@@ -109,6 +109,54 @@ export async function PUT(
   }
 }
 
+// PATCH /api/trips/[id]/polls - Update poll (add/remove options)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    await params;
+    const body = await request.json();
+    const { pollId, question, addOptions, removeOptionIds } = body;
+
+    if (!pollId) {
+      return NextResponse.json(
+        { error: 'Poll ID is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!question && (!addOptions || addOptions.length === 0) && (!removeOptionIds || removeOptionIds.length === 0)) {
+      return NextResponse.json(
+        { error: 'At least one change (question, addOptions, or removeOptionIds) is required' },
+        { status: 400 }
+      );
+    }
+
+    const poll = await prisma.tripPoll.update(pollId, {
+      question,
+      addOptions,
+      removeOptionIds,
+    }, userId);
+
+    return NextResponse.json(poll);
+  } catch (error: any) {
+    console.error('Error updating poll:', error);
+    if (error.message === 'Poll not found or access denied') {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    return NextResponse.json(
+      { error: 'Failed to update poll' },
+      { status: 500 }
+    );
+  }
+}
+
 // DELETE /api/trips/[id]/polls - Delete poll
 export async function DELETE(
   request: NextRequest,

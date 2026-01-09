@@ -5,7 +5,8 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Check, X, ExternalLink, Lock, Trash2 } from 'lucide-react';
+import { Check, X, ExternalLink, Lock, Trash2, Pencil } from 'lucide-react';
+import { EditPollDialog } from './edit-poll-dialog';
 
 interface PollVote {
   id: string;
@@ -43,6 +44,7 @@ interface EventPlanPollComponentProps {
   onVote?: () => void;
   onClose?: () => void;
   onDelete?: () => void;
+  onEdit?: () => void;
 }
 
 export function EventPlanPollComponent({
@@ -52,10 +54,12 @@ export function EventPlanPollComponent({
   onVote,
   onClose,
   onDelete,
+  onEdit,
 }: EventPlanPollComponentProps) {
   const [voting, setVoting] = useState(false);
   const [closing, setClosing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [optimisticVoteOptionId, setOptimisticVoteOptionId] = useState<string | null>(null);
 
   const totalVotes = poll.options?.reduce(
@@ -191,15 +195,25 @@ export function EventPlanPollComponent({
         {poll.createdById === currentUserId && (
           <div className="flex items-center gap-1">
             {isActive && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClosePoll}
-                disabled={closing}
-              >
-                <X className="w-4 h-4 mr-1" />
-                Close
-              </Button>
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditDialogOpen(true)}
+                  title="Edit poll"
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClosePoll}
+                  disabled={closing}
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Close
+                </Button>
+              </>
             )}
             <Button
               variant="ghost"
@@ -239,7 +253,7 @@ export function EventPlanPollComponent({
               <div className="relative flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {isVoted && <Check className="w-4 h-4 text-[#A8C5A8]" />}
-                  <span className="font-medium">{option.label}</span>
+                  <span className="text-sm font-medium">{option.label}</span>
                   {option.url && (
                     <a
                       href={option.url}
@@ -271,6 +285,16 @@ export function EventPlanPollComponent({
           );
         })}
       </div>
+
+      <EditPollDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        eventPlanId={eventPlanId}
+        poll={poll}
+        onPollUpdated={() => {
+          onEdit?.();
+        }}
+      />
     </Card>
   );
 }
