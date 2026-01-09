@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Bell, UserPlus, Share2, FileText, Calendar, Image as ImageIcon, Plane, Check, X, Loader2, ChevronRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Bell, UserPlus, Share2, FileText, Calendar, Image as ImageIcon, Plane, Check, X, Loader2, ChevronRight, MessageCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -49,15 +50,28 @@ type SharedItem = {
   };
 };
 
+type ChatNotification = {
+  id: string;
+  senderName: string;
+  chatType: 'event_plan' | 'trip';
+  chatId: string;
+  chatTitle: string;
+  messagePreview: string;
+  messageCount: number;
+  updatedAt: string;
+};
+
 interface NotificationsDropdownProps {
   pendingCount: number;
   onCountChange?: () => void;
 }
 
 export function NotificationsDropdown({ pendingCount, onCountChange }: NotificationsDropdownProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [friendRequests, setFriendRequests] = useState<Connection[]>([]);
   const [sharedItems, setSharedItems] = useState<SharedItem[]>([]);
+  const [chatNotifications, setChatNotifications] = useState<ChatNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -86,9 +100,10 @@ export function NotificationsDropdown({ pendingCount, onCountChange }: Notificat
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      const [requestsRes, itemsRes] = await Promise.all([
+      const [requestsRes, itemsRes, chatRes] = await Promise.all([
         fetch('/api/connections?type=received&status=pending'),
         fetch('/api/shared-items?type=received&status=pending'),
+        fetch('/api/chat-notifications?unreadOnly=true'),
       ]);
 
       if (requestsRes.ok) {
@@ -98,6 +113,10 @@ export function NotificationsDropdown({ pendingCount, onCountChange }: Notificat
       if (itemsRes.ok) {
         const data = await itemsRes.json();
         setSharedItems(data.slice(0, 3)); // Show max 3 in dropdown
+      }
+      if (chatRes.ok) {
+        const data = await chatRes.json();
+        setChatNotifications(data.slice(0, 3)); // Show max 3 in dropdown
       }
     } catch (err) {
       console.error('Error fetching notifications:', err);
@@ -180,7 +199,35 @@ export function NotificationsDropdown({ pendingCount, onCountChange }: Notificat
     }
   };
 
-  const hasNotifications = friendRequests.length > 0 || sharedItems.length > 0;
+  const handleChatNotificationClick = async (notification: ChatNotification) => {
+    setProcessing(notification.id);
+    try {
+      // Mark as read
+      await fetch('/api/chat-notifications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatType: notification.chatType, chatId: notification.chatId }),
+      });
+
+      // Remove from list
+      setChatNotifications(chatNotifications.filter((n) => n.id !== notification.id));
+      onCountChange?.();
+
+      // Navigate to the chat
+      setIsOpen(false);
+      if (notification.chatType === 'event_plan') {
+        router.push(`/events/plan/${notification.chatId}`);
+      } else {
+        router.push(`/trips/${notification.chatId}`);
+      }
+    } catch (err) {
+      console.error('Error handling chat notification:', err);
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const hasNotifications = friendRequests.length > 0 || sharedItems.length > 0 || chatNotifications.length > 0;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -335,6 +382,56 @@ export function NotificationsDropdown({ pendingCount, onCountChange }: Notificat
                           </div>
                         </div>
                       </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Chat Notifications */}
+                {chatNotifications.length > 0 && (
+                  <div className="py-2 border-t border-gray-100">
+                    <div className="px-4 py-1">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Group Chat Messages
+                      </p>
+                    </div>
+                    {chatNotifications.map((notification) => (
+                      <button
+                        key={notification.id}
+                        onClick={() => handleChatNotificationClick(notification)}
+                        disabled={processing === notification.id}
+                        className="w-full px-4 py-2 hover:bg-gray-50 transition-colors text-left"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-full bg-[#A8C5A8]/20 flex items-center justify-center flex-shrink-0">
+                            {notification.chatType === 'trip' ? (
+                              <Plane className="w-4 h-4 text-[#A8C5A8]" />
+                            ) : (
+                              <Calendar className="w-4 h-4 text-[#A8C5A8]" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1">
+                              <span className="text-sm font-medium truncate">{notification.chatTitle}</span>
+                              {notification.messageCount > 1 && (
+                                <span className="text-xs bg-[#D4A5A5] text-white px-1.5 py-0.5 rounded-full">
+                                  {notification.messageCount}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-600 truncate">
+                              <span className="font-medium">{notification.senderName}:</span> {notification.messagePreview}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {formatDistanceToNow(new Date(notification.updatedAt), { addSuffix: true })}
+                            </p>
+                          </div>
+                          {processing === notification.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                          )}
+                        </div>
+                      </button>
                     ))}
                   </div>
                 )}

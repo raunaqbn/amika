@@ -274,6 +274,22 @@ export function TripChat({
     setTimeout(() => textareaRef.current?.focus(), 0);
   };
 
+  // Mark chat notifications as read when component mounts
+  useEffect(() => {
+    const markNotificationsRead = async () => {
+      try {
+        await fetch('/api/chat-notifications', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatType: 'trip', chatId: tripId }),
+        });
+      } catch (err) {
+        // Silently fail - not critical
+      }
+    };
+    markNotificationsRead();
+  }, [tripId]);
+
   useEffect(() => {
     // Only scroll when a NEW message is actually added, not on every render
     // This prevents scrolling when polls are updated (which refreshes data but doesn't add messages)

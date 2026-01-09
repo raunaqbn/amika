@@ -365,6 +365,22 @@ export type EventPlanGoalProgress = {
   completedAt: Date | null;
 };
 
+// Chat notification type for group chat messages
+export type ChatNotification = {
+  id: string;
+  recipientUserId: string;
+  senderUserId: string;
+  senderName: string;
+  chatType: 'event_plan' | 'trip';
+  chatId: string;
+  chatTitle: string;
+  messagePreview: string;
+  messageCount: number;
+  isRead: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 let clientInstance: Client | null = null;
 let tablesInitialized = false;
 let joinTokenColumnChecked = false;
@@ -1170,6 +1186,27 @@ async function ensureTablesExist() {
         lastSeen TEXT NOT NULL,
         FOREIGN KEY (eventPlanId) REFERENCES event_plan_sessions(id) ON DELETE CASCADE,
         UNIQUE (eventPlanId, userId)
+      )
+    `);
+
+    // Chat notifications for group chats (event plans and trips)
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS chat_notifications (
+        id TEXT PRIMARY KEY,
+        recipientUserId TEXT NOT NULL,
+        senderUserId TEXT NOT NULL,
+        senderName TEXT NOT NULL,
+        chatType TEXT NOT NULL,
+        chatId TEXT NOT NULL,
+        chatTitle TEXT NOT NULL,
+        messagePreview TEXT NOT NULL,
+        messageCount INTEGER DEFAULT 1,
+        isRead INTEGER DEFAULT 0,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (recipientUserId) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (senderUserId) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE (recipientUserId, chatType, chatId)
       )
     `);
 
@@ -3701,7 +3738,7 @@ export const prisma = {
     },
 
     // Get pending count for a user
-    getPendingCount: async (userId: string): Promise<{ connectionRequests: number; sharedItems: number }> => {
+    getPendingCount: async (userId: string): Promise<{ connectionRequests: number; sharedItems: number; chatNotifications: number }> => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -3715,9 +3752,15 @@ export const prisma = {
         args: [userId],
       });
 
+      const chatResult = await client.execute({
+        sql: `SELECT COUNT(*) as count FROM chat_notifications WHERE recipientUserId = ? AND isRead = 0`,
+        args: [userId],
+      });
+
       return {
         connectionRequests: Number(connectionsResult.rows[0]?.count || 0),
         sharedItems: Number(sharedResult.rows[0]?.count || 0),
+        chatNotifications: Number(chatResult.rows[0]?.count || 0),
       };
     },
   },
@@ -8177,6 +8220,152 @@ export const prisma = {
       await client.execute({
         sql: 'DELETE FROM event_plan_presence WHERE lastSeen < ?',
         args: [oneMinuteAgo],
+      });
+    },
+  },
+
+  // Chat Notifications
+  chatNotification: {
+    // Create or update a chat notification for a recipient
+    createOrUpdate: async (data: {
+      recipientUserId: string;
+      senderUserId: string;
+      senderName: string;
+      chatType: 'event_plan' | 'trip';
+      chatId: string;
+      chatTitle: string;
+      messagePreview: string;
+    }): Promise<ChatNotification> => {
+      await ensureTablesExist();
+      const client = getClient();
+      const now = new Date().toISOString();
+
+      // Try to update existing notification first (increment count)
+      const existing = await client.execute({
+        sql: `SELECT * FROM chat_notifications
+              WHERE recipientUserId = ? AND chatType = ? AND chatId = ? AND isRead = 0`,
+        args: [data.recipientUserId, data.chatType, data.chatId],
+      });
+
+      if (existing.rows.length > 0) {
+        const row = existing.rows[0];
+        const newCount = (Number(row.messageCount) || 1) + 1;
+
+        await client.execute({
+          sql: `UPDATE chat_notifications
+                SET senderUserId = ?, senderName = ?, messagePreview = ?, messageCount = ?, updatedAt = ?
+                WHERE id = ?`,
+          args: [data.senderUserId, data.senderName, data.messagePreview, newCount, now, row.id],
+        });
+
+        return {
+          id: row.id as string,
+          recipientUserId: row.recipientUserId as string,
+          senderUserId: data.senderUserId,
+          senderName: data.senderName,
+          chatType: row.chatType as 'event_plan' | 'trip',
+          chatId: row.chatId as string,
+          chatTitle: row.chatTitle as string,
+          messagePreview: data.messagePreview,
+          messageCount: newCount,
+          isRead: false,
+          createdAt: new Date(row.createdAt as string),
+          updatedAt: new Date(now),
+        };
+      }
+
+      // Create new notification
+      const id = randomUUID();
+      await client.execute({
+        sql: `INSERT INTO chat_notifications (id, recipientUserId, senderUserId, senderName, chatType, chatId, chatTitle, messagePreview, messageCount, isRead, createdAt, updatedAt)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?)`,
+        args: [id, data.recipientUserId, data.senderUserId, data.senderName, data.chatType, data.chatId, data.chatTitle, data.messagePreview, now, now],
+      });
+
+      return {
+        id,
+        recipientUserId: data.recipientUserId,
+        senderUserId: data.senderUserId,
+        senderName: data.senderName,
+        chatType: data.chatType,
+        chatId: data.chatId,
+        chatTitle: data.chatTitle,
+        messagePreview: data.messagePreview,
+        messageCount: 1,
+        isRead: false,
+        createdAt: new Date(now),
+        updatedAt: new Date(now),
+      };
+    },
+
+    // Get unread chat notifications for a user
+    findMany: async (userId: string, options?: { unreadOnly?: boolean }): Promise<ChatNotification[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      let sql = 'SELECT * FROM chat_notifications WHERE recipientUserId = ?';
+      const args: any[] = [userId];
+
+      if (options?.unreadOnly) {
+        sql += ' AND isRead = 0';
+      }
+
+      sql += ' ORDER BY updatedAt DESC';
+
+      const result = await client.execute({ sql, args });
+
+      return result.rows.map((row: any) => ({
+        id: row.id as string,
+        recipientUserId: row.recipientUserId as string,
+        senderUserId: row.senderUserId as string,
+        senderName: row.senderName as string,
+        chatType: row.chatType as 'event_plan' | 'trip',
+        chatId: row.chatId as string,
+        chatTitle: row.chatTitle as string,
+        messagePreview: row.messagePreview as string,
+        messageCount: Number(row.messageCount) || 1,
+        isRead: row.isRead === 1,
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: new Date(row.updatedAt as string),
+      }));
+    },
+
+    // Mark notifications as read for a specific chat
+    markAsRead: async (userId: string, chatType: 'event_plan' | 'trip', chatId: string): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      await client.execute({
+        sql: `UPDATE chat_notifications SET isRead = 1, updatedAt = ?
+              WHERE recipientUserId = ? AND chatType = ? AND chatId = ?`,
+        args: [new Date().toISOString(), userId, chatType, chatId],
+      });
+    },
+
+    // Get unread count for a user
+    getUnreadCount: async (userId: string): Promise<number> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: `SELECT COUNT(*) as count FROM chat_notifications WHERE recipientUserId = ? AND isRead = 0`,
+        args: [userId],
+      });
+
+      return Number(result.rows[0]?.count || 0);
+    },
+
+    // Delete old read notifications (cleanup)
+    cleanup: async (): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Delete read notifications older than 7 days
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      await client.execute({
+        sql: 'DELETE FROM chat_notifications WHERE isRead = 1 AND updatedAt < ?',
+        args: [sevenDaysAgo],
       });
     },
   },
