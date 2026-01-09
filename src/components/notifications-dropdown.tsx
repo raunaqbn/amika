@@ -216,7 +216,7 @@ export function NotificationsDropdown({ pendingCount, onCountChange }: Notificat
       // Navigate to the chat
       setIsOpen(false);
       if (notification.chatType === 'event_plan') {
-        router.push(`/events/plan/${notification.chatId}`);
+        router.push(`/event-plans/${notification.chatId}`);
       } else {
         router.push(`/trips/${notification.chatId}`);
       }

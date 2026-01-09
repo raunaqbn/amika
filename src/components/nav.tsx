@@ -30,7 +30,7 @@ export function Nav() {
   const { playNotificationSound } = useNotificationSound();
 
   // Check if user is currently on a chat page (event plan or trip)
-  const isOnChatPage = pathname?.startsWith('/events/plan/') || pathname?.startsWith('/trips/');
+  const isOnChatPage = pathname?.startsWith('/event-plans/') || pathname?.startsWith('/trips/');
 
   const fetchPendingCount = useCallback(async () => {
     try {
