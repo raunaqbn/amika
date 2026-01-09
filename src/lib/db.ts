@@ -1030,6 +1030,138 @@ async function ensureTablesExist() {
       )
     `);
 
+    // Event planning tables
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS event_plan_sessions (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        status TEXT DEFAULT 'planning',
+        eventDate TEXT,
+        eventTime TEXT,
+        selectedEventId TEXT,
+        shareToken TEXT UNIQUE,
+        joinToken TEXT UNIQUE,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS event_plan_collaborators (
+        id TEXT PRIMARY KEY,
+        eventPlanId TEXT NOT NULL,
+        friendId TEXT NOT NULL,
+        userId TEXT,
+        role TEXT DEFAULT 'collaborator',
+        joinedAt TEXT NOT NULL,
+        FOREIGN KEY (eventPlanId) REFERENCES event_plan_sessions(id) ON DELETE CASCADE,
+        FOREIGN KEY (friendId) REFERENCES friends(id) ON DELETE CASCADE,
+        UNIQUE (eventPlanId, friendId)
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS event_plan_candidates (
+        id TEXT PRIMARY KEY,
+        eventPlanId TEXT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        location TEXT,
+        category TEXT,
+        externalUrl TEXT,
+        imageUrl TEXT,
+        eventDate TEXT,
+        eventTime TEXT,
+        estimatedCost REAL,
+        notes TEXT,
+        "order" INTEGER DEFAULT 0,
+        createdById TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (eventPlanId) REFERENCES event_plan_sessions(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS event_plan_messages (
+        id TEXT PRIMARY KEY,
+        eventPlanId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        friendId TEXT,
+        context TEXT DEFAULT 'general',
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (eventPlanId) REFERENCES event_plan_sessions(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS event_plan_polls (
+        id TEXT PRIMARY KEY,
+        eventPlanId TEXT NOT NULL,
+        context TEXT NOT NULL,
+        question TEXT NOT NULL,
+        status TEXT DEFAULT 'active',
+        createdById TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        closedAt TEXT,
+        FOREIGN KEY (eventPlanId) REFERENCES event_plan_sessions(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS event_plan_poll_options (
+        id TEXT PRIMARY KEY,
+        pollId TEXT NOT NULL,
+        label TEXT NOT NULL,
+        url TEXT,
+        "order" INTEGER DEFAULT 0,
+        FOREIGN KEY (pollId) REFERENCES event_plan_polls(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS event_plan_poll_votes (
+        id TEXT PRIMARY KEY,
+        optionId TEXT NOT NULL,
+        visitorId TEXT,
+        friendId TEXT,
+        votedAt TEXT NOT NULL,
+        FOREIGN KEY (optionId) REFERENCES event_plan_poll_options(id) ON DELETE CASCADE,
+        UNIQUE (optionId, visitorId),
+        UNIQUE (optionId, friendId)
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS event_plan_goal_progress (
+        id TEXT PRIMARY KEY,
+        eventPlanId TEXT NOT NULL,
+        goalType TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        completedAt TEXT,
+        FOREIGN KEY (eventPlanId) REFERENCES event_plan_sessions(id) ON DELETE CASCADE,
+        UNIQUE (eventPlanId, goalType)
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS event_plan_presence (
+        id TEXT PRIMARY KEY,
+        eventPlanId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        context TEXT DEFAULT 'general',
+        isTyping INTEGER DEFAULT 0,
+        lastSeen TEXT NOT NULL,
+        FOREIGN KEY (eventPlanId) REFERENCES event_plan_sessions(id) ON DELETE CASCADE,
+        UNIQUE (eventPlanId, userId)
+      )
+    `);
+
     tablesInitialized = true;
   } catch (error) {
     console.error('Error initializing tables:', error);
