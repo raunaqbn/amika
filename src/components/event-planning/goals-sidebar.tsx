@@ -126,8 +126,8 @@ export function GoalsSidebar({
                 )}
               </div>
               {collab.role === 'owner' && (
-                <span className="text-xs bg-[#A8C5A8]/20 text-[#A8C5A8] px-2 py-0.5 rounded">
-                  Owner
+                <span className="text-xs text-muted-foreground">
+                  (Event Organizer)
                 </span>
               )}
             </div>

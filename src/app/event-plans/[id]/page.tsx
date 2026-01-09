@@ -37,6 +37,8 @@ import {
 interface EventPlan {
   id: string;
   userId: string;
+  ownerName: string | null;
+  ownerProfileImage: string | null;
   title: string;
   description: string | null;
   status: string;
@@ -420,6 +422,8 @@ export default function EventPlanningPage() {
               }}
               collaborators={eventPlan.collaborators}
               eventPlanOwnerId={eventPlan.userId}
+              eventPlanOwnerName={eventPlan.ownerName || undefined}
+              eventPlanOwnerImage={eventPlan.ownerProfileImage}
               onNewMessage={handleNewMessage}
               typingUsers={typingUsers}
               activeUsers={activeUsers}

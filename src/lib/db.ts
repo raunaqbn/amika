@@ -6570,10 +6570,11 @@ export const prisma = {
       await ensureTablesExist();
       const client = getClient();
 
-      // Verify user has access
+      // Verify user has access and get owner info
       const accessCheck = await client.execute({
-        sql: `SELECT eps.* FROM event_plan_sessions eps
+        sql: `SELECT eps.*, u.name as ownerName, u.profileImage as ownerProfileImage FROM event_plan_sessions eps
               LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              LEFT JOIN users u ON eps.userId = u.id
               WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
         args: [id, userId, userId],
       });
@@ -6660,6 +6661,8 @@ export const prisma = {
       return {
         id: row.id as string,
         userId: row.userId as string,
+        ownerName: row.ownerName as string | null,
+        ownerProfileImage: row.ownerProfileImage as string | null,
         title: row.title as string,
         description: row.description as string | null,
         status: row.status as EventPlanSession['status'],

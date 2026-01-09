@@ -61,6 +61,8 @@ interface EventPlanChatProps {
   currentUser: CurrentUser;
   collaborators: Collaborator[];
   eventPlanOwnerId: string;
+  eventPlanOwnerName?: string;
+  eventPlanOwnerImage?: string | null;
   onNewMessage?: (message: Message) => void;
   typingUsers?: TypingUser[];
   activeUsers?: ActiveUser[];
@@ -368,6 +370,8 @@ export function EventPlanChat({
   currentUser,
   collaborators,
   eventPlanOwnerId,
+  eventPlanOwnerName,
+  eventPlanOwnerImage,
   onNewMessage,
   typingUsers = [],
   activeUsers = [],
@@ -533,8 +537,8 @@ export function EventPlanChat({
     if (msg.userId === eventPlanOwnerId && eventPlanOwnerId !== currentUser.id) {
       const ownerCollab = collaborators.find(c => c.linkedUserId === eventPlanOwnerId || c.userId === eventPlanOwnerId);
       return {
-        name: ownerCollab?.friendName || 'Event Organizer',
-        image: ownerCollab?.profileImage || null,
+        name: ownerCollab?.friendName || eventPlanOwnerName || 'Event Organizer',
+        image: ownerCollab?.profileImage || eventPlanOwnerImage || null,
         isCurrentUser: false,
         isAssistant: false,
       };
