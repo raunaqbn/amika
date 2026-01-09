@@ -143,7 +143,7 @@ function HighlightMentions({ text, isUser, friendNames }: { text: string; isUser
               key={index}
               className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md font-medium ${
                 isUser
-                  ? 'bg-white/30 text-white'
+                  ? 'bg-[#1877F2]/20 text-[#1877F2]'
                   : 'bg-[#A8C5A8]/20 text-[#A8C5A8]'
               }`}
             >
