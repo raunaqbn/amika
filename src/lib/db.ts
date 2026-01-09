@@ -6529,7 +6529,7 @@ export const prisma = {
 
       // Get collaborators
       const colResult = await client.execute({
-        sql: `SELECT epc.*, f.name as friendName, f.profileImage, f.customProfileImage, f.linkedUserId
+        sql: `SELECT epc.*, f.name as friendName, f.profileImage, f.customProfileImage, f.linkedUserId, f.interests
               FROM event_plan_collaborators epc
               JOIN friends f ON epc.friendId = f.id
               WHERE epc.eventPlanId = ?`,
@@ -6619,6 +6619,7 @@ export const prisma = {
           friendName: c.friendName,
           profileImage: c.customProfileImage || c.profileImage,
           linkedUserId: c.linkedUserId,
+          interests: c.interests,
         })),
         candidates: candidatesResult.rows.map((c: any) => ({
           id: c.id,
