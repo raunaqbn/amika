@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/migrate-db.js && next build",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate && node scripts/patch-google-usage.js",
     "predev": "node scripts/patch-google-usage.js",
     "prebuild": "node scripts/patch-google-usage.js",
-    "prestart": "node scripts/patch-google-usage.js"
+    "prestart": "node scripts/patch-google-usage.js",
+    "migrate": "node scripts/migrate-db.js"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.2",
