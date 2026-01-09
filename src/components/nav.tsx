@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Users, BookOpen, User, LogIn, Eye, Upload, CalendarDays, Heart, Plane } from 'lucide-react';
+import { NotificationsDropdown, NotificationsBellMobile } from '@/components/notifications-dropdown';
 import { useAuth } from '@/lib/auth-context';
 import {
   Dialog,
@@ -120,7 +121,6 @@ export function Nav() {
           <div className="flex items-center gap-1">
             {links.map(({ href, icon: Icon, label }) => {
               const isActive = pathname === href;
-              const showBadge = href === '/' && pendingCount > 0;
               return (
                 <Link
                   key={href}
@@ -133,22 +133,25 @@ export function Nav() {
                 >
                   <Icon className="w-5 h-5" />
                   <span className="text-sm font-medium">{label}</span>
-                  {showBadge && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#D4A5A5] text-white text-xs rounded-full flex items-center justify-center">
-                      {pendingCount > 9 ? '9+' : pendingCount}
-                    </span>
-                  )}
                 </Link>
               );
             })}
           </div>
 
-          {/* Right side - User menu */}
-          <div className="w-32 flex justify-end">
+          {/* Right side - Notifications & User menu */}
+          <div className="flex items-center gap-2 justify-end">
             {loading ? (
               <div className="w-8 h-8 rounded-full bg-gray-100 animate-pulse" />
             ) : user ? (
-              <div className="relative" ref={dropdownRef}>
+              <>
+                {/* Notifications Dropdown */}
+                <NotificationsDropdown
+                  pendingCount={pendingCount}
+                  onCountChange={fetchPendingCount}
+                />
+
+                {/* Profile Menu */}
+                <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setShowDropdown(!showDropdown)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
@@ -213,6 +216,7 @@ export function Nav() {
                   className="hidden"
                 />
               </div>
+              </>
             ) : (
               <Link
                 href="/signin"
@@ -231,7 +235,6 @@ export function Nav() {
         <div className="max-w-lg mx-auto flex justify-around items-center h-16">
           {links.map(({ href, icon: Icon, label }) => {
             const isActive = pathname === href;
-            const showBadge = href === '/' && pendingCount > 0;
             return (
               <Link
                 key={href}
@@ -244,14 +247,13 @@ export function Nav() {
               >
                 <Icon className="w-6 h-6" />
                 <span className="text-xs mt-1">{label}</span>
-                {showBadge && (
-                  <span className="absolute top-1 right-1/4 w-4 h-4 bg-[#D4A5A5] text-white text-[10px] rounded-full flex items-center justify-center">
-                    {pendingCount > 9 ? '9+' : pendingCount}
-                  </span>
-                )}
               </Link>
             );
           })}
+          {/* Notifications bell for mobile */}
+          {user && (
+            <NotificationsBellMobile pendingCount={pendingCount} />
+          )}
           {/* Profile/Sign in on mobile */}
           {loading ? (
             <div className="flex flex-col items-center justify-center flex-1 h-full">
