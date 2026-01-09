@@ -6562,6 +6562,8 @@ export const prisma = {
     },
 
     findById: async (id: string, userId: string): Promise<(EventPlanSession & {
+      ownerName: string | null;
+      ownerProfileImage: string | null;
       collaborators: any[];
       candidates: any[];
       polls: any[];
