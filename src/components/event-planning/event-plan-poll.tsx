@@ -14,6 +14,8 @@ interface PollVote {
   visitorId: string | null;
   friendId: string | null;
   votedAt: Date;
+  voterName?: string;
+  voterProfileImage?: string;
 }
 
 interface PollOption {
@@ -60,41 +62,66 @@ export function EventPlanPollComponent({
   const [closing, setClosing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [optimisticVoteOptionId, setOptimisticVoteOptionId] = useState<string | null>(null);
+  // Track optimistic votes: Map of optionId -> true (voted) or false (unvoted)
+  const [optimisticVotes, setOptimisticVotes] = useState<Map<string, boolean>>(new Map());
 
   const totalVotes = poll.options?.reduce(
     (sum, opt) => sum + (opt.votes?.length || 0),
     0
   ) || 0;
 
-  const serverVotedOptionId = poll.options?.find((opt) =>
-    opt.votes?.some((v) => v.visitorId === currentUserId)
-  )?.id;
+  // Get all option IDs the user voted for from server state
+  const serverVotedOptionIds = new Set(
+    poll.options
+      ?.filter((opt) => opt.votes?.some((v) => v.visitorId === currentUserId))
+      .map((opt) => opt.id) || []
+  );
 
-  const userVotedOptionId = optimisticVoteOptionId !== null
-    ? (optimisticVoteOptionId || undefined)
-    : serverVotedOptionId;
+  // Compute effective voted options: apply optimistic updates to server state
+  const userVotedOptionIds = new Set(serverVotedOptionIds);
+  optimisticVotes.forEach((voted, optionId) => {
+    if (voted) {
+      userVotedOptionIds.add(optionId);
+    } else {
+      userVotedOptionIds.delete(optionId);
+    }
+  });
 
+  // Reset optimistic state when server data catches up
   useEffect(() => {
-    if (optimisticVoteOptionId !== null) {
-      if (optimisticVoteOptionId && serverVotedOptionId === optimisticVoteOptionId) {
-        setOptimisticVoteOptionId(null);
-      }
-      if (optimisticVoteOptionId === '' && !serverVotedOptionId) {
-        setOptimisticVoteOptionId(null);
+    if (optimisticVotes.size > 0) {
+      const newOptimistic = new Map(optimisticVotes);
+      let changed = false;
+      optimisticVotes.forEach((voted, optionId) => {
+        const serverHasVote = serverVotedOptionIds.has(optionId);
+        if (voted === serverHasVote) {
+          newOptimistic.delete(optionId);
+          changed = true;
+        }
+      });
+      if (changed) {
+        setOptimisticVotes(newOptimistic);
       }
     }
-  }, [optimisticVoteOptionId, serverVotedOptionId]);
+  }, [optimisticVotes, serverVotedOptionIds]);
 
   const handleVote = async (optionId: string) => {
     if (poll.status !== 'active' || voting) return;
 
-    const isUnvoting = optionId === userVotedOptionId;
-    setOptimisticVoteOptionId(isUnvoting ? '' : optionId);
+    // Check if user is clicking on already voted option (toggle off)
+    const isUnvoting = userVotedOptionIds.has(optionId);
+
+    // Optimistically update the UI immediately
+    setOptimisticVotes((prev) => {
+      const next = new Map(prev);
+      next.set(optionId, !isUnvoting);
+      return next;
+    });
     setVoting(true);
 
     try {
       if (isUnvoting) {
+        // Remove the vote
         const response = await fetch(
           `/api/event-plans/${eventPlanId}/polls/${poll.id}/vote?optionId=${optionId}`,
           {
@@ -105,9 +132,15 @@ export function EventPlanPollComponent({
         if (response.ok) {
           onVote?.();
         } else {
-          setOptimisticVoteOptionId(null);
+          // Revert optimistic update on failure
+          setOptimisticVotes((prev) => {
+            const next = new Map(prev);
+            next.delete(optionId);
+            return next;
+          });
         }
       } else {
+        // Cast a vote
         const response = await fetch(
           `/api/event-plans/${eventPlanId}/polls/${poll.id}/vote`,
           {
@@ -120,12 +153,22 @@ export function EventPlanPollComponent({
         if (response.ok) {
           onVote?.();
         } else {
-          setOptimisticVoteOptionId(null);
+          // Revert optimistic update on failure
+          setOptimisticVotes((prev) => {
+            const next = new Map(prev);
+            next.delete(optionId);
+            return next;
+          });
         }
       }
     } catch (error) {
       console.error('Error voting:', error);
-      setOptimisticVoteOptionId(null);
+      // Revert optimistic update on error
+      setOptimisticVotes((prev) => {
+        const next = new Map(prev);
+        next.delete(optionId);
+        return next;
+      });
     } finally {
       setVoting(false);
     }
@@ -232,7 +275,7 @@ export function EventPlanPollComponent({
         {poll.options?.map((option) => {
           const voteCount = option.votes?.length || 0;
           const percentage = totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0;
-          const isVoted = option.id === userVotedOptionId;
+          const isVoted = userVotedOptionIds.has(option.id);
 
           return (
             <button
@@ -270,11 +313,15 @@ export function EventPlanPollComponent({
                   <span className="text-sm text-muted-foreground">
                     {voteCount} ({Math.round(percentage)}%)
                   </span>
+                  {/* Mini voter avatars with profile pictures */}
                   <div className="flex -space-x-1">
                     {option.votes?.slice(0, 3).map((vote) => (
-                      <Avatar key={vote.id} className="h-5 w-5 border border-white">
+                      <Avatar key={vote.id} className="h-5 w-5 border border-white" title={vote.voterName || 'Voter'}>
+                        {vote.voterProfileImage && (
+                          <AvatarImage src={vote.voterProfileImage} alt={vote.voterName || 'Voter'} />
+                        )}
                         <AvatarFallback className="bg-[#D4A5A5] text-white text-[10px]">
-                          ?
+                          {vote.voterName ? vote.voterName.charAt(0).toUpperCase() : '?'}
                         </AvatarFallback>
                       </Avatar>
                     ))}
