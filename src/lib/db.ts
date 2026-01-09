@@ -3443,6 +3443,20 @@ export const prisma = {
       return { success: true };
     },
 
+    // Reject all pending received friend requests for a user
+    rejectAllPending: async (userId: string): Promise<{ count: number }> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Update all pending requests where this user is the addressee to rejected
+      const result = await client.execute({
+        sql: `UPDATE user_connections SET status = 'rejected' WHERE addresseeId = ? AND status = 'pending'`,
+        args: [userId],
+      });
+
+      return { count: result.rowsAffected };
+    },
+
     // Check if two users are connected
     areConnected: async (userId1: string, userId2: string): Promise<boolean> => {
       await ensureTablesExist();
@@ -3735,6 +3749,20 @@ export const prisma = {
       });
 
       return { success: true };
+    },
+
+    // Reject all pending shared items for a user
+    rejectAllPending: async (userId: string): Promise<{ count: number }> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Update all pending shared items where this user is the recipient to rejected
+      const result = await client.execute({
+        sql: `UPDATE shared_items SET status = 'rejected' WHERE sharedWithUserId = ? AND status = 'pending'`,
+        args: [userId],
+      });
+
+      return { count: result.rowsAffected };
     },
 
     // Get pending count for a user
@@ -8411,6 +8439,18 @@ export const prisma = {
         sql: `UPDATE chat_notifications SET isRead = 1, updatedAt = ?
               WHERE recipientUserId = ? AND chatType = ? AND chatId = ?`,
         args: [new Date().toISOString(), userId, chatType, chatId],
+      });
+    },
+
+    // Mark all notifications as read for a user
+    markAllAsRead: async (userId: string): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      await client.execute({
+        sql: `UPDATE chat_notifications SET isRead = 1, updatedAt = ?
+              WHERE recipientUserId = ? AND isRead = 0`,
+        args: [new Date().toISOString(), userId],
       });
     },
 

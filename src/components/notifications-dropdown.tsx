@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, UserPlus, Share2, FileText, Calendar, Image as ImageIcon, Plane, Check, X, Loader2, ChevronRight, MessageCircle } from 'lucide-react';
+import { Bell, UserPlus, Share2, FileText, Calendar, Image as ImageIcon, Plane, Check, X, Loader2, ChevronRight, MessageCircle, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -74,6 +74,7 @@ export function NotificationsDropdown({ pendingCount, onCountChange }: Notificat
   const [chatNotifications, setChatNotifications] = useState<ChatNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -227,6 +228,27 @@ export function NotificationsDropdown({ pendingCount, onCountChange }: Notificat
     }
   };
 
+  const handleClearAll = async () => {
+    setClearing(true);
+    try {
+      const response = await fetch('/api/clear-notifications', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        // Clear all local state
+        setFriendRequests([]);
+        setSharedItems([]);
+        setChatNotifications([]);
+        onCountChange?.();
+      }
+    } catch (err) {
+      console.error('Error clearing notifications:', err);
+    } finally {
+      setClearing(false);
+    }
+  };
+
   const hasNotifications = friendRequests.length > 0 || sharedItems.length > 0 || chatNotifications.length > 0;
 
   return (
@@ -251,8 +273,23 @@ export function NotificationsDropdown({ pendingCount, onCountChange }: Notificat
       {isOpen && (
         <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-100">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <h3 className="font-semibold text-gray-900">Notifications</h3>
+            {hasNotifications && !loading && (
+              <button
+                onClick={handleClearAll}
+                disabled={clearing}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#D4A5A5] transition-colors disabled:opacity-50"
+                title="Clear all notifications"
+              >
+                {clearing ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3 h-3" />
+                )}
+                <span>Clear all</span>
+              </button>
+            )}
           </div>
 
           {/* Content */}
