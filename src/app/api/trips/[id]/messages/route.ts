@@ -54,6 +54,23 @@ async function buildTaggedFriendsContext(userId: string, friendIds: string[]): P
     const taggedFriends = friends.filter((f: { id: string }) => friendIds.includes(f.id));
     if (taggedFriends.length === 0) return '';
 
+    // For Amika friends (those with linkedUserId), fetch their actual user interests
+    const amikaFriendUserIds = taggedFriends
+      .filter((f: any) => f.linkedUserId)
+      .map((f: any) => f.linkedUserId as string);
+
+    const amikaUserInterests: Record<string, string[]> = {};
+    for (const linkedUserId of amikaFriendUserIds) {
+      try {
+        const linkedUser = await prisma.user.findById(linkedUserId);
+        if (linkedUser?.interests) {
+          amikaUserInterests[linkedUserId] = parseInterests(linkedUser.interests);
+        }
+      } catch {
+        // Skip if user not found
+      }
+    }
+
     let context = '\n\n## Tagged Friends\nThe user has tagged these friends. Consider their profiles for personalized suggestions:\n';
 
     for (const friend of taggedFriends as any[]) {
@@ -61,11 +78,17 @@ async function buildTaggedFriendsContext(userId: string, friendIds: string[]): P
       if (friend.notes) {
         context += `- Notes: ${friend.notes}\n`;
       }
-      if (friend.interests) {
-        const interestsList = parseInterests(friend.interests as string);
-        if (interestsList.length > 0) {
-          context += `- Interests: ${formatInterestsForAI(interestsList)}\n`;
-        }
+      // For Amika friends, use their actual User.interests; otherwise use Friend.interests
+      let interestsList: string[] = [];
+      if (friend.linkedUserId && amikaUserInterests[friend.linkedUserId]) {
+        // Use the Amika user's actual interests
+        interestsList = amikaUserInterests[friend.linkedUserId];
+      } else if (friend.interests) {
+        // Fall back to Friend.interests (notes about the friend)
+        interestsList = parseInterests(friend.interests as string);
+      }
+      if (interestsList.length > 0) {
+        context += `- Interests: ${formatInterestsForAI(interestsList)}\n`;
       }
       if (friend.memories && friend.memories.length > 0) {
         context += `- Recent memories:\n`;
@@ -121,9 +144,32 @@ export async function POST(
         return NextResponse.json({ userMessage });
       }
 
+      // For Amika collaborators (those with linkedUserId), fetch their actual user interests
+      const amikaCollaboratorUserIds = trip.collaborators
+        .filter((c: any) => c.linkedUserId)
+        .map((c: any) => c.linkedUserId as string);
+
+      const amikaUserInterests: Record<string, string[]> = {};
+      for (const linkedUserId of amikaCollaboratorUserIds) {
+        try {
+          const linkedUser = await prisma.user.findById(linkedUserId);
+          if (linkedUser?.interests) {
+            amikaUserInterests[linkedUserId] = parseInterests(linkedUser.interests);
+          }
+        } catch {
+          // Skip if user not found
+        }
+      }
+
       // Build AI context with collaborator interests
       const collaboratorDetails = trip.collaborators.map((c: any) => {
-        const interests = parseInterests(c.interests);
+        // For Amika collaborators, use their actual User.interests; otherwise use Friend.interests
+        let interests: string[] = [];
+        if (c.linkedUserId && amikaUserInterests[c.linkedUserId]) {
+          interests = amikaUserInterests[c.linkedUserId];
+        } else {
+          interests = parseInterests(c.interests);
+        }
         const interestsText = interests.length > 0
           ? formatInterestsForAI(interests)
           : 'no specific interests listed';

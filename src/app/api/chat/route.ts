@@ -765,6 +765,23 @@ async function buildContextualPrompt(userId: string): Promise<string> {
     // Fetch diary notes for this user
     const diaryNotes = await prisma.diaryNote.findMany({ userId });
 
+    // For Amika friends (those with linkedUserId), fetch their actual user interests
+    const amikaFriendUserIds = friends
+      .filter((f: any) => f.linkedUserId)
+      .map((f: any) => f.linkedUserId as string);
+
+    const amikaUserInterests: Record<string, string[]> = {};
+    for (const linkedUserId of amikaFriendUserIds) {
+      try {
+        const linkedUser = await prisma.user.findById(linkedUserId);
+        if (linkedUser?.interests) {
+          amikaUserInterests[linkedUserId] = parseInterests(linkedUser.interests);
+        }
+      } catch {
+        // Skip if user not found
+      }
+    }
+
     // Build context string
     let contextPrompt = '\n\n---CONTEXTUAL INFORMATION---\n';
 
@@ -785,11 +802,18 @@ async function buildContextualPrompt(userId: string): Promise<string> {
           contextPrompt += `- Notes: ${friend.notes}\n`;
         }
         // Include interests for activity suggestions
-        if ('interests' in friend && friend.interests) {
-          const interestsList = parseInterests(friend.interests as string);
-          if (interestsList.length > 0) {
-            contextPrompt += `- Interests: ${formatInterestsForAI(interestsList)}\n`;
-          }
+        // For Amika friends, use their actual User.interests; otherwise use Friend.interests
+        const friendAny = friend as any;
+        let interestsList: string[] = [];
+        if (friendAny.linkedUserId && amikaUserInterests[friendAny.linkedUserId]) {
+          // Use the Amika user's actual interests
+          interestsList = amikaUserInterests[friendAny.linkedUserId];
+        } else if ('interests' in friend && friend.interests) {
+          // Fall back to Friend.interests (notes about the friend)
+          interestsList = parseInterests(friend.interests as string);
+        }
+        if (interestsList.length > 0) {
+          contextPrompt += `- Interests: ${formatInterestsForAI(interestsList)}\n`;
         }
 
         if ('memories' in friend && Array.isArray(friend.memories) && friend.memories.length > 0) {
@@ -838,6 +862,23 @@ async function buildTaggedFriendsContext(userId: string, friendIds: string[]): P
     const taggedFriends = friends.filter((f: { id: string }) => friendIds.includes(f.id));
     if (taggedFriends.length === 0) return '';
 
+    // For Amika friends (those with linkedUserId), fetch their actual user interests
+    const amikaFriendUserIds = taggedFriends
+      .filter((f: any) => f.linkedUserId)
+      .map((f: any) => f.linkedUserId as string);
+
+    const amikaUserInterests: Record<string, string[]> = {};
+    for (const linkedUserId of amikaFriendUserIds) {
+      try {
+        const linkedUser = await prisma.user.findById(linkedUserId);
+        if (linkedUser?.interests) {
+          amikaUserInterests[linkedUserId] = parseInterests(linkedUser.interests);
+        }
+      } catch {
+        // Skip if user not found
+      }
+    }
+
     let context = '\n\n---TAGGED FRIENDS CONTEXT---\n';
     context += 'The user has tagged the following friends in their message. Use their profiles to provide personalized suggestions:\n';
 
@@ -852,11 +893,17 @@ async function buildTaggedFriendsContext(userId: string, friendIds: string[]): P
       if (friend.notes) {
         context += `- Notes: ${friend.notes}\n`;
       }
-      if (friend.interests) {
-        const interestsList = parseInterests(friend.interests as string);
-        if (interestsList.length > 0) {
-          context += `- Interests: ${formatInterestsForAI(interestsList)}\n`;
-        }
+      // For Amika friends, use their actual User.interests; otherwise use Friend.interests
+      let interestsList: string[] = [];
+      if (friend.linkedUserId && amikaUserInterests[friend.linkedUserId]) {
+        // Use the Amika user's actual interests
+        interestsList = amikaUserInterests[friend.linkedUserId];
+      } else if (friend.interests) {
+        // Fall back to Friend.interests (notes about the friend)
+        interestsList = parseInterests(friend.interests as string);
+      }
+      if (interestsList.length > 0) {
+        context += `- Interests: ${formatInterestsForAI(interestsList)}\n`;
       }
       if (friend.lastContact) {
         context += `- Last contact: ${formatDistanceToNow(friend.lastContact, { addSuffix: true })}\n`;
