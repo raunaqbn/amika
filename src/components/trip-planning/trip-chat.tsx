@@ -217,15 +217,19 @@ export function TripChat({
   const [mentionPosition, setMentionPosition] = useState(0);
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
 
-  // Get all mentionable names (collaborators + friends)
+  // Get all mentionable names (collaborators + friends + trip owner)
   const allMentionableNames = useMemo(() => {
     const names = new Set<string>();
     // Add collaborator names
     collaborators.forEach(c => names.add(c.friendName));
     // Add friend names
     friends.forEach(f => names.add(f.name));
+    // Add trip owner name if they're not the current user and have a name
+    if (tripOwnerId !== currentUser.id && tripOwnerName) {
+      names.add(tripOwnerName);
+    }
     return Array.from(names);
-  }, [collaborators, friends]);
+  }, [collaborators, friends, tripOwnerId, currentUser.id, tripOwnerName]);
 
   // Amika as a special mention option
   const amikaOption = { id: 'amika', name: 'amika', isAmika: true, profileImage: null };
@@ -249,8 +253,25 @@ export function TripChat({
     // Check if 'amika' matches the search
     const amikaMatches = !mentionSearch || 'amika'.includes(search);
 
+    // Check if trip owner matches the search (only if not current user)
+    const ownerMatches = tripOwnerId !== currentUser.id &&
+      tripOwnerName &&
+      (!mentionSearch || tripOwnerName.toLowerCase().includes(search));
+
+    // Check if owner is already in collaborators list
+    const ownerInCollaborators = collaborators.some(
+      c => c.linkedUserId === tripOwnerId || c.userId === tripOwnerId
+    );
+
     return [
       ...(amikaMatches ? [amikaOption] : []),
+      // Add trip owner if they match search and aren't already in collaborators
+      ...(ownerMatches && !ownerInCollaborators ? [{
+        id: tripOwnerId,
+        name: tripOwnerName,
+        isAmika: false,
+        profileImage: tripOwnerProfileImage || null,
+      }] : []),
       ...filteredCollaborators.map(c => ({
         id: c.friendId,
         name: c.friendName,
@@ -264,7 +285,7 @@ export function TripChat({
         profileImage: null,
       })),
     ];
-  }, [collaborators, friends, mentionSearch]);
+  }, [collaborators, friends, mentionSearch, tripOwnerId, currentUser.id, tripOwnerName, tripOwnerProfileImage]);
 
   const handleMentionSelect = (optionName: string) => {
     const beforeMention = input.slice(0, mentionPosition);
