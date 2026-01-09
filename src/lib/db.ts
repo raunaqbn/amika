@@ -282,6 +282,7 @@ export type EventPlanSession = {
   status: 'planning' | 'confirmed' | 'completed' | 'cancelled';
   eventDate: Date | null;
   eventTime: string | null;
+  eventLocation: string | null;
   selectedEventId: string | null;
   shareToken: string | null;
   joinToken: string | null;
@@ -1040,6 +1041,7 @@ async function ensureTablesExist() {
         status TEXT DEFAULT 'planning',
         eventDate TEXT,
         eventTime TEXT,
+        eventLocation TEXT,
         selectedEventId TEXT,
         shareToken TEXT UNIQUE,
         joinToken TEXT UNIQUE,
@@ -6484,6 +6486,7 @@ export const prisma = {
           status: row.status as EventPlanSession['status'],
           eventDate: row.eventDate ? new Date(row.eventDate as string) : null,
           eventTime: row.eventTime as string | null,
+          eventLocation: row.eventLocation as string | null,
           selectedEventId: row.selectedEventId as string | null,
           shareToken: row.shareToken as string | null,
           joinToken: row.joinToken as string | null,
@@ -6604,6 +6607,7 @@ export const prisma = {
         status: row.status as EventPlanSession['status'],
         eventDate: row.eventDate ? new Date(row.eventDate as string) : null,
         eventTime: row.eventTime as string | null,
+        eventLocation: row.eventLocation as string | null,
         selectedEventId: row.selectedEventId as string | null,
         shareToken: row.shareToken as string | null,
         joinToken: row.joinToken as string | null,
@@ -6667,6 +6671,7 @@ export const prisma = {
         status: 'planning',
         eventDate: null,
         eventTime: null,
+        eventLocation: null,
         selectedEventId: null,
         shareToken: null,
         joinToken: null,
@@ -6675,8 +6680,8 @@ export const prisma = {
       };
 
       await client.execute({
-        sql: `INSERT INTO event_plan_sessions (id, userId, title, description, status, eventDate, eventTime, selectedEventId, createdAt, updatedAt)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sql: `INSERT INTO event_plan_sessions (id, userId, title, description, status, eventDate, eventTime, eventLocation, selectedEventId, createdAt, updatedAt)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
           eventPlan.id,
           eventPlan.userId,
@@ -6685,6 +6690,7 @@ export const prisma = {
           eventPlan.status,
           eventPlan.eventDate?.toISOString() || null,
           eventPlan.eventTime,
+          eventPlan.eventLocation,
           eventPlan.selectedEventId,
           eventPlan.createdAt.toISOString(),
           eventPlan.updatedAt.toISOString(),
@@ -6742,6 +6748,7 @@ export const prisma = {
       status?: EventPlanSession['status'];
       eventDate?: Date | null;
       eventTime?: string | null;
+      eventLocation?: string | null;
       selectedEventId?: string | null;
     }): Promise<EventPlanSession | null> => {
       await ensureTablesExist();
@@ -6768,6 +6775,7 @@ export const prisma = {
         status: data.status ?? row.status as EventPlanSession['status'],
         eventDate: data.eventDate !== undefined ? data.eventDate : (row.eventDate ? new Date(row.eventDate as string) : null),
         eventTime: data.eventTime !== undefined ? data.eventTime : row.eventTime as string | null,
+        eventLocation: data.eventLocation !== undefined ? data.eventLocation : row.eventLocation as string | null,
         selectedEventId: data.selectedEventId !== undefined ? data.selectedEventId : row.selectedEventId as string | null,
         shareToken: row.shareToken as string | null,
         joinToken: row.joinToken as string | null,
@@ -6776,7 +6784,7 @@ export const prisma = {
       };
 
       await client.execute({
-        sql: `UPDATE event_plan_sessions SET title = ?, description = ?, status = ?, eventDate = ?, eventTime = ?, selectedEventId = ?, updatedAt = ?
+        sql: `UPDATE event_plan_sessions SET title = ?, description = ?, status = ?, eventDate = ?, eventTime = ?, eventLocation = ?, selectedEventId = ?, updatedAt = ?
               WHERE id = ?`,
         args: [
           updated.title,
@@ -6784,6 +6792,7 @@ export const prisma = {
           updated.status,
           updated.eventDate?.toISOString() || null,
           updated.eventTime,
+          updated.eventLocation,
           updated.selectedEventId,
           updated.updatedAt.toISOString(),
           id,
@@ -6969,6 +6978,7 @@ export const prisma = {
         status: row.status as EventPlanSession['status'],
         eventDate: row.eventDate ? new Date(row.eventDate as string) : null,
         eventTime: row.eventTime as string | null,
+        eventLocation: row.eventLocation as string | null,
         selectedEventId: row.selectedEventId as string | null,
         shareToken: row.shareToken as string | null,
         joinToken: row.joinToken as string | null,
