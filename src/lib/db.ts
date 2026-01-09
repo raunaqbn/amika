@@ -5977,6 +5977,102 @@ export const prisma = {
 
       return result.rowsAffected > 0;
     },
+
+    update: async (pollId: string, data: {
+      question?: string;
+      addOptions?: { label: string; url?: string }[];
+      removeOptionIds?: string[];
+    }, userId: string): Promise<TripPoll & { options: TripPollOption[] }> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify poll exists and user is the creator
+      const existing = await client.execute({
+        sql: `SELECT p.* FROM trip_polls p
+              WHERE p.id = ? AND p.createdById = ?`,
+        args: [pollId, userId],
+      });
+
+      if (existing.rows.length === 0) {
+        throw new Error('Poll not found or access denied');
+      }
+
+      const row = existing.rows[0];
+
+      // Update question if provided
+      if (data.question) {
+        await client.execute({
+          sql: 'UPDATE trip_polls SET question = ? WHERE id = ?',
+          args: [data.question, pollId],
+        });
+      }
+
+      // Remove options if specified
+      if (data.removeOptionIds && data.removeOptionIds.length > 0) {
+        // First delete votes for these options
+        for (const optionId of data.removeOptionIds) {
+          await client.execute({
+            sql: 'DELETE FROM trip_poll_votes WHERE optionId = ?',
+            args: [optionId],
+          });
+          await client.execute({
+            sql: 'DELETE FROM trip_poll_options WHERE id = ? AND pollId = ?',
+            args: [optionId, pollId],
+          });
+        }
+      }
+
+      // Add new options if specified
+      if (data.addOptions && data.addOptions.length > 0) {
+        // Get current max order
+        const maxOrderResult = await client.execute({
+          sql: 'SELECT MAX("order") as maxOrder FROM trip_poll_options WHERE pollId = ?',
+          args: [pollId],
+        });
+        let nextOrder = ((maxOrderResult.rows[0]?.maxOrder as number) || -1) + 1;
+
+        for (const opt of data.addOptions) {
+          const option: TripPollOption = {
+            id: randomUUID(),
+            pollId,
+            label: opt.label,
+            url: opt.url || null,
+            order: nextOrder++,
+          };
+
+          await client.execute({
+            sql: 'INSERT INTO trip_poll_options (id, pollId, label, url, "order") VALUES (?, ?, ?, ?, ?)',
+            args: [option.id, pollId, option.label, option.url, option.order],
+          });
+        }
+      }
+
+      // Fetch updated poll and options
+      const updatedOptions = await client.execute({
+        sql: 'SELECT * FROM trip_poll_options WHERE pollId = ? ORDER BY "order"',
+        args: [pollId],
+      });
+
+      const options: TripPollOption[] = updatedOptions.rows.map((r: any) => ({
+        id: r.id,
+        pollId: r.pollId,
+        label: r.label,
+        url: r.url,
+        order: r.order,
+      }));
+
+      return {
+        id: row.id as string,
+        tripId: row.tripId as string,
+        context: row.context as TripPoll['context'],
+        question: (data.question || row.question) as string,
+        status: row.status as 'active' | 'closed',
+        createdById: row.createdById as string,
+        createdAt: new Date(row.createdAt as string),
+        closedAt: row.closedAt ? new Date(row.closedAt as string) : null,
+        options,
+      };
+    },
   },
 
   // Trip Goal Progress
@@ -7613,6 +7709,102 @@ export const prisma = {
       });
 
       return result.rowsAffected > 0;
+    },
+
+    update: async (pollId: string, data: {
+      question?: string;
+      addOptions?: { label: string; url?: string }[];
+      removeOptionIds?: string[];
+    }, userId: string): Promise<EventPlanPoll & { options: EventPlanPollOption[] }> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify poll exists and user is the creator
+      const existing = await client.execute({
+        sql: `SELECT p.* FROM event_plan_polls p
+              WHERE p.id = ? AND p.createdById = ?`,
+        args: [pollId, userId],
+      });
+
+      if (existing.rows.length === 0) {
+        throw new Error('Poll not found or access denied');
+      }
+
+      const row = existing.rows[0];
+
+      // Update question if provided
+      if (data.question) {
+        await client.execute({
+          sql: 'UPDATE event_plan_polls SET question = ? WHERE id = ?',
+          args: [data.question, pollId],
+        });
+      }
+
+      // Remove options if specified
+      if (data.removeOptionIds && data.removeOptionIds.length > 0) {
+        // First delete votes for these options
+        for (const optionId of data.removeOptionIds) {
+          await client.execute({
+            sql: 'DELETE FROM event_plan_poll_votes WHERE optionId = ?',
+            args: [optionId],
+          });
+          await client.execute({
+            sql: 'DELETE FROM event_plan_poll_options WHERE id = ? AND pollId = ?',
+            args: [optionId, pollId],
+          });
+        }
+      }
+
+      // Add new options if specified
+      if (data.addOptions && data.addOptions.length > 0) {
+        // Get current max order
+        const maxOrderResult = await client.execute({
+          sql: 'SELECT MAX("order") as maxOrder FROM event_plan_poll_options WHERE pollId = ?',
+          args: [pollId],
+        });
+        let nextOrder = ((maxOrderResult.rows[0]?.maxOrder as number) || -1) + 1;
+
+        for (const opt of data.addOptions) {
+          const option: EventPlanPollOption = {
+            id: randomUUID(),
+            pollId,
+            label: opt.label,
+            url: opt.url || null,
+            order: nextOrder++,
+          };
+
+          await client.execute({
+            sql: 'INSERT INTO event_plan_poll_options (id, pollId, label, url, "order") VALUES (?, ?, ?, ?, ?)',
+            args: [option.id, pollId, option.label, option.url, option.order],
+          });
+        }
+      }
+
+      // Fetch updated poll and options
+      const updatedOptions = await client.execute({
+        sql: 'SELECT * FROM event_plan_poll_options WHERE pollId = ? ORDER BY "order"',
+        args: [pollId],
+      });
+
+      const options: EventPlanPollOption[] = updatedOptions.rows.map((r: any) => ({
+        id: r.id,
+        pollId: r.pollId,
+        label: r.label,
+        url: r.url,
+        order: r.order,
+      }));
+
+      return {
+        id: row.id as string,
+        eventPlanId: row.eventPlanId as string,
+        context: row.context as EventPlanPoll['context'],
+        question: (data.question || row.question) as string,
+        status: row.status as 'active' | 'closed',
+        createdById: row.createdById as string,
+        createdAt: new Date(row.createdAt as string),
+        closedAt: row.closedAt ? new Date(row.closedAt as string) : null,
+        options,
+      };
     },
   },
 
