@@ -58,6 +58,7 @@ interface TripChatProps {
   collaborators: Collaborator[];
   tripOwnerId: string;
   tripOwnerName?: string | null;
+  tripOwnerProfileImage?: string | null;
   onNewMessage?: (message: Message) => void;
   typingUsers?: TypingUser[];
   activeUsers?: ActiveUser[];
@@ -71,6 +72,7 @@ export function TripChat({
   collaborators,
   tripOwnerId,
   tripOwnerName,
+  tripOwnerProfileImage,
   onNewMessage,
   typingUsers = [],
   activeUsers = [],
@@ -209,7 +211,7 @@ export function TripChat({
       const ownerDisplayName = ownerCollab?.friendName || tripOwnerName || 'Trip Owner';
       return {
         name: `${ownerDisplayName} (Trip Owner)`,
-        image: ownerCollab?.profileImage || null,
+        image: tripOwnerProfileImage || ownerCollab?.profileImage || null,
         isCurrentUser: false,
         isAssistant: false,
       };

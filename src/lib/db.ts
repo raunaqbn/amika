@@ -4217,6 +4217,7 @@ export const prisma = {
 
     findById: async (id: string, userId: string): Promise<(TripSession & {
       ownerName: string | null;
+      ownerProfileImage: string | null;
       collaborators: any[];
       dailyPlans: any[];
       tickets: any[];
@@ -4228,7 +4229,7 @@ export const prisma = {
 
       // Verify user has access and get owner info
       const accessCheck = await client.execute({
-        sql: `SELECT ts.*, u.name as ownerName FROM trip_sessions ts
+        sql: `SELECT ts.*, u.name as ownerName, u.profileImage as ownerProfileImage FROM trip_sessions ts
               LEFT JOIN trip_collaborators tc ON ts.id = tc.tripId
               LEFT JOIN users u ON ts.userId = u.id
               WHERE ts.id = ? AND (ts.userId = ? OR tc.userId = ?)`,
@@ -4355,6 +4356,7 @@ export const prisma = {
         id: row.id as string,
         userId: row.userId as string,
         ownerName: row.ownerName as string | null,
+        ownerProfileImage: row.ownerProfileImage as string | null,
         title: row.title as string,
         description: row.description as string | null,
         status: row.status as TripSession['status'],
