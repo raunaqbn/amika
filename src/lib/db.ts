@@ -273,6 +273,96 @@ export type TripGoalProgress = {
   completedAt: Date | null;
 };
 
+// Event Planning Types (Group Event Planning)
+export type EventPlanSession = {
+  id: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  status: 'planning' | 'confirmed' | 'completed' | 'cancelled';
+  eventDate: Date | null;
+  eventTime: string | null;
+  selectedEventId: string | null;
+  shareToken: string | null;
+  joinToken: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type EventPlanCollaborator = {
+  id: string;
+  eventPlanId: string;
+  friendId: string;
+  userId: string | null;
+  role: 'owner' | 'collaborator';
+  joinedAt: Date;
+};
+
+export type EventPlanCandidate = {
+  id: string;
+  eventPlanId: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  category: string | null;
+  externalUrl: string | null;
+  imageUrl: string | null;
+  eventDate: Date | null;
+  eventTime: string | null;
+  estimatedCost: number | null;
+  notes: string | null;
+  order: number;
+  createdById: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type EventPlanMessage = {
+  id: string;
+  eventPlanId: string;
+  userId: string;
+  friendId: string | null;
+  context: 'general' | 'date' | 'event';
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: Date;
+};
+
+export type EventPlanPoll = {
+  id: string;
+  eventPlanId: string;
+  context: 'date' | 'event';
+  question: string;
+  status: 'active' | 'closed';
+  createdById: string;
+  createdAt: Date;
+  closedAt: Date | null;
+};
+
+export type EventPlanPollOption = {
+  id: string;
+  pollId: string;
+  label: string;
+  url: string | null;
+  order: number;
+};
+
+export type EventPlanPollVote = {
+  id: string;
+  optionId: string;
+  visitorId: string | null;
+  friendId: string | null;
+  votedAt: Date;
+};
+
+export type EventPlanGoalProgress = {
+  id: string;
+  eventPlanId: string;
+  goalType: 'date' | 'event';
+  status: 'pending' | 'in_progress' | 'completed';
+  completedAt: Date | null;
+};
+
 let clientInstance: Client | null = null;
 let tablesInitialized = false;
 let joinTokenColumnChecked = false;
@@ -6126,6 +6216,1616 @@ export const prisma = {
 
       await client.execute({
         sql: 'DELETE FROM trip_presence WHERE lastSeen < ?',
+        args: [oneMinuteAgo],
+      });
+    },
+  },
+
+  // Event Plan Session Operations
+  eventPlanSession: {
+    findMany: async (userId: string): Promise<(EventPlanSession & { collaborators: any[] })[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Find event plans where user is owner or collaborator (via linked friend)
+      const result = await client.execute({
+        sql: `SELECT DISTINCT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.userId = ? OR epc.userId = ?
+              ORDER BY eps.updatedAt DESC`,
+        args: [userId, userId],
+      });
+
+      const eventPlans: (EventPlanSession & { collaborators: any[] })[] = [];
+      for (const row of result.rows) {
+        const colResult = await client.execute({
+          sql: `SELECT epc.*, f.name as friendName, f.profileImage, f.customProfileImage, f.linkedUserId
+                FROM event_plan_collaborators epc
+                JOIN friends f ON epc.friendId = f.id
+                WHERE epc.eventPlanId = ?`,
+          args: [row.id as string],
+        });
+
+        eventPlans.push({
+          id: row.id as string,
+          userId: row.userId as string,
+          title: row.title as string,
+          description: row.description as string | null,
+          status: row.status as EventPlanSession['status'],
+          eventDate: row.eventDate ? new Date(row.eventDate as string) : null,
+          eventTime: row.eventTime as string | null,
+          selectedEventId: row.selectedEventId as string | null,
+          shareToken: row.shareToken as string | null,
+          joinToken: row.joinToken as string | null,
+          createdAt: new Date(row.createdAt as string),
+          updatedAt: new Date(row.updatedAt as string),
+          collaborators: colResult.rows.map((c: any) => ({
+            id: c.id,
+            eventPlanId: c.eventPlanId,
+            friendId: c.friendId,
+            userId: c.userId,
+            role: c.role,
+            joinedAt: new Date(c.joinedAt as string),
+            friendName: c.friendName,
+            profileImage: c.customProfileImage || c.profileImage,
+            linkedUserId: c.linkedUserId,
+          })),
+        });
+      }
+
+      return eventPlans;
+    },
+
+    findById: async (id: string, userId: string): Promise<(EventPlanSession & {
+      collaborators: any[];
+      candidates: any[];
+      polls: any[];
+      goalProgress: any[];
+    }) | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify user has access
+      const accessCheck = await client.execute({
+        sql: `SELECT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [id, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) return null;
+
+      const row = accessCheck.rows[0];
+
+      // Get collaborators
+      const colResult = await client.execute({
+        sql: `SELECT epc.*, f.name as friendName, f.profileImage, f.customProfileImage, f.linkedUserId
+              FROM event_plan_collaborators epc
+              JOIN friends f ON epc.friendId = f.id
+              WHERE epc.eventPlanId = ?`,
+        args: [id],
+      });
+
+      // Get candidates
+      const candidatesResult = await client.execute({
+        sql: 'SELECT * FROM event_plan_candidates WHERE eventPlanId = ? ORDER BY "order" ASC',
+        args: [id],
+      });
+
+      // Get polls with options and votes
+      const pollsResult = await client.execute({
+        sql: 'SELECT * FROM event_plan_polls WHERE eventPlanId = ? ORDER BY createdAt DESC',
+        args: [id],
+      });
+
+      const polls: any[] = [];
+      for (const poll of pollsResult.rows) {
+        const optionsResult = await client.execute({
+          sql: 'SELECT * FROM event_plan_poll_options WHERE pollId = ? ORDER BY "order" ASC',
+          args: [poll.id as string],
+        });
+
+        const optionsWithVotes: any[] = [];
+        for (const opt of optionsResult.rows) {
+          const votesResult = await client.execute({
+            sql: 'SELECT * FROM event_plan_poll_votes WHERE optionId = ?',
+            args: [opt.id as string],
+          });
+          optionsWithVotes.push({
+            id: opt.id,
+            pollId: opt.pollId,
+            label: opt.label,
+            url: opt.url,
+            order: opt.order,
+            votes: votesResult.rows.map((v: any) => ({
+              id: v.id,
+              optionId: v.optionId,
+              visitorId: v.visitorId,
+              friendId: v.friendId,
+              votedAt: new Date(v.votedAt as string),
+            })),
+          });
+        }
+
+        polls.push({
+          id: poll.id,
+          eventPlanId: poll.eventPlanId,
+          context: poll.context,
+          question: poll.question,
+          status: poll.status,
+          createdById: poll.createdById,
+          createdAt: new Date(poll.createdAt as string),
+          closedAt: poll.closedAt ? new Date(poll.closedAt as string) : null,
+          options: optionsWithVotes,
+        });
+      }
+
+      // Get goal progress
+      const goalsResult = await client.execute({
+        sql: 'SELECT * FROM event_plan_goal_progress WHERE eventPlanId = ?',
+        args: [id],
+      });
+
+      return {
+        id: row.id as string,
+        userId: row.userId as string,
+        title: row.title as string,
+        description: row.description as string | null,
+        status: row.status as EventPlanSession['status'],
+        eventDate: row.eventDate ? new Date(row.eventDate as string) : null,
+        eventTime: row.eventTime as string | null,
+        selectedEventId: row.selectedEventId as string | null,
+        shareToken: row.shareToken as string | null,
+        joinToken: row.joinToken as string | null,
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: new Date(row.updatedAt as string),
+        collaborators: colResult.rows.map((c: any) => ({
+          id: c.id,
+          eventPlanId: c.eventPlanId,
+          friendId: c.friendId,
+          userId: c.userId,
+          role: c.role,
+          joinedAt: new Date(c.joinedAt as string),
+          friendName: c.friendName,
+          profileImage: c.customProfileImage || c.profileImage,
+          linkedUserId: c.linkedUserId,
+        })),
+        candidates: candidatesResult.rows.map((c: any) => ({
+          id: c.id,
+          eventPlanId: c.eventPlanId,
+          title: c.title,
+          description: c.description,
+          location: c.location,
+          category: c.category,
+          externalUrl: c.externalUrl,
+          imageUrl: c.imageUrl,
+          eventDate: c.eventDate ? new Date(c.eventDate as string) : null,
+          eventTime: c.eventTime,
+          estimatedCost: c.estimatedCost,
+          notes: c.notes,
+          order: c.order,
+          createdById: c.createdById,
+          createdAt: new Date(c.createdAt as string),
+          updatedAt: new Date(c.updatedAt as string),
+        })),
+        polls,
+        goalProgress: goalsResult.rows.map((g: any) => ({
+          id: g.id,
+          eventPlanId: g.eventPlanId,
+          goalType: g.goalType,
+          status: g.status,
+          completedAt: g.completedAt ? new Date(g.completedAt as string) : null,
+        })),
+      };
+    },
+
+    create: async (data: {
+      userId: string;
+      title: string;
+      description?: string;
+      collaboratorFriendIds?: string[];
+    }): Promise<EventPlanSession> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const now = new Date();
+      const eventPlan: EventPlanSession = {
+        id: randomUUID(),
+        userId: data.userId,
+        title: data.title,
+        description: data.description || null,
+        status: 'planning',
+        eventDate: null,
+        eventTime: null,
+        selectedEventId: null,
+        shareToken: null,
+        joinToken: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await client.execute({
+        sql: `INSERT INTO event_plan_sessions (id, userId, title, description, status, eventDate, eventTime, selectedEventId, createdAt, updatedAt)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          eventPlan.id,
+          eventPlan.userId,
+          eventPlan.title,
+          eventPlan.description,
+          eventPlan.status,
+          eventPlan.eventDate?.toISOString() || null,
+          eventPlan.eventTime,
+          eventPlan.selectedEventId,
+          eventPlan.createdAt.toISOString(),
+          eventPlan.updatedAt.toISOString(),
+        ],
+      });
+
+      // Create initial goal progress entries (only 2 goals: date and event)
+      const goalTypes = ['date', 'event'];
+      for (const goalType of goalTypes) {
+        await client.execute({
+          sql: 'INSERT INTO event_plan_goal_progress (id, eventPlanId, goalType, status, completedAt) VALUES (?, ?, ?, ?, ?)',
+          args: [randomUUID(), eventPlan.id, goalType, 'pending', null],
+        });
+      }
+
+      // Add collaborators if provided
+      if (data.collaboratorFriendIds && data.collaboratorFriendIds.length > 0) {
+        for (const friendId of data.collaboratorFriendIds) {
+          // Get friend info to check for linkedUserId
+          const friendResult = await client.execute({
+            sql: 'SELECT linkedUserId FROM friends WHERE id = ?',
+            args: [friendId],
+          });
+          const linkedUserId = friendResult.rows[0]?.linkedUserId as string | null;
+
+          await client.execute({
+            sql: 'INSERT INTO event_plan_collaborators (id, eventPlanId, friendId, userId, role, joinedAt) VALUES (?, ?, ?, ?, ?, ?)',
+            args: [randomUUID(), eventPlan.id, friendId, linkedUserId, 'collaborator', now.toISOString()],
+          });
+
+          // Send notification to the collaborator if they have an account
+          if (linkedUserId) {
+            try {
+              await prisma.sharedItem.create({
+                sharedByUserId: data.userId,
+                sharedWithUserId: linkedUserId,
+                itemType: 'event',
+                itemId: eventPlan.id,
+                message: `You've been invited to collaborate on the event "${data.title}"`,
+                skipConnectionCheck: true,
+              });
+            } catch (notifError) {
+              console.error('Failed to send event plan notification:', notifError);
+            }
+          }
+        }
+      }
+
+      return eventPlan;
+    },
+
+    update: async (id: string, userId: string, data: {
+      title?: string;
+      description?: string;
+      status?: EventPlanSession['status'];
+      eventDate?: Date | null;
+      eventTime?: string | null;
+      selectedEventId?: string | null;
+    }): Promise<EventPlanSession | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Check ownership or collaboration
+      const existing = await client.execute({
+        sql: `SELECT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [id, userId, userId],
+      });
+
+      if (existing.rows.length === 0) return null;
+
+      const row = existing.rows[0];
+      const now = new Date();
+
+      const updated: EventPlanSession = {
+        id: row.id as string,
+        userId: row.userId as string,
+        title: data.title ?? row.title as string,
+        description: data.description !== undefined ? data.description : row.description as string | null,
+        status: data.status ?? row.status as EventPlanSession['status'],
+        eventDate: data.eventDate !== undefined ? data.eventDate : (row.eventDate ? new Date(row.eventDate as string) : null),
+        eventTime: data.eventTime !== undefined ? data.eventTime : row.eventTime as string | null,
+        selectedEventId: data.selectedEventId !== undefined ? data.selectedEventId : row.selectedEventId as string | null,
+        shareToken: row.shareToken as string | null,
+        joinToken: row.joinToken as string | null,
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: now,
+      };
+
+      await client.execute({
+        sql: `UPDATE event_plan_sessions SET title = ?, description = ?, status = ?, eventDate = ?, eventTime = ?, selectedEventId = ?, updatedAt = ?
+              WHERE id = ?`,
+        args: [
+          updated.title,
+          updated.description,
+          updated.status,
+          updated.eventDate?.toISOString() || null,
+          updated.eventTime,
+          updated.selectedEventId,
+          updated.updatedAt.toISOString(),
+          id,
+        ],
+      });
+
+      // Update goal progress based on changes
+      if (data.eventDate !== undefined) {
+        const hasValidDate = !!updated.eventDate;
+        await client.execute({
+          sql: `UPDATE event_plan_goal_progress SET status = ?, completedAt = ? WHERE eventPlanId = ? AND goalType = 'date'`,
+          args: [hasValidDate ? 'completed' : 'pending', hasValidDate ? now.toISOString() : null, id],
+        });
+      }
+
+      if (data.selectedEventId !== undefined) {
+        const hasSelectedEvent = !!updated.selectedEventId;
+        await client.execute({
+          sql: `UPDATE event_plan_goal_progress SET status = ?, completedAt = ? WHERE eventPlanId = ? AND goalType = 'event'`,
+          args: [hasSelectedEvent ? 'completed' : 'pending', hasSelectedEvent ? now.toISOString() : null, id],
+        });
+      }
+
+      return updated;
+    },
+
+    delete: async (id: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Only owner can delete
+      const existing = await client.execute({
+        sql: 'SELECT * FROM event_plan_sessions WHERE id = ? AND userId = ?',
+        args: [id, userId],
+      });
+
+      if (existing.rows.length === 0) return false;
+
+      await client.execute({
+        sql: 'DELETE FROM event_plan_sessions WHERE id = ?',
+        args: [id],
+      });
+
+      return true;
+    },
+
+    generateShareToken: async (id: string, userId: string): Promise<string | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await client.execute({
+        sql: 'SELECT * FROM event_plan_sessions WHERE id = ? AND userId = ?',
+        args: [id, userId],
+      });
+
+      if (existing.rows.length === 0) return null;
+
+      const shareToken = randomUUID().replace(/-/g, '').substring(0, 16);
+
+      await client.execute({
+        sql: 'UPDATE event_plan_sessions SET shareToken = ?, updatedAt = ? WHERE id = ?',
+        args: [shareToken, new Date().toISOString(), id],
+      });
+
+      return shareToken;
+    },
+
+    revokeShareToken: async (id: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await client.execute({
+        sql: 'SELECT * FROM event_plan_sessions WHERE id = ? AND userId = ?',
+        args: [id, userId],
+      });
+
+      if (existing.rows.length === 0) return false;
+
+      await client.execute({
+        sql: 'UPDATE event_plan_sessions SET shareToken = NULL, updatedAt = ? WHERE id = ?',
+        args: [new Date().toISOString(), id],
+      });
+
+      return true;
+    },
+
+    findByShareToken: async (shareToken: string): Promise<(EventPlanSession & {
+      collaborators: any[];
+      candidates: any[];
+      polls: any[];
+      goalProgress: any[];
+      ownerName: string;
+    }) | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: `SELECT eps.*, u.name as ownerName FROM event_plan_sessions eps
+              JOIN users u ON eps.userId = u.id
+              WHERE eps.shareToken = ?`,
+        args: [shareToken],
+      });
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+      const id = row.id as string;
+
+      // Get collaborators
+      const colResult = await client.execute({
+        sql: `SELECT epc.*, f.name as friendName, f.profileImage, f.customProfileImage, f.linkedUserId
+              FROM event_plan_collaborators epc
+              JOIN friends f ON epc.friendId = f.id
+              WHERE epc.eventPlanId = ?`,
+        args: [id],
+      });
+
+      // Get candidates
+      const candidatesResult = await client.execute({
+        sql: 'SELECT * FROM event_plan_candidates WHERE eventPlanId = ? ORDER BY "order" ASC',
+        args: [id],
+      });
+
+      // Get polls with options and votes
+      const pollsResult = await client.execute({
+        sql: 'SELECT * FROM event_plan_polls WHERE eventPlanId = ? ORDER BY createdAt DESC',
+        args: [id],
+      });
+
+      const polls: any[] = [];
+      for (const poll of pollsResult.rows) {
+        const optionsResult = await client.execute({
+          sql: 'SELECT * FROM event_plan_poll_options WHERE pollId = ? ORDER BY "order" ASC',
+          args: [poll.id as string],
+        });
+
+        const optionsWithVotes: any[] = [];
+        for (const opt of optionsResult.rows) {
+          const votesResult = await client.execute({
+            sql: 'SELECT * FROM event_plan_poll_votes WHERE optionId = ?',
+            args: [opt.id as string],
+          });
+          optionsWithVotes.push({
+            id: opt.id,
+            pollId: opt.pollId,
+            label: opt.label,
+            url: opt.url,
+            order: opt.order,
+            votes: votesResult.rows.map((v: any) => ({
+              id: v.id,
+              optionId: v.optionId,
+              visitorId: v.visitorId,
+              friendId: v.friendId,
+              votedAt: new Date(v.votedAt as string),
+            })),
+          });
+        }
+
+        polls.push({
+          id: poll.id,
+          eventPlanId: poll.eventPlanId,
+          context: poll.context,
+          question: poll.question,
+          status: poll.status,
+          createdById: poll.createdById,
+          createdAt: new Date(poll.createdAt as string),
+          closedAt: poll.closedAt ? new Date(poll.closedAt as string) : null,
+          options: optionsWithVotes,
+        });
+      }
+
+      // Get goal progress
+      const goalsResult = await client.execute({
+        sql: 'SELECT * FROM event_plan_goal_progress WHERE eventPlanId = ?',
+        args: [id],
+      });
+
+      return {
+        id: row.id as string,
+        userId: row.userId as string,
+        title: row.title as string,
+        description: row.description as string | null,
+        status: row.status as EventPlanSession['status'],
+        eventDate: row.eventDate ? new Date(row.eventDate as string) : null,
+        eventTime: row.eventTime as string | null,
+        selectedEventId: row.selectedEventId as string | null,
+        shareToken: row.shareToken as string | null,
+        joinToken: row.joinToken as string | null,
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: new Date(row.updatedAt as string),
+        ownerName: row.ownerName as string,
+        collaborators: colResult.rows.map((c: any) => ({
+          id: c.id,
+          eventPlanId: c.eventPlanId,
+          friendId: c.friendId,
+          userId: c.userId,
+          role: c.role,
+          joinedAt: new Date(c.joinedAt as string),
+          friendName: c.friendName,
+          profileImage: c.customProfileImage || c.profileImage,
+          linkedUserId: c.linkedUserId,
+        })),
+        candidates: candidatesResult.rows.map((c: any) => ({
+          id: c.id,
+          eventPlanId: c.eventPlanId,
+          title: c.title,
+          description: c.description,
+          location: c.location,
+          category: c.category,
+          externalUrl: c.externalUrl,
+          imageUrl: c.imageUrl,
+          eventDate: c.eventDate ? new Date(c.eventDate as string) : null,
+          eventTime: c.eventTime,
+          estimatedCost: c.estimatedCost,
+          notes: c.notes,
+          order: c.order,
+          createdById: c.createdById,
+          createdAt: new Date(c.createdAt as string),
+          updatedAt: new Date(c.updatedAt as string),
+        })),
+        polls,
+        goalProgress: goalsResult.rows.map((g: any) => ({
+          id: g.id,
+          eventPlanId: g.eventPlanId,
+          goalType: g.goalType,
+          status: g.status,
+          completedAt: g.completedAt ? new Date(g.completedAt as string) : null,
+        })),
+      };
+    },
+
+    generateJoinToken: async (id: string, userId: string): Promise<string | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await client.execute({
+        sql: 'SELECT * FROM event_plan_sessions WHERE id = ? AND userId = ?',
+        args: [id, userId],
+      });
+
+      if (existing.rows.length === 0) return null;
+
+      const joinToken = randomUUID().replace(/-/g, '').substring(0, 16);
+
+      await client.execute({
+        sql: 'UPDATE event_plan_sessions SET joinToken = ?, updatedAt = ? WHERE id = ?',
+        args: [joinToken, new Date().toISOString(), id],
+      });
+
+      return joinToken;
+    },
+
+    revokeJoinToken: async (id: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await client.execute({
+        sql: 'SELECT * FROM event_plan_sessions WHERE id = ? AND userId = ?',
+        args: [id, userId],
+      });
+
+      if (existing.rows.length === 0) return false;
+
+      await client.execute({
+        sql: 'UPDATE event_plan_sessions SET joinToken = NULL, updatedAt = ? WHERE id = ?',
+        args: [new Date().toISOString(), id],
+      });
+
+      return true;
+    },
+
+    findByJoinToken: async (joinToken: string): Promise<{
+      id: string;
+      title: string;
+      description: string | null;
+      ownerName: string;
+      collaboratorCount: number;
+    } | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: `SELECT eps.id, eps.title, eps.description, u.name as ownerName
+              FROM event_plan_sessions eps
+              JOIN users u ON eps.userId = u.id
+              WHERE eps.joinToken = ?`,
+        args: [joinToken],
+      });
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+
+      const colResult = await client.execute({
+        sql: 'SELECT COUNT(*) as count FROM event_plan_collaborators WHERE eventPlanId = ?',
+        args: [row.id as string],
+      });
+
+      return {
+        id: row.id as string,
+        title: row.title as string,
+        description: row.description as string | null,
+        ownerName: row.ownerName as string,
+        collaboratorCount: Number(colResult.rows[0].count),
+      };
+    },
+
+    joinByToken: async (joinToken: string, userId: string, userName: string): Promise<{ eventPlanId: string } | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const eventPlanResult = await client.execute({
+        sql: 'SELECT id, userId FROM event_plan_sessions WHERE joinToken = ?',
+        args: [joinToken],
+      });
+
+      if (eventPlanResult.rows.length === 0) return null;
+
+      const eventPlanId = eventPlanResult.rows[0].id as string;
+      const eventPlanOwnerId = eventPlanResult.rows[0].userId as string;
+
+      // Check if user is already a collaborator
+      const existingCollab = await client.execute({
+        sql: 'SELECT id FROM event_plan_collaborators WHERE eventPlanId = ? AND userId = ?',
+        args: [eventPlanId, userId],
+      });
+
+      if (existingCollab.rows.length > 0) {
+        return { eventPlanId };
+      }
+
+      // Check if user is the owner
+      if (eventPlanOwnerId === userId) {
+        return { eventPlanId };
+      }
+
+      // Check if the user has a friend entry with the event plan owner
+      const friendResult = await client.execute({
+        sql: 'SELECT id FROM friends WHERE userId = ? AND linkedUserId = ?',
+        args: [eventPlanOwnerId, userId],
+      });
+
+      let friendId: string;
+
+      if (friendResult.rows.length > 0) {
+        friendId = friendResult.rows[0].id as string;
+
+        const existingFriendCollab = await client.execute({
+          sql: 'SELECT id FROM event_plan_collaborators WHERE eventPlanId = ? AND friendId = ?',
+          args: [eventPlanId, friendId],
+        });
+
+        if (existingFriendCollab.rows.length > 0) {
+          await client.execute({
+            sql: 'UPDATE event_plan_collaborators SET userId = ? WHERE eventPlanId = ? AND friendId = ?',
+            args: [userId, eventPlanId, friendId],
+          });
+          return { eventPlanId };
+        }
+      } else {
+        // Create a new friend entry for the event plan owner
+        friendId = randomUUID();
+        const now = new Date().toISOString();
+        await client.execute({
+          sql: `INSERT INTO friends (id, userId, name, linkedUserId, createdAt, updatedAt)
+                VALUES (?, ?, ?, ?, ?, ?)`,
+          args: [friendId, eventPlanOwnerId, userName, userId, now, now],
+        });
+      }
+
+      // Add as collaborator
+      const collaboratorId = randomUUID();
+      await client.execute({
+        sql: `INSERT INTO event_plan_collaborators (id, eventPlanId, friendId, userId, role, joinedAt)
+              VALUES (?, ?, ?, ?, 'collaborator', ?)`,
+        args: [collaboratorId, eventPlanId, friendId, userId, new Date().toISOString()],
+      });
+
+      return { eventPlanId };
+    },
+  },
+
+  // Event Plan Collaborators
+  eventPlanCollaborator: {
+    add: async (eventPlanId: string, friendIds: string[], userId: string): Promise<EventPlanCollaborator[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const accessCheck = await client.execute({
+        sql: `SELECT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [eventPlanId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Event plan not found or access denied');
+      }
+
+      const eventPlanOwnerId = accessCheck.rows[0].userId as string;
+      const eventPlanTitle = accessCheck.rows[0].title as string;
+      const now = new Date();
+      const added: EventPlanCollaborator[] = [];
+
+      for (const friendId of friendIds) {
+        const existing = await client.execute({
+          sql: 'SELECT id FROM event_plan_collaborators WHERE eventPlanId = ? AND friendId = ?',
+          args: [eventPlanId, friendId],
+        });
+
+        if (existing.rows.length > 0) continue;
+
+        const friendResult = await client.execute({
+          sql: 'SELECT linkedUserId FROM friends WHERE id = ?',
+          args: [friendId],
+        });
+        const linkedUserId = friendResult.rows[0]?.linkedUserId as string | null;
+
+        const collaborator: EventPlanCollaborator = {
+          id: randomUUID(),
+          eventPlanId,
+          friendId,
+          userId: linkedUserId,
+          role: 'collaborator',
+          joinedAt: now,
+        };
+
+        await client.execute({
+          sql: 'INSERT INTO event_plan_collaborators (id, eventPlanId, friendId, userId, role, joinedAt) VALUES (?, ?, ?, ?, ?, ?)',
+          args: [collaborator.id, eventPlanId, friendId, linkedUserId, 'collaborator', now.toISOString()],
+        });
+
+        added.push(collaborator);
+
+        if (linkedUserId) {
+          try {
+            await prisma.sharedItem.create({
+              sharedByUserId: eventPlanOwnerId,
+              sharedWithUserId: linkedUserId,
+              itemType: 'event',
+              itemId: eventPlanId,
+              message: `You've been invited to collaborate on the event "${eventPlanTitle}"`,
+              skipConnectionCheck: true,
+            });
+          } catch (notifError) {
+            console.error('Failed to send event plan notification:', notifError);
+          }
+        }
+      }
+
+      return added;
+    },
+
+    remove: async (eventPlanId: string, friendId: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const accessCheck = await client.execute({
+        sql: `SELECT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [eventPlanId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) return false;
+
+      await client.execute({
+        sql: 'DELETE FROM event_plan_collaborators WHERE eventPlanId = ? AND friendId = ?',
+        args: [eventPlanId, friendId],
+      });
+
+      return true;
+    },
+  },
+
+  // Event Plan Candidates
+  eventPlanCandidate: {
+    create: async (eventPlanId: string, data: {
+      title: string;
+      description?: string;
+      location?: string;
+      category?: string;
+      externalUrl?: string;
+      imageUrl?: string;
+      eventDate?: Date;
+      eventTime?: string;
+      estimatedCost?: number;
+      notes?: string;
+    }, userId: string): Promise<EventPlanCandidate> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const accessCheck = await client.execute({
+        sql: `SELECT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [eventPlanId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Event plan not found or access denied');
+      }
+
+      const maxOrderResult = await client.execute({
+        sql: 'SELECT MAX("order") as maxOrder FROM event_plan_candidates WHERE eventPlanId = ?',
+        args: [eventPlanId],
+      });
+      const maxOrder = (maxOrderResult.rows[0]?.maxOrder as number) || 0;
+
+      const now = new Date();
+      const candidate: EventPlanCandidate = {
+        id: randomUUID(),
+        eventPlanId,
+        title: data.title,
+        description: data.description || null,
+        location: data.location || null,
+        category: data.category || null,
+        externalUrl: data.externalUrl || null,
+        imageUrl: data.imageUrl || null,
+        eventDate: data.eventDate || null,
+        eventTime: data.eventTime || null,
+        estimatedCost: data.estimatedCost || null,
+        notes: data.notes || null,
+        order: maxOrder + 1,
+        createdById: userId,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await client.execute({
+        sql: `INSERT INTO event_plan_candidates (id, eventPlanId, title, description, location, category, externalUrl, imageUrl, eventDate, eventTime, estimatedCost, notes, "order", createdById, createdAt, updatedAt)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          candidate.id, eventPlanId, candidate.title, candidate.description, candidate.location,
+          candidate.category, candidate.externalUrl, candidate.imageUrl,
+          candidate.eventDate?.toISOString() || null, candidate.eventTime,
+          candidate.estimatedCost, candidate.notes, candidate.order, userId, now.toISOString(), now.toISOString(),
+        ],
+      });
+
+      // Update goal progress
+      await client.execute({
+        sql: `UPDATE event_plan_goal_progress SET status = 'in_progress' WHERE eventPlanId = ? AND goalType = 'event' AND status = 'pending'`,
+        args: [eventPlanId],
+      });
+
+      return candidate;
+    },
+
+    update: async (id: string, data: Partial<Omit<EventPlanCandidate, 'id' | 'eventPlanId' | 'createdById' | 'createdAt'>>, userId: string): Promise<EventPlanCandidate | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await client.execute({
+        sql: `SELECT c.* FROM event_plan_candidates c
+              JOIN event_plan_sessions eps ON c.eventPlanId = eps.id
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE c.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [id, userId, userId],
+      });
+
+      if (existing.rows.length === 0) return null;
+
+      const row = existing.rows[0];
+      const now = new Date();
+      const updated: EventPlanCandidate = {
+        id: row.id as string,
+        eventPlanId: row.eventPlanId as string,
+        title: data.title ?? row.title as string,
+        description: data.description !== undefined ? data.description : row.description as string | null,
+        location: data.location !== undefined ? data.location : row.location as string | null,
+        category: data.category !== undefined ? data.category : row.category as string | null,
+        externalUrl: data.externalUrl !== undefined ? data.externalUrl : row.externalUrl as string | null,
+        imageUrl: data.imageUrl !== undefined ? data.imageUrl : row.imageUrl as string | null,
+        eventDate: data.eventDate !== undefined ? data.eventDate : (row.eventDate ? new Date(row.eventDate as string) : null),
+        eventTime: data.eventTime !== undefined ? data.eventTime : row.eventTime as string | null,
+        estimatedCost: data.estimatedCost !== undefined ? data.estimatedCost : row.estimatedCost as number | null,
+        notes: data.notes !== undefined ? data.notes : row.notes as string | null,
+        order: data.order ?? row.order as number,
+        createdById: row.createdById as string,
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: now,
+      };
+
+      await client.execute({
+        sql: `UPDATE event_plan_candidates SET title = ?, description = ?, location = ?, category = ?, externalUrl = ?, imageUrl = ?, eventDate = ?, eventTime = ?, estimatedCost = ?, notes = ?, "order" = ?, updatedAt = ?
+              WHERE id = ?`,
+        args: [
+          updated.title, updated.description, updated.location, updated.category,
+          updated.externalUrl, updated.imageUrl, updated.eventDate?.toISOString() || null,
+          updated.eventTime, updated.estimatedCost, updated.notes, updated.order,
+          now.toISOString(), id,
+        ],
+      });
+
+      return updated;
+    },
+
+    delete: async (id: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await client.execute({
+        sql: `SELECT c.* FROM event_plan_candidates c
+              JOIN event_plan_sessions eps ON c.eventPlanId = eps.id
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE c.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [id, userId, userId],
+      });
+
+      if (existing.rows.length === 0) return false;
+
+      await client.execute({
+        sql: 'DELETE FROM event_plan_candidates WHERE id = ?',
+        args: [id],
+      });
+
+      return true;
+    },
+  },
+
+  // Event Plan Messages
+  eventPlanMessage: {
+    findMany: async (eventPlanId: string, userId: string, options?: { context?: string; since?: Date }): Promise<EventPlanMessage[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const accessCheck = await client.execute({
+        sql: `SELECT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [eventPlanId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) return [];
+
+      let sql = 'SELECT * FROM event_plan_messages WHERE eventPlanId = ?';
+      const args: any[] = [eventPlanId];
+
+      if (options?.context) {
+        sql += ' AND context = ?';
+        args.push(options.context);
+      }
+
+      if (options?.since) {
+        sql += ' AND createdAt > ?';
+        args.push(options.since.toISOString());
+      }
+
+      sql += ' ORDER BY createdAt ASC';
+
+      const result = await client.execute({ sql, args });
+
+      return result.rows.map((row: any) => ({
+        id: row.id,
+        eventPlanId: row.eventPlanId,
+        userId: row.userId,
+        friendId: row.friendId,
+        context: row.context,
+        role: row.role,
+        content: row.content,
+        createdAt: new Date(row.createdAt as string),
+      }));
+    },
+
+    create: async (eventPlanId: string, data: {
+      content: string;
+      context?: EventPlanMessage['context'];
+      role?: EventPlanMessage['role'];
+    }, userId: string): Promise<EventPlanMessage> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const accessCheck = await client.execute({
+        sql: `SELECT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [eventPlanId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Event plan not found or access denied');
+      }
+
+      const now = new Date();
+      const message: EventPlanMessage = {
+        id: randomUUID(),
+        eventPlanId,
+        userId,
+        friendId: null,
+        context: data.context || 'general',
+        role: data.role || 'user',
+        content: data.content,
+        createdAt: now,
+      };
+
+      await client.execute({
+        sql: 'INSERT INTO event_plan_messages (id, eventPlanId, userId, friendId, context, role, content, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [message.id, eventPlanId, userId, null, message.context, message.role, message.content, now.toISOString()],
+      });
+
+      return message;
+    },
+  },
+
+  // Event Plan Polls
+  eventPlanPoll: {
+    findMany: async (eventPlanId: string, userId: string, context?: string): Promise<EventPlanPoll[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const accessCheck = await client.execute({
+        sql: `SELECT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [eventPlanId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) return [];
+
+      let sql = 'SELECT * FROM event_plan_polls WHERE eventPlanId = ?';
+      const args: any[] = [eventPlanId];
+
+      if (context) {
+        sql += ' AND context = ?';
+        args.push(context);
+      }
+
+      sql += ' ORDER BY createdAt DESC';
+
+      const result = await client.execute({ sql, args });
+
+      return result.rows.map((row: any) => ({
+        id: row.id,
+        eventPlanId: row.eventPlanId,
+        context: row.context,
+        question: row.question,
+        status: row.status,
+        createdById: row.createdById,
+        createdAt: new Date(row.createdAt as string),
+        closedAt: row.closedAt ? new Date(row.closedAt as string) : null,
+      }));
+    },
+
+    create: async (eventPlanId: string, data: {
+      context: EventPlanPoll['context'];
+      question: string;
+      options: { label: string; url?: string }[];
+    }, userId: string): Promise<EventPlanPoll & { options: EventPlanPollOption[] }> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const accessCheck = await client.execute({
+        sql: `SELECT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [eventPlanId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Event plan not found or access denied');
+      }
+
+      const now = new Date();
+      const poll: EventPlanPoll = {
+        id: randomUUID(),
+        eventPlanId,
+        context: data.context,
+        question: data.question,
+        status: 'active',
+        createdById: userId,
+        createdAt: now,
+        closedAt: null,
+      };
+
+      await client.execute({
+        sql: 'INSERT INTO event_plan_polls (id, eventPlanId, context, question, status, createdById, createdAt, closedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [poll.id, eventPlanId, poll.context, poll.question, poll.status, userId, now.toISOString(), null],
+      });
+
+      const options: EventPlanPollOption[] = [];
+      for (let i = 0; i < data.options.length; i++) {
+        const opt = data.options[i];
+        const option: EventPlanPollOption = {
+          id: randomUUID(),
+          pollId: poll.id,
+          label: opt.label,
+          url: opt.url || null,
+          order: i,
+        };
+
+        await client.execute({
+          sql: 'INSERT INTO event_plan_poll_options (id, pollId, label, url, "order") VALUES (?, ?, ?, ?, ?)',
+          args: [option.id, poll.id, option.label, option.url, i],
+        });
+
+        options.push(option);
+      }
+
+      return { ...poll, options };
+    },
+
+    close: async (pollId: string, userId: string): Promise<EventPlanPoll | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await client.execute({
+        sql: `SELECT p.* FROM event_plan_polls p
+              JOIN event_plan_sessions eps ON p.eventPlanId = eps.id
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE p.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [pollId, userId, userId],
+      });
+
+      if (existing.rows.length === 0) return null;
+
+      const row = existing.rows[0];
+      const now = new Date();
+
+      await client.execute({
+        sql: 'UPDATE event_plan_polls SET status = ?, closedAt = ? WHERE id = ?',
+        args: ['closed', now.toISOString(), pollId],
+      });
+
+      return {
+        id: row.id as string,
+        eventPlanId: row.eventPlanId as string,
+        context: row.context as EventPlanPoll['context'],
+        question: row.question as string,
+        status: 'closed',
+        createdById: row.createdById as string,
+        createdAt: new Date(row.createdAt as string),
+        closedAt: now,
+      };
+    },
+
+    vote: async (optionId: string, userId: string): Promise<EventPlanPollVote> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const optionCheck = await client.execute({
+        sql: `SELECT o.*, p.eventPlanId, p.status as pollStatus FROM event_plan_poll_options o
+              JOIN event_plan_polls p ON o.pollId = p.id
+              JOIN event_plan_sessions eps ON p.eventPlanId = eps.id
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE o.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [optionId, userId, userId],
+      });
+
+      if (optionCheck.rows.length === 0) {
+        throw new Error('Poll option not found or access denied');
+      }
+
+      if (optionCheck.rows[0].pollStatus !== 'active') {
+        throw new Error('Poll is closed');
+      }
+
+      const pollId = (await client.execute({
+        sql: 'SELECT pollId FROM event_plan_poll_options WHERE id = ?',
+        args: [optionId],
+      })).rows[0]?.pollId as string;
+
+      await client.execute({
+        sql: `DELETE FROM event_plan_poll_votes WHERE visitorId = ? AND optionId IN (SELECT id FROM event_plan_poll_options WHERE pollId = ?)`,
+        args: [userId, pollId],
+      });
+
+      const now = new Date();
+      const vote: EventPlanPollVote = {
+        id: randomUUID(),
+        optionId,
+        visitorId: userId,
+        friendId: null,
+        votedAt: now,
+      };
+
+      await client.execute({
+        sql: 'INSERT INTO event_plan_poll_votes (id, optionId, visitorId, friendId, votedAt) VALUES (?, ?, ?, ?, ?)',
+        args: [vote.id, optionId, userId, null, now.toISOString()],
+      });
+
+      return vote;
+    },
+
+    delete: async (pollId: string, userId: string): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const existing = await client.execute({
+        sql: `SELECT p.* FROM event_plan_polls p
+              JOIN event_plan_sessions eps ON p.eventPlanId = eps.id
+              WHERE p.id = ? AND p.createdById = ?`,
+        args: [pollId, userId],
+      });
+
+      if (existing.rows.length === 0) {
+        throw new Error('Poll not found or access denied');
+      }
+
+      await client.execute({
+        sql: `DELETE FROM event_plan_poll_votes WHERE optionId IN (SELECT id FROM event_plan_poll_options WHERE pollId = ?)`,
+        args: [pollId],
+      });
+
+      await client.execute({
+        sql: 'DELETE FROM event_plan_poll_options WHERE pollId = ?',
+        args: [pollId],
+      });
+
+      await client.execute({
+        sql: 'DELETE FROM event_plan_polls WHERE id = ?',
+        args: [pollId],
+      });
+    },
+
+    removeVote: async (optionId: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: 'DELETE FROM event_plan_poll_votes WHERE optionId = ? AND visitorId = ?',
+        args: [optionId, userId],
+      });
+
+      return result.rowsAffected > 0;
+    },
+  },
+
+  // Event Plan Goal Progress
+  eventPlanGoalProgress: {
+    findByEventPlanId: async (eventPlanId: string, userId: string): Promise<EventPlanGoalProgress[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const accessCheck = await client.execute({
+        sql: `SELECT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [eventPlanId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) return [];
+
+      const result = await client.execute({
+        sql: 'SELECT * FROM event_plan_goal_progress WHERE eventPlanId = ?',
+        args: [eventPlanId],
+      });
+
+      return result.rows.map((row: any) => ({
+        id: row.id,
+        eventPlanId: row.eventPlanId,
+        goalType: row.goalType,
+        status: row.status,
+        completedAt: row.completedAt ? new Date(row.completedAt as string) : null,
+      }));
+    },
+
+    update: async (eventPlanId: string, goalType: string, status: EventPlanGoalProgress['status'], userId: string): Promise<EventPlanGoalProgress | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const accessCheck = await client.execute({
+        sql: `SELECT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [eventPlanId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) return null;
+
+      const now = status === 'completed' ? new Date() : null;
+
+      await client.execute({
+        sql: 'UPDATE event_plan_goal_progress SET status = ?, completedAt = ? WHERE eventPlanId = ? AND goalType = ?',
+        args: [status, now?.toISOString() || null, eventPlanId, goalType],
+      });
+
+      const result = await client.execute({
+        sql: 'SELECT * FROM event_plan_goal_progress WHERE eventPlanId = ? AND goalType = ?',
+        args: [eventPlanId, goalType],
+      });
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+      return {
+        id: row.id as string,
+        eventPlanId: row.eventPlanId as string,
+        goalType: row.goalType as EventPlanGoalProgress['goalType'],
+        status: row.status as EventPlanGoalProgress['status'],
+        completedAt: row.completedAt ? new Date(row.completedAt as string) : null,
+      };
+    },
+  },
+
+  // Event Plan Sync - for real-time collaborative updates
+  eventPlanSync: {
+    getChanges: async (eventPlanId: string, userId: string, lastSync: Date): Promise<{
+      messages: EventPlanMessage[];
+      polls: EventPlanPoll[];
+      goalProgress: EventPlanGoalProgress[];
+      eventPlanUpdated: boolean;
+      lastUpdated: Date;
+    }> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const accessCheck = await client.execute({
+        sql: `SELECT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [eventPlanId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Event plan not found or access denied');
+      }
+
+      const eventPlanRow = accessCheck.rows[0];
+      const eventPlanUpdatedAt = new Date(eventPlanRow.updatedAt as string);
+      const eventPlanUpdated = eventPlanUpdatedAt > lastSync;
+
+      // Get new messages
+      const messagesResult = await client.execute({
+        sql: 'SELECT * FROM event_plan_messages WHERE eventPlanId = ? AND createdAt > ? ORDER BY createdAt ASC',
+        args: [eventPlanId, lastSync.toISOString()],
+      });
+
+      // Get recently updated polls
+      const pollsWithRecentVotes = await client.execute({
+        sql: `SELECT DISTINCT p.id FROM event_plan_polls p
+              JOIN event_plan_poll_options o ON p.id = o.pollId
+              JOIN event_plan_poll_votes v ON o.id = v.optionId
+              WHERE p.eventPlanId = ? AND v.votedAt > ?`,
+        args: [eventPlanId, lastSync.toISOString()],
+      });
+
+      const pollIdsWithVotes = pollsWithRecentVotes.rows.map((r: any) => r.id as string);
+
+      const pollsResult = await client.execute({
+        sql: 'SELECT * FROM event_plan_polls WHERE eventPlanId = ? AND (createdAt > ? OR closedAt > ?) ORDER BY createdAt DESC',
+        args: [eventPlanId, lastSync.toISOString(), lastSync.toISOString()],
+      });
+
+      const allUpdatedPollIds = new Set<string>([
+        ...pollsResult.rows.map((r: any) => r.id as string),
+        ...pollIdsWithVotes,
+      ]);
+
+      const polls: any[] = [];
+      for (const pollId of Array.from(allUpdatedPollIds)) {
+        const pollResult = await client.execute({
+          sql: 'SELECT * FROM event_plan_polls WHERE id = ?',
+          args: [pollId],
+        });
+
+        if (pollResult.rows.length === 0) continue;
+        const poll = pollResult.rows[0];
+
+        const optionsResult = await client.execute({
+          sql: 'SELECT * FROM event_plan_poll_options WHERE pollId = ? ORDER BY "order" ASC',
+          args: [pollId],
+        });
+
+        const optionsWithVotes: any[] = [];
+        for (const opt of optionsResult.rows) {
+          const votesResult = await client.execute({
+            sql: 'SELECT * FROM event_plan_poll_votes WHERE optionId = ?',
+            args: [opt.id as string],
+          });
+          optionsWithVotes.push({
+            id: opt.id,
+            pollId: opt.pollId,
+            label: opt.label,
+            url: opt.url,
+            order: opt.order,
+            votes: votesResult.rows.map((v: any) => ({
+              id: v.id,
+              optionId: v.optionId,
+              visitorId: v.visitorId,
+              friendId: v.friendId,
+              votedAt: new Date(v.votedAt as string),
+            })),
+          });
+        }
+
+        polls.push({
+          id: poll.id,
+          eventPlanId: poll.eventPlanId,
+          context: poll.context,
+          question: poll.question,
+          status: poll.status,
+          createdById: poll.createdById,
+          createdAt: new Date(poll.createdAt as string),
+          closedAt: poll.closedAt ? new Date(poll.closedAt as string) : null,
+          options: optionsWithVotes,
+        });
+      }
+
+      // Get goal progress
+      const goalsResult = await client.execute({
+        sql: 'SELECT * FROM event_plan_goal_progress WHERE eventPlanId = ?',
+        args: [eventPlanId],
+      });
+
+      return {
+        messages: messagesResult.rows.map((row: any) => ({
+          id: row.id,
+          eventPlanId: row.eventPlanId,
+          userId: row.userId,
+          friendId: row.friendId,
+          context: row.context,
+          role: row.role,
+          content: row.content,
+          createdAt: new Date(row.createdAt as string),
+        })),
+        polls,
+        goalProgress: goalsResult.rows.map((row: any) => ({
+          id: row.id,
+          eventPlanId: row.eventPlanId,
+          goalType: row.goalType,
+          status: row.status,
+          completedAt: row.completedAt ? new Date(row.completedAt as string) : null,
+        })),
+        eventPlanUpdated,
+        lastUpdated: new Date(),
+      };
+    },
+  },
+
+  // Event Plan Presence - for typing indicators and active user tracking
+  eventPlanPresence: {
+    updateTyping: async (eventPlanId: string, userId: string, isTyping: boolean, context: string = 'general'): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const accessCheck = await client.execute({
+        sql: `SELECT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [eventPlanId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Event plan not found or access denied');
+      }
+
+      const now = new Date().toISOString();
+
+      await client.execute({
+        sql: `INSERT INTO event_plan_presence (id, eventPlanId, userId, context, isTyping, lastSeen)
+              VALUES (?, ?, ?, ?, ?, ?)
+              ON CONFLICT (eventPlanId, userId) DO UPDATE SET
+                context = excluded.context,
+                isTyping = excluded.isTyping,
+                lastSeen = excluded.lastSeen`,
+        args: [randomUUID(), eventPlanId, userId, context, isTyping ? 1 : 0, now],
+      });
+    },
+
+    updatePresence: async (eventPlanId: string, userId: string): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const accessCheck = await client.execute({
+        sql: `SELECT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [eventPlanId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Event plan not found or access denied');
+      }
+
+      const now = new Date().toISOString();
+
+      await client.execute({
+        sql: `INSERT INTO event_plan_presence (id, eventPlanId, userId, context, isTyping, lastSeen)
+              VALUES (?, ?, ?, 'general', 0, ?)
+              ON CONFLICT (eventPlanId, userId) DO UPDATE SET
+                lastSeen = excluded.lastSeen`,
+        args: [randomUUID(), eventPlanId, userId, now],
+      });
+    },
+
+    getTypingUsers: async (eventPlanId: string, userId: string, context?: string): Promise<{
+      id: string;
+      name: string;
+    }[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const accessCheck = await client.execute({
+        sql: `SELECT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [eventPlanId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Event plan not found or access denied');
+      }
+
+      const fiveSecondsAgo = new Date(Date.now() - 5000).toISOString();
+
+      let sql = `SELECT p.userId, u.name
+                 FROM event_plan_presence p
+                 JOIN users u ON p.userId = u.id
+                 WHERE p.eventPlanId = ? AND p.isTyping = 1 AND p.lastSeen > ?`;
+      let args: any[] = [eventPlanId, fiveSecondsAgo];
+
+      if (context) {
+        sql += ' AND p.context = ?';
+        args.push(context);
+      }
+
+      const result = await client.execute({ sql, args });
+
+      return result.rows.map((row: any) => ({
+        id: row.userId as string,
+        name: row.name as string,
+      }));
+    },
+
+    getActiveUsers: async (eventPlanId: string, userId: string): Promise<{
+      id: string;
+      name: string;
+      profileImage: string | null;
+      lastSeen: Date;
+    }[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const accessCheck = await client.execute({
+        sql: `SELECT eps.* FROM event_plan_sessions eps
+              LEFT JOIN event_plan_collaborators epc ON eps.id = epc.eventPlanId
+              WHERE eps.id = ? AND (eps.userId = ? OR epc.userId = ?)`,
+        args: [eventPlanId, userId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Event plan not found or access denied');
+      }
+
+      const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
+
+      const result = await client.execute({
+        sql: `SELECT p.userId, p.lastSeen, u.name, u.profileImage
+              FROM event_plan_presence p
+              JOIN users u ON p.userId = u.id
+              WHERE p.eventPlanId = ? AND p.lastSeen > ?
+              ORDER BY p.lastSeen DESC`,
+        args: [eventPlanId, thirtySecondsAgo],
+      });
+
+      return result.rows.map((row: any) => ({
+        id: row.userId as string,
+        name: row.name as string,
+        profileImage: row.profileImage as string | null,
+        lastSeen: new Date(row.lastSeen as string),
+      }));
+    },
+
+    cleanup: async (): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
+
+      await client.execute({
+        sql: 'DELETE FROM event_plan_presence WHERE lastSeen < ?',
         args: [oneMinuteAgo],
       });
     },
