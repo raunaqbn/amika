@@ -5,7 +5,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Send, Loader2, Sparkles, Circle, AtSign, Calendar, MapPin, Star, ExternalLink, Ticket, Clock } from 'lucide-react';
+import { Send, Loader2, Sparkles, Circle, Calendar, MapPin, Star, ExternalLink, Ticket, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import React from 'react';
 import { EmojiPickerButton } from '../ui/emoji-picker';
@@ -494,34 +494,6 @@ export function EventPlanChat({
     }, 0);
   };
 
-  // Handle @amika mention - insert at cursor position
-  const handleMentionAmika = () => {
-    const textarea = textareaRef.current;
-    const mention = '@amika ';
-
-    if (!textarea) {
-      setInput(input + mention);
-      return;
-    }
-
-    const start = textarea.selectionStart || 0;
-    const end = textarea.selectionEnd || 0;
-
-    // Check if we need a space before the mention
-    const needsSpaceBefore = start > 0 && input[start - 1] !== ' ' && input[start - 1] !== '\n';
-    const insertText = needsSpaceBefore ? ' ' + mention : mention;
-
-    const newValue = input.slice(0, start) + insertText + input.slice(end);
-    setInput(newValue);
-
-    // Set cursor position after mention
-    setTimeout(() => {
-      textarea.focus();
-      const newPos = start + insertText.length;
-      textarea.setSelectionRange(newPos, newPos);
-    }, 0);
-  };
-
   // Get sender info for a message
   const getSenderInfo = (msg: Message) => {
     if (msg.role === 'assistant') {
@@ -717,21 +689,11 @@ export function EventPlanChat({
           value={input}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder="Type a message... (click @ for AI help)"
+          placeholder="Type a message... (use @amika for AI help)"
           rows={1}
           className="resize-none"
           disabled={sending}
         />
-        <Button
-          onClick={handleMentionAmika}
-          disabled={sending}
-          size="sm"
-          variant="outline"
-          className="flex-shrink-0 text-[#A8C5A8] border-[#A8C5A8]/50 hover:bg-[#A8C5A8]/10 hover:text-[#97b497]"
-          title="Mention @amika for AI suggestions"
-        >
-          <AtSign className="w-4 h-4" />
-        </Button>
         <EmojiPickerButton
           onEmojiSelect={handleEmojiSelect}
           disabled={sending}
