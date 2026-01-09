@@ -6,6 +6,7 @@ import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Send, Loader2, Sparkles, Circle } from 'lucide-react';
+import { EmojiPickerButton } from '../ui/emoji-picker';
 
 interface Friend {
   id: string;
@@ -144,9 +145,9 @@ export function TripChat({
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const prevMessageCountRef = useRef<number>(0);
   const prevLastMessageIdRef = useRef<string | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Mention state
   const [showMentions, setShowMentions] = useState(false);
@@ -406,6 +407,27 @@ export function TripChat({
     }
   };
 
+  // Handle emoji selection - insert at cursor position
+  const handleEmojiSelect = (emoji: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setInput(input + emoji);
+      return;
+    }
+
+    const start = textarea.selectionStart || 0;
+    const end = textarea.selectionEnd || 0;
+    const newValue = input.slice(0, start) + emoji + input.slice(end);
+
+    setInput(newValue);
+
+    // Set cursor position after emoji
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+    }, 0);
+  };
+
   // Get sender info for a message
   const getSenderInfo = (msg: Message) => {
     // AI assistant message
@@ -658,6 +680,10 @@ export function TripChat({
             </div>
           )}
         </div>
+        <EmojiPickerButton
+          onEmojiSelect={handleEmojiSelect}
+          disabled={sending}
+        />
         <Button
           onClick={handleSend}
           disabled={!input.trim() || sending}
