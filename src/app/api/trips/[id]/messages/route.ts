@@ -134,6 +134,47 @@ export async function POST(
       role: 'user',
     }, userId);
 
+    // Get trip details for notifications
+    const tripForNotify = await prisma.tripSession.findById(id, userId);
+    if (tripForNotify) {
+      // Get sender's name
+      const sender = await prisma.user.findById(userId);
+      const senderName = sender?.name || 'Someone';
+      const messagePreview = content.length > 100 ? content.substring(0, 100) + '...' : content;
+
+      // Notify all collaborators with linked Amika accounts (except the sender)
+      const recipientUserIds = new Set<string>();
+
+      // Add collaborators with userId
+      for (const collab of tripForNotify.collaborators) {
+        if (collab.userId && collab.userId !== userId) {
+          recipientUserIds.add(collab.userId);
+        }
+      }
+
+      // Add owner if not the sender
+      if (tripForNotify.userId !== userId) {
+        recipientUserIds.add(tripForNotify.userId);
+      }
+
+      // Create notifications for each recipient
+      for (const recipientId of recipientUserIds) {
+        try {
+          await prisma.chatNotification.createOrUpdate({
+            recipientUserId: recipientId,
+            senderUserId: userId,
+            senderName,
+            chatType: 'trip',
+            chatId: id,
+            chatTitle: tripForNotify.title,
+            messagePreview,
+          });
+        } catch (notifError) {
+          console.error('Failed to create chat notification:', notifError);
+        }
+      }
+    }
+
     // Check if the message mentions @amika or @Amika
     const mentionsAmika = /@amika/i.test(content);
 

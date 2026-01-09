@@ -173,6 +173,22 @@ export function EventPlanChat({
   const prevMessageCountRef = useRef<number>(0);
   const prevLastMessageIdRef = useRef<string | null>(null);
 
+  // Mark chat notifications as read when component mounts
+  useEffect(() => {
+    const markNotificationsRead = async () => {
+      try {
+        await fetch('/api/chat-notifications', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatType: 'event_plan', chatId: eventPlanId }),
+        });
+      } catch (err) {
+        // Silently fail - not critical
+      }
+    };
+    markNotificationsRead();
+  }, [eventPlanId]);
+
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
     const lastMessageId = lastMessage?.id || null;

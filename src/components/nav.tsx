@@ -39,7 +39,7 @@ export function Nav() {
       const response = await fetch('/api/shared-items?pendingCount=true');
       if (response.ok) {
         const data = await response.json();
-        setPendingCount(data.connectionRequests + data.sharedItems);
+        setPendingCount(data.connectionRequests + data.sharedItems + (data.chatNotifications || 0));
       }
     } catch (error) {
       console.error('Error fetching pending count:', error);
