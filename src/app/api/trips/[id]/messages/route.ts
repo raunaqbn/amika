@@ -41,6 +41,47 @@ export async function GET(
   }
 }
 
+// Build context for tagged friends
+async function buildTaggedFriendsContext(userId: string, friendIds: string[]): Promise<string> {
+  if (!friendIds || friendIds.length === 0) return '';
+
+  try {
+    const friends = await prisma.friend.findMany({
+      userId,
+      include: { memories: { orderBy: { createdAt: 'desc' } } },
+    });
+
+    const taggedFriends = friends.filter((f: { id: string }) => friendIds.includes(f.id));
+    if (taggedFriends.length === 0) return '';
+
+    let context = '\n\n## Tagged Friends\nThe user has tagged these friends. Consider their profiles for personalized suggestions:\n';
+
+    for (const friend of taggedFriends as any[]) {
+      context += `\n### ${friend.name}\n`;
+      if (friend.notes) {
+        context += `- Notes: ${friend.notes}\n`;
+      }
+      if (friend.interests) {
+        const interestsList = parseInterests(friend.interests as string);
+        if (interestsList.length > 0) {
+          context += `- Interests: ${formatInterestsForAI(interestsList)}\n`;
+        }
+      }
+      if (friend.memories && friend.memories.length > 0) {
+        context += `- Recent memories:\n`;
+        for (const memory of friend.memories.slice(0, 3)) {
+          context += `  * ${memory.content}\n`;
+        }
+      }
+    }
+
+    return context;
+  } catch (error) {
+    console.error('Error building tagged friends context:', error);
+    return '';
+  }
+}
+
 // POST /api/trips/[id]/messages - Send message (detect @amika for AI response)
 export async function POST(
   request: NextRequest,
@@ -54,7 +95,7 @@ export async function POST(
 
     const { id } = await params;
     const body = await request.json();
-    const { content, context = 'general' } = body;
+    const { content, context = 'general', taggedFriendIds, chatTranscript } = body;
 
     if (!content) {
       return NextResponse.json(
@@ -105,9 +146,25 @@ Current section: ${context}
         ? `\n\n## Group Member Interests\nUse these interests to make personalized suggestions that the group will enjoy:\n${collaboratorDetails}`
         : '';
 
+      // Build tagged friends context if any friends are tagged
+      let taggedFriendsSection = '';
+      if (taggedFriendIds && Array.isArray(taggedFriendIds) && taggedFriendIds.length > 0) {
+        taggedFriendsSection = await buildTaggedFriendsContext(userId, taggedFriendIds);
+      }
+
+      // Build chat transcript context if provided
+      let chatTranscriptSection = '';
+      if (chatTranscript && Array.isArray(chatTranscript) && chatTranscript.length > 0) {
+        chatTranscriptSection = '\n\n## Conversation History\nHere is the recent conversation for context:\n';
+        for (const msg of chatTranscript.slice(-10)) { // Last 10 messages
+          const role = msg.role === 'user' ? 'User' : 'Amika';
+          chatTranscriptSection += `${role}: ${msg.content}\n\n`;
+        }
+      }
+
       const systemPrompt = `You are Amika, a helpful AI assistant helping plan a collaborative trip. You're friendly, concise, and practical.
 
-${tripContext}${collaboratorInterestsSection}
+${tripContext}${collaboratorInterestsSection}${taggedFriendsSection}${chatTranscriptSection}
 
 Help the group with their trip planning by:
 - Suggesting activities and places based on the destination AND the group's shared interests

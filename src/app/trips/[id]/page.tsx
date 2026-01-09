@@ -178,6 +178,7 @@ export default function TripPlanningPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [friends, setFriends] = useState<{ id: string; name: string }[]>([]);
 
   const fetchTrip = useCallback(async () => {
     try {
@@ -205,6 +206,22 @@ export default function TripPlanningPage() {
   useEffect(() => {
     fetchTrip();
   }, [fetchTrip]);
+
+  // Fetch friends for @mention
+  useEffect(() => {
+    const fetchFriends = async () => {
+      try {
+        const response = await fetch('/api/friends');
+        if (response.ok) {
+          const data = await response.json();
+          setFriends(data.map((f: any) => ({ id: f.id, name: f.name })));
+        }
+      } catch (err) {
+        console.error('Error fetching friends:', err);
+      }
+    };
+    fetchFriends();
+  }, []);
 
   // Fetch current user ID
   useEffect(() => {
@@ -458,6 +475,7 @@ export default function TripPlanningPage() {
                 onNewMessage={handleNewMessage}
                 typingUsers={typingUsers}
                 activeUsers={activeUsers}
+                friends={friends}
               />
             </div>
 
