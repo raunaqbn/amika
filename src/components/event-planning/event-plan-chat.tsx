@@ -83,7 +83,7 @@ function HighlightMentions({ text, isAssistant }: { text: string; isAssistant: b
               className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md font-medium ${
                 isAssistant
                   ? 'bg-[#A8C5A8]/20 text-[#A8C5A8]'
-                  : 'bg-[#7BA4C7]/20 text-[#7BA4C7]'
+                  : 'bg-[#1877F2]/20 text-[#1877F2]'
               }`}
             >
               <Sparkles className="w-3 h-3" />
