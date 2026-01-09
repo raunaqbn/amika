@@ -5,7 +5,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Send, Loader2, Sparkles, Circle } from 'lucide-react';
+import { Send, Loader2, Sparkles, Circle, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import React from 'react';
 import { EmojiPickerButton } from '../ui/emoji-picker';
@@ -68,6 +68,7 @@ interface TripChatProps {
   tripOwnerName?: string | null;
   tripOwnerProfileImage?: string | null;
   onNewMessage?: (message: Message) => void;
+  onClearChat?: () => void;
   typingUsers?: TypingUser[];
   activeUsers?: ActiveUser[];
   friends?: Friend[];
@@ -195,12 +196,14 @@ export function TripChat({
   tripOwnerName,
   tripOwnerProfileImage,
   onNewMessage,
+  onClearChat,
   typingUsers = [],
   activeUsers = [],
   friends = [],
 }: TripChatProps) {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -444,6 +447,33 @@ export function TripChat({
     }
   };
 
+  const handleClearChat = async () => {
+    if (clearing || currentUser.id !== tripOwnerId) return;
+
+    if (!confirm('Are you sure you want to clear all messages? This cannot be undone.')) {
+      return;
+    }
+
+    setClearing(true);
+    try {
+      const response = await fetch(`/api/trips/${tripId}/messages`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        onClearChat?.();
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to clear chat');
+      }
+    } catch (error) {
+      console.error('Error clearing chat:', error);
+      alert('Failed to clear chat');
+    } finally {
+      setClearing(false);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Handle escape to close mentions dropdown
     if (showMentions && e.key === 'Escape') {
@@ -564,6 +594,8 @@ export function TripChat({
   // Filter out current user from typing users
   const othersTyping = typingUsers.filter(u => u.id !== currentUser.id);
 
+  const isOwner = currentUser.id === tripOwnerId;
+
   return (
     <Card className="p-4 flex flex-col h-full min-h-[500px] max-h-[600px] lg:min-h-[600px] lg:max-h-[calc(100vh-180px)]">
       <div className="flex items-center gap-2 mb-3">
@@ -591,6 +623,23 @@ export function TripChat({
             )}
             <span className="text-xs text-muted-foreground ml-1">active</span>
           </div>
+        )}
+        {/* Clear chat button - only visible to owner */}
+        {isOwner && messages.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClearChat}
+            disabled={clearing}
+            className="ml-auto h-7 px-2 text-muted-foreground hover:text-destructive"
+            title="Clear chat"
+          >
+            {clearing ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="w-3.5 h-3.5" />
+            )}
+          </Button>
         )}
       </div>
 

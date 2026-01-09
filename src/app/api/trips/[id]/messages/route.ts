@@ -393,3 +393,31 @@ When you suggest specific events or places, format them with **bold** titles so 
     );
   }
 }
+
+// DELETE /api/trips/[id]/messages - Clear all messages (owner only)
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    const deletedCount = await prisma.tripMessage.deleteMany(id, userId);
+
+    return NextResponse.json({ success: true, deletedCount });
+  } catch (error: any) {
+    console.error('Error clearing messages:', error);
+    if (error.message === 'Only the trip owner can clear the chat') {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    return NextResponse.json(
+      { error: 'Failed to clear messages' },
+      { status: 500 }
+    );
+  }
+}

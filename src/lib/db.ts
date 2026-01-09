@@ -5801,6 +5801,29 @@ export const prisma = {
 
       return message;
     },
+
+    deleteMany: async (tripId: string, userId: string): Promise<number> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify user is the trip owner (only owner can clear chat)
+      const accessCheck = await client.execute({
+        sql: `SELECT * FROM trip_sessions WHERE id = ? AND userId = ?`,
+        args: [tripId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Only the trip owner can clear the chat');
+      }
+
+      // Delete all messages for this trip
+      const result = await client.execute({
+        sql: 'DELETE FROM trip_messages WHERE tripId = ?',
+        args: [tripId],
+      });
+
+      return result.rowsAffected;
+    },
   },
 
   // Trip Polls
@@ -7569,6 +7592,29 @@ export const prisma = {
       });
 
       return message;
+    },
+
+    deleteMany: async (eventPlanId: string, userId: string): Promise<number> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Verify user is the event plan owner (only owner can clear chat)
+      const accessCheck = await client.execute({
+        sql: `SELECT * FROM event_plan_sessions WHERE id = ? AND userId = ?`,
+        args: [eventPlanId, userId],
+      });
+
+      if (accessCheck.rows.length === 0) {
+        throw new Error('Only the event plan owner can clear the chat');
+      }
+
+      // Delete all messages for this event plan
+      const result = await client.execute({
+        sql: 'DELETE FROM event_plan_messages WHERE eventPlanId = ?',
+        args: [eventPlanId],
+      });
+
+      return result.rowsAffected;
     },
   },
 
