@@ -24,7 +24,7 @@ interface EventPlanPoll {
 interface EventPlan {
   id: string;
   userId: string;
-  eventDate: Date | null;
+  eventDate: Date | string | null;
   eventTime: string | null;
 }
 
