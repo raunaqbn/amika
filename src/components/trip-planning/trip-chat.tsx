@@ -6,6 +6,8 @@ import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Send, Loader2, Sparkles, Circle } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import React from 'react';
 
 interface Message {
   id: string;
@@ -62,6 +64,94 @@ interface TripChatProps {
   onNewMessage?: (message: Message) => void;
   typingUsers?: TypingUser[];
   activeUsers?: ActiveUser[];
+}
+
+// Component to render text with highlighted @mentions
+function HighlightMentions({ text, isAssistant }: { text: string; isAssistant: boolean }) {
+  const pattern = /@amika/gi;
+  const parts = text.split(pattern);
+  const matches = text.match(pattern) || [];
+
+  if (matches.length === 0) return <>{text}</>;
+
+  return (
+    <>
+      {parts.map((part, index) => (
+        <React.Fragment key={index}>
+          {part}
+          {index < matches.length && (
+            <span
+              className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md font-medium ${
+                isAssistant
+                  ? 'bg-[#A8C5A8]/20 text-[#A8C5A8]'
+                  : 'bg-[#7BA4C7]/20 text-[#7BA4C7]'
+              }`}
+            >
+              <Sparkles className="w-3 h-3" />
+              {matches[index]}
+            </span>
+          )}
+        </React.Fragment>
+      ))}
+    </>
+  );
+}
+
+// Markdown renderer component for chat messages
+function MarkdownMessage({ content, isAssistant }: { content: string; isAssistant: boolean }) {
+  return (
+    <ReactMarkdown
+      components={{
+        p: ({ children }) => {
+          const processedChildren = React.Children.map(children, (child) => {
+            if (typeof child === 'string') {
+              return <HighlightMentions text={child} isAssistant={isAssistant} />;
+            }
+            return child;
+          });
+          return <p className="mb-2 last:mb-0">{processedChildren}</p>;
+        },
+        ul: ({ children }) => <ul className="list-disc ml-4 mb-2 space-y-1">{children}</ul>,
+        ol: ({ children }) => <ol className="list-decimal ml-4 mb-2 space-y-1">{children}</ol>,
+        li: ({ children }) => {
+          const processedChildren = React.Children.map(children, (child) => {
+            if (typeof child === 'string') {
+              return <HighlightMentions text={child} isAssistant={isAssistant} />;
+            }
+            return child;
+          });
+          return <li className="text-sm">{processedChildren}</li>;
+        },
+        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+        em: ({ children }) => <em className="italic">{children}</em>,
+        h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
+        h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
+        h3: ({ children }) => <h3 className="text-sm font-bold mb-1">{children}</h3>,
+        code: ({ children }) => (
+          <code className={`px-1 py-0.5 rounded text-xs ${isAssistant ? 'bg-[#A8C5A8]/10' : 'bg-gray-200'}`}>
+            {children}
+          </code>
+        ),
+        pre: ({ children }) => (
+          <pre className={`p-2 rounded text-xs overflow-x-auto my-2 ${isAssistant ? 'bg-[#A8C5A8]/10' : 'bg-gray-200'}`}>
+            {children}
+          </pre>
+        ),
+        a: ({ href, children }) => (
+          <a href={href} className="underline text-[#7BA4C7]" target="_blank" rel="noopener noreferrer">
+            {children}
+          </a>
+        ),
+        blockquote: ({ children }) => (
+          <blockquote className="border-l-2 pl-2 my-2 border-gray-300 italic">
+            {children}
+          </blockquote>
+        ),
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
 }
 
 export function TripChat({
@@ -329,9 +419,9 @@ export function TripChat({
                     }`}>
                       {sender.isCurrentUser ? 'You' : sender.name}
                     </p>
-                    <p className="text-sm whitespace-pre-wrap break-words text-left">
-                      {msg.content}
-                    </p>
+                    <div className="text-sm break-words text-left prose prose-sm max-w-none">
+                      <MarkdownMessage content={msg.content} isAssistant={sender.isAssistant} />
+                    </div>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     {new Date(msg.createdAt).toLocaleTimeString([], {
