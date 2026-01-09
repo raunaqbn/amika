@@ -17,6 +17,7 @@ import {
 } from './ui/dialog';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
+import { EmojiPickerButton } from './ui/emoji-picker';
 
 // Type for detected event information
 interface DetectedEvent {
@@ -158,7 +159,7 @@ function HighlightMentions({ text, isUser, friendNames }: { text: string; isUser
               key={index}
               className={`px-1.5 py-0.5 rounded-md font-medium ${
                 isUser
-                  ? 'bg-white/25 text-white'
+                  ? 'bg-white/40 text-[#4a6741]'
                   : 'bg-[#D4A5A5]/20 text-[#D4A5A5]'
               }`}
             >
@@ -806,6 +807,27 @@ export function ChatInterface() {
     }
   };
 
+  // Handle emoji selection - insert at cursor position
+  const handleEmojiSelect = (emoji: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      handleInputChange({ target: { value: input + emoji } } as any);
+      return;
+    }
+
+    const start = textarea.selectionStart || 0;
+    const end = textarea.selectionEnd || 0;
+    const newValue = input.slice(0, start) + emoji + input.slice(end);
+
+    handleInputChange({ target: { value: newValue } } as any);
+
+    // Set cursor position after emoji
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+    }, 0);
+  };
+
   return (
     <div className="flex flex-col md:flex-row h-full min-h-0 gap-6">
       <aside className="md:w-72 lg:w-80 md:max-w-sm w-full md:flex-shrink-0 border border-[#A8C5A8]/30 rounded-2xl p-4 bg-white/60 shadow-sm">
@@ -1234,6 +1256,12 @@ export function ChatInterface() {
                 </div>
               )}
             </div>
+            {/* Emoji Picker Button */}
+            <EmojiPickerButton
+              onEmojiSelect={handleEmojiSelect}
+              disabled={isLoading}
+              className="self-end"
+            />
             {/* Writing Assistant Button */}
             <div className="relative self-end" ref={writingAssistantRef}>
               <Button
