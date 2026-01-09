@@ -146,6 +146,9 @@ export function AddEventDialog({
   const isEditMode = mode === 'event' ? !!eventToEdit : !!eventOptionToEdit;
   const isEventOptionMode = mode === 'eventOption';
 
+  // Track which event option we've initialized to avoid resetting form on every render
+  const [initializedOptionId, setInitializedOptionId] = useState<string | null>(null);
+
   // Check Google Calendar connection status
   useEffect(() => {
     const checkGoogleConnection = async () => {
@@ -203,29 +206,34 @@ export function AddEventDialog({
     }
   }, [eventToEdit, open, mode]);
 
-  // Pre-fill form when editing event option
+  // Pre-fill form when editing event option - only initialize once per edit session
   useEffect(() => {
     if (eventOptionToEdit && open && mode === 'eventOption') {
-      setTitle(eventOptionToEdit.title);
-      setDescription(eventOptionToEdit.description || '');
-      setLocation(eventOptionToEdit.location || '');
-      setCategory(eventOptionToEdit.category || null);
-      setEstimatedCost(eventOptionToEdit.estimatedCost?.toString() || '');
-      setExternalUrl(eventOptionToEdit.externalUrl || '');
-      setNotes(eventOptionToEdit.notes || '');
-      // Format date for datetime-local input if available
-      if (eventOptionToEdit.eventDate) {
-        const date = new Date(eventOptionToEdit.eventDate);
-        setEventDate(format(date, "yyyy-MM-dd'T'HH:mm"));
-      } else if (eventOptionToEdit.eventTime) {
-        // If only time is available, set it with today's date
-        setEventDate('');
+      // Only initialize if this is a different event option than we've already initialized
+      if (initializedOptionId !== eventOptionToEdit.id) {
+        setTitle(eventOptionToEdit.title);
+        setDescription(eventOptionToEdit.description || '');
+        setLocation(eventOptionToEdit.location || '');
+        setCategory(eventOptionToEdit.category || null);
+        setEstimatedCost(eventOptionToEdit.estimatedCost?.toString() || '');
+        setExternalUrl(eventOptionToEdit.externalUrl || '');
+        setNotes(eventOptionToEdit.notes || '');
+        // Format date for datetime-local input if available
+        if (eventOptionToEdit.eventDate) {
+          const date = new Date(eventOptionToEdit.eventDate);
+          setEventDate(format(date, "yyyy-MM-dd'T'HH:mm"));
+        } else if (eventOptionToEdit.eventTime) {
+          // If only time is available, set it with today's date
+          setEventDate('');
+        }
+        // Disable quick mode when editing
+        setQuickMode(false);
+        setQuickEventType(null);
+        // Mark this option as initialized
+        setInitializedOptionId(eventOptionToEdit.id);
       }
-      // Disable quick mode when editing
-      setQuickMode(false);
-      setQuickEventType(null);
     }
-  }, [eventOptionToEdit, open, mode]);
+  }, [eventOptionToEdit, open, mode, initializedOptionId]);
 
   const handleQuickEventSelect = (eventType: { label: string; title: string }) => {
     if (eventType.label === 'Custom') {
@@ -314,6 +322,8 @@ export function AddEventDialog({
     setEstimatedCost('');
     setExternalUrl('');
     setNotes('');
+    // Reset the initialized option tracking so next edit will re-initialize
+    setInitializedOptionId(null);
   };
 
   const resetAddFriendForm = () => {
