@@ -418,12 +418,16 @@ export function EventPlanChat({
   const [mentionPosition, setMentionPosition] = useState(0);
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
 
-  // Get all mentionable names (collaborators)
+  // Get all mentionable names (collaborators + event organizer)
   const allMentionableNames = useMemo(() => {
     const names = new Set<string>();
     collaborators.forEach(c => names.add(c.friendName));
+    // Add event organizer name if they're not the current user and have a name
+    if (eventPlanOwnerId !== currentUser.id && eventPlanOwnerName) {
+      names.add(eventPlanOwnerName);
+    }
     return Array.from(names);
-  }, [collaborators]);
+  }, [collaborators, eventPlanOwnerId, currentUser.id, eventPlanOwnerName]);
 
   // Amika as a special mention option
   const amikaOption = { id: 'amika', name: 'amika', isAmika: true, profileImage: null };
@@ -440,8 +444,25 @@ export function EventPlanChat({
     // Check if 'amika' matches the search
     const amikaMatches = !mentionSearch || 'amika'.includes(search);
 
+    // Check if event organizer matches the search (only if not current user)
+    const ownerMatches = eventPlanOwnerId !== currentUser.id &&
+      eventPlanOwnerName &&
+      (!mentionSearch || eventPlanOwnerName.toLowerCase().includes(search));
+
+    // Check if organizer is already in collaborators list
+    const ownerInCollaborators = collaborators.some(
+      c => c.linkedUserId === eventPlanOwnerId || c.userId === eventPlanOwnerId
+    );
+
     return [
       ...(amikaMatches ? [amikaOption] : []),
+      // Add event organizer if they match search and aren't already in collaborators
+      ...(ownerMatches && !ownerInCollaborators ? [{
+        id: eventPlanOwnerId,
+        name: eventPlanOwnerName,
+        isAmika: false,
+        profileImage: eventPlanOwnerImage || null,
+      }] : []),
       ...filteredCollaborators.map(c => ({
         id: c.friendId,
         name: c.friendName,
@@ -449,7 +470,7 @@ export function EventPlanChat({
         profileImage: c.profileImage,
       })),
     ];
-  }, [collaborators, mentionSearch]);
+  }, [collaborators, mentionSearch, eventPlanOwnerId, currentUser.id, eventPlanOwnerName, eventPlanOwnerImage]);
 
   const handleMentionSelect = (optionName: string) => {
     const beforeMention = input.slice(0, mentionPosition);
