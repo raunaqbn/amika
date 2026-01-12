@@ -56,6 +56,9 @@ export function MemoryList({ friendId, friendName, linkedUserId, memories, onUpd
 
   const isAmikaFriend = Boolean(linkedUserId);
 
+  // Image viewer state
+  const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
+
   const compressImage = async (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -424,7 +427,8 @@ export function MemoryList({ friendId, friendName, linkedUserId, memories, onUpd
                     <img
                       src={memory.imageUrl}
                       alt="Memory"
-                      className="w-full max-w-md h-48 object-cover rounded-lg"
+                      className="w-full max-w-md h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => setViewerImageUrl(memory.imageUrl!)}
                     />
                   )}
                   <p className="text-xs text-gray-500">
@@ -611,6 +615,27 @@ export function MemoryList({ friendId, friendName, linkedUserId, memories, onUpd
               {saving ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Viewer Dialog */}
+      <Dialog open={!!viewerImageUrl} onOpenChange={(open) => !open && setViewerImageUrl(null)}>
+        <DialogContent className="sm:max-w-3xl max-w-[95vw] p-0 bg-black/95 border-none" showCloseButton={false}>
+          <div className="relative">
+            <button
+              onClick={() => setViewerImageUrl(null)}
+              className="absolute top-3 right-3 z-10 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            {viewerImageUrl && (
+              <img
+                src={viewerImageUrl}
+                alt="Memory"
+                className="w-full h-auto max-h-[85vh] object-contain"
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
