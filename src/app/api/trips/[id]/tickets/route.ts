@@ -45,7 +45,7 @@ export async function POST(
 
     const { id } = await params;
     const body = await request.json();
-    const { type, title, description, collaboratorId, confirmationNum, departureTime, arrivalTime, location, cost, currency, url } = body;
+    const { type, title, description, collaboratorId, confirmationNum, departureTime, arrivalTime, location, cost, currency, url, passengerName, flightDirection, departureLocation, arrivalLocation } = body;
 
     if (!type || !title) {
       return NextResponse.json(
@@ -66,6 +66,10 @@ export async function POST(
       cost,
       currency,
       url,
+      passengerName,
+      flightDirection,
+      departureLocation,
+      arrivalLocation,
     }, userId);
 
     return NextResponse.json(ticket, { status: 201 });
@@ -94,7 +98,7 @@ export async function PUT(
 
     await params;
     const body = await request.json();
-    const { ticketId, type, title, description, collaboratorId, confirmationNum, departureTime, arrivalTime, location, cost, currency, url } = body;
+    const { ticketId, type, title, description, collaboratorId, confirmationNum, departureTime, arrivalTime, location, cost, currency, url, passengerName, flightDirection, departureLocation, arrivalLocation } = body;
 
     if (!ticketId) {
       return NextResponse.json(
@@ -115,6 +119,10 @@ export async function PUT(
       cost,
       currency,
       url,
+      passengerName,
+      flightDirection,
+      departureLocation,
+      arrivalLocation,
     }, userId);
 
     if (!ticket) {

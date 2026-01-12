@@ -26,6 +26,9 @@ import {
   User,
   FileText,
   BarChart2,
+  ArrowRight,
+  PlaneTakeoff,
+  PlaneLanding,
 } from 'lucide-react';
 import {
   Collapsible,
@@ -66,6 +69,10 @@ interface TripTicket {
   cost: number | null;
   currency: string;
   url: string | null;
+  passengerName: string | null;
+  flightDirection: 'outbound' | 'return' | null;
+  departureLocation: string | null;
+  arrivalLocation: string | null;
   createdById: string;
   createdAt: Date;
   updatedAt: Date;
@@ -376,6 +383,7 @@ function TicketUserSection({
         <div className="pt-2 pl-6 space-y-2">
           {tickets.map((ticket) => {
             const TypeIcon = ticketTypeIcons[ticket.type] || Ticket;
+            const isFlight = ticket.type === 'flight';
             return (
               <div
                 key={ticket.id}
@@ -384,19 +392,55 @@ function TicketUserSection({
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-2">
                     <TypeIcon className="w-4 h-4 mt-0.5 text-[#A8C5A8]" />
-                    <div>
-                      <p className="font-medium">{ticket.title}</p>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{ticket.title}</p>
+                        {isFlight && ticket.flightDirection && (
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            ticket.flightDirection === 'outbound'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-green-100 text-green-700'
+                          }`}>
+                            {ticket.flightDirection === 'outbound' ? 'Outbound' : 'Return'}
+                          </span>
+                        )}
+                      </div>
+                      {ticket.passengerName && (
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <User className="w-3 h-3" />
+                          {ticket.passengerName}
+                        </p>
+                      )}
+                      {isFlight && (ticket.departureLocation || ticket.arrivalLocation) && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                          {ticket.departureLocation && (
+                            <span className="flex items-center gap-1">
+                              <PlaneTakeoff className="w-3 h-3" />
+                              {ticket.departureLocation}
+                            </span>
+                          )}
+                          {ticket.departureLocation && ticket.arrivalLocation && (
+                            <ArrowRight className="w-3 h-3" />
+                          )}
+                          {ticket.arrivalLocation && (
+                            <span className="flex items-center gap-1">
+                              <PlaneLanding className="w-3 h-3" />
+                              {ticket.arrivalLocation}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       {ticket.description && (
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground mt-1">
                           {ticket.description}
                         </p>
                       )}
-                      {ticket.location && (
+                      {!isFlight && ticket.location && (
                         <p className="text-sm text-muted-foreground">
                           {ticket.location}
                         </p>
                       )}
-                      <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-4 mt-1 text-xs text-muted-foreground">
                         {ticket.departureTime && (
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
@@ -406,7 +450,14 @@ function TicketUserSection({
                         {ticket.departureTime && (
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
+                            {isFlight ? 'Dep: ' : ''}
                             {new Date(ticket.departureTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                        {isFlight && ticket.arrivalTime && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            Arr: {new Date(ticket.arrivalTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         )}
                         {ticket.cost && (
@@ -474,11 +525,18 @@ function AddTicketDialog({
   const [confirmationNum, setConfirmationNum] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
+  const [arrivalDate, setArrivalDate] = useState('');
+  const [arrivalTime, setArrivalTime] = useState('');
   const [location, setLocation] = useState('');
   const [cost, setCost] = useState('');
   const [currency, setCurrency] = useState('USD');
   const [url, setUrl] = useState('');
   const [saving, setSaving] = useState(false);
+  // New flight-specific fields
+  const [passengerName, setPassengerName] = useState('');
+  const [flightDirection, setFlightDirection] = useState<'outbound' | 'return' | ''>('');
+  const [departureLocation, setDepartureLocation] = useState('');
+  const [arrivalLocation, setArrivalLocation] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -492,6 +550,12 @@ function AddTicketDialog({
         departureTime = time ? `${date}T${time}:00` : `${date}T00:00:00`;
       }
 
+      // Combine arrival date and time into arrivalTime
+      let arrivalTimeStr: string | undefined;
+      if (arrivalDate) {
+        arrivalTimeStr = arrivalTime ? `${arrivalDate}T${arrivalTime}:00` : `${arrivalDate}T00:00:00`;
+      }
+
       const response = await fetch(`/api/trips/${tripId}/tickets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -501,10 +565,15 @@ function AddTicketDialog({
           description: description.trim() || undefined,
           confirmationNum: confirmationNum.trim() || undefined,
           departureTime,
+          arrivalTime: arrivalTimeStr,
           location: location.trim() || undefined,
           cost: cost ? parseFloat(cost) : undefined,
           currency,
           url: url.trim() || undefined,
+          passengerName: passengerName.trim() || undefined,
+          flightDirection: flightDirection || undefined,
+          departureLocation: departureLocation.trim() || undefined,
+          arrivalLocation: arrivalLocation.trim() || undefined,
         }),
       });
 
@@ -518,10 +587,16 @@ function AddTicketDialog({
         setConfirmationNum('');
         setDate('');
         setTime('');
+        setArrivalDate('');
+        setArrivalTime('');
         setLocation('');
         setCost('');
         setCurrency('USD');
         setUrl('');
+        setPassengerName('');
+        setFlightDirection('');
+        setDepartureLocation('');
+        setArrivalLocation('');
       }
     } catch (error) {
       console.error('Error adding ticket:', error);
@@ -569,6 +644,71 @@ function AddTicketDialog({
           </div>
 
           <div className="space-y-2">
+            <label className="text-sm font-medium">Passenger Name</label>
+            <Input
+              placeholder="Name on ticket"
+              value={passengerName}
+              onChange={(e) => setPassengerName(e.target.value)}
+              disabled={saving}
+            />
+          </div>
+
+          {type === 'flight' && (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Flight Direction</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFlightDirection('outbound')}
+                    className={`flex items-center justify-center gap-2 p-2 rounded-lg border transition-colors ${
+                      flightDirection === 'outbound'
+                        ? 'border-[#A8C5A8] bg-[#A8C5A8]/10'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <PlaneTakeoff className="w-4 h-4" />
+                    <span className="text-sm">Outbound</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFlightDirection('return')}
+                    className={`flex items-center justify-center gap-2 p-2 rounded-lg border transition-colors ${
+                      flightDirection === 'return'
+                        ? 'border-[#A8C5A8] bg-[#A8C5A8]/10'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <PlaneLanding className="w-4 h-4" />
+                    <span className="text-sm">Return</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">From (Airport/City)</label>
+                  <Input
+                    placeholder="e.g., JFK, New York"
+                    value={departureLocation}
+                    onChange={(e) => setDepartureLocation(e.target.value)}
+                    disabled={saving}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">To (Airport/City)</label>
+                  <Input
+                    placeholder="e.g., CDG, Paris"
+                    value={arrivalLocation}
+                    onChange={(e) => setArrivalLocation(e.target.value)}
+                    disabled={saving}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="space-y-2">
             <label className="text-sm font-medium">Description</label>
             <Textarea
               placeholder="Flight number, hotel address, etc."
@@ -579,15 +719,17 @@ function AddTicketDialog({
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Location</label>
-            <Input
-              placeholder="Airport, hotel name, etc."
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              disabled={saving}
-            />
-          </div>
+          {type !== 'flight' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Location</label>
+              <Input
+                placeholder="Airport, hotel name, etc."
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                disabled={saving}
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Confirmation Number</label>
@@ -601,7 +743,7 @@ function AddTicketDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Date</label>
+              <label className="text-sm font-medium">{type === 'flight' ? 'Departure Date' : 'Date'}</label>
               <Input
                 type="date"
                 value={date}
@@ -610,7 +752,7 @@ function AddTicketDialog({
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Time</label>
+              <label className="text-sm font-medium">{type === 'flight' ? 'Departure Time' : 'Time'}</label>
               <Input
                 type="time"
                 value={time}
@@ -619,6 +761,29 @@ function AddTicketDialog({
               />
             </div>
           </div>
+
+          {type === 'flight' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Arrival Date</label>
+                <Input
+                  type="date"
+                  value={arrivalDate}
+                  onChange={(e) => setArrivalDate(e.target.value)}
+                  disabled={saving}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Arrival Time</label>
+                <Input
+                  type="time"
+                  value={arrivalTime}
+                  onChange={(e) => setArrivalTime(e.target.value)}
+                  disabled={saving}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

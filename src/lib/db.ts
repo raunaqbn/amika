@@ -222,6 +222,11 @@ export type TripTicket = {
   cost: number | null;
   currency: string;
   url: string | null;
+  // Flight-specific fields
+  passengerName: string | null;
+  flightDirection: 'outbound' | 'return' | null;
+  departureLocation: string | null;
+  arrivalLocation: string | null;
   createdById: string;
   createdAt: Date;
   updatedAt: Date;
@@ -4651,6 +4656,10 @@ export const prisma = {
           cost: t.cost,
           currency: t.currency,
           url: t.url,
+          passengerName: t.passengerName,
+          flightDirection: t.flightDirection,
+          departureLocation: t.departureLocation,
+          arrivalLocation: t.arrivalLocation,
           createdById: t.createdById,
           createdAt: new Date(t.createdAt as string),
           updatedAt: new Date(t.updatedAt as string),
@@ -5073,6 +5082,10 @@ export const prisma = {
           cost: t.cost,
           currency: t.currency,
           url: t.url,
+          passengerName: t.passengerName,
+          flightDirection: t.flightDirection,
+          departureLocation: t.departureLocation,
+          arrivalLocation: t.arrivalLocation,
           createdById: t.createdById,
           createdAt: new Date(t.createdAt as string),
           updatedAt: new Date(t.updatedAt as string),
@@ -5661,6 +5674,10 @@ export const prisma = {
       cost?: number;
       currency?: string;
       url?: string;
+      passengerName?: string;
+      flightDirection?: 'outbound' | 'return';
+      departureLocation?: string;
+      arrivalLocation?: string;
     }, userId: string): Promise<TripTicket> => {
       await ensureTablesExist();
       const client = getClient();
@@ -5692,18 +5709,24 @@ export const prisma = {
         cost: data.cost || null,
         currency: data.currency || 'USD',
         url: data.url || null,
+        passengerName: data.passengerName || null,
+        flightDirection: data.flightDirection || null,
+        departureLocation: data.departureLocation || null,
+        arrivalLocation: data.arrivalLocation || null,
         createdById: userId,
         createdAt: now,
         updatedAt: now,
       };
 
       await client.execute({
-        sql: `INSERT INTO trip_tickets (id, tripId, collaboratorId, type, title, description, confirmationNum, departureTime, arrivalTime, location, cost, currency, url, createdById, createdAt, updatedAt)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sql: `INSERT INTO trip_tickets (id, tripId, collaboratorId, type, title, description, confirmationNum, departureTime, arrivalTime, location, cost, currency, url, passengerName, flightDirection, departureLocation, arrivalLocation, createdById, createdAt, updatedAt)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
           ticket.id, tripId, ticket.collaboratorId, ticket.type, ticket.title, ticket.description,
           ticket.confirmationNum, ticket.departureTime?.toISOString() || null, ticket.arrivalTime?.toISOString() || null,
-          ticket.location, ticket.cost, ticket.currency, ticket.url, userId, now.toISOString(), now.toISOString(),
+          ticket.location, ticket.cost, ticket.currency, ticket.url,
+          ticket.passengerName, ticket.flightDirection, ticket.departureLocation, ticket.arrivalLocation,
+          userId, now.toISOString(), now.toISOString(),
         ],
       });
 
@@ -5746,18 +5769,24 @@ export const prisma = {
         cost: data.cost !== undefined ? data.cost : row.cost as number | null,
         currency: data.currency ?? row.currency as string,
         url: data.url !== undefined ? data.url : row.url as string | null,
+        passengerName: data.passengerName !== undefined ? data.passengerName : row.passengerName as string | null,
+        flightDirection: data.flightDirection !== undefined ? data.flightDirection : row.flightDirection as TripTicket['flightDirection'],
+        departureLocation: data.departureLocation !== undefined ? data.departureLocation : row.departureLocation as string | null,
+        arrivalLocation: data.arrivalLocation !== undefined ? data.arrivalLocation : row.arrivalLocation as string | null,
         createdById: row.createdById as string,
         createdAt: new Date(row.createdAt as string),
         updatedAt: now,
       };
 
       await client.execute({
-        sql: `UPDATE trip_tickets SET collaboratorId = ?, type = ?, title = ?, description = ?, confirmationNum = ?, departureTime = ?, arrivalTime = ?, location = ?, cost = ?, currency = ?, url = ?, updatedAt = ?
+        sql: `UPDATE trip_tickets SET collaboratorId = ?, type = ?, title = ?, description = ?, confirmationNum = ?, departureTime = ?, arrivalTime = ?, location = ?, cost = ?, currency = ?, url = ?, passengerName = ?, flightDirection = ?, departureLocation = ?, arrivalLocation = ?, updatedAt = ?
               WHERE id = ?`,
         args: [
           updated.collaboratorId, updated.type, updated.title, updated.description, updated.confirmationNum,
           updated.departureTime?.toISOString() || null, updated.arrivalTime?.toISOString() || null,
-          updated.location, updated.cost, updated.currency, updated.url, now.toISOString(), id,
+          updated.location, updated.cost, updated.currency, updated.url,
+          updated.passengerName, updated.flightDirection, updated.departureLocation, updated.arrivalLocation,
+          now.toISOString(), id,
         ],
       });
 

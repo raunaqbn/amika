@@ -290,6 +290,12 @@ model TripTicket {
   currency        String   @default("USD")
   url             String?  // Booking link
 
+  // Flight-specific fields
+  passengerName     String?  // Name of the person this ticket is for
+  flightDirection   String?  // "outbound" or "return" for flights
+  departureLocation String?  // Departure airport/station
+  arrivalLocation   String?  // Arrival airport/station
+
   createdById     String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
