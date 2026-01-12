@@ -112,7 +112,7 @@ type SharedItem = {
   id: string;
   sharedByUserId: string;
   sharedWithUserId: string;
-  itemType: 'memory' | 'note' | 'event' | 'trip' | 'event_plan';
+  itemType: 'memory' | 'note' | 'event' | 'trip' | 'event_plan' | 'points';
   itemId: string;
   status: 'pending' | 'accepted' | 'rejected';
   message: string | null;
@@ -3501,7 +3501,7 @@ export const prisma = {
   // Shared items between users
   sharedItem: {
     // Share an item with a connected user
-    create: async (data: { sharedByUserId: string; sharedWithUserId: string; itemType: 'memory' | 'note' | 'event' | 'trip' | 'event_plan'; itemId: string; message?: string; skipConnectionCheck?: boolean }): Promise<SharedItem> => {
+    create: async (data: { sharedByUserId: string; sharedWithUserId: string; itemType: 'memory' | 'note' | 'event' | 'trip' | 'event_plan' | 'points'; itemId: string; message?: string; skipConnectionCheck?: boolean }): Promise<SharedItem> => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -3520,13 +3520,13 @@ export const prisma = {
       });
 
       if (existing.rows.length > 0) {
-        // For trips, just skip silently instead of erroring
-        if (data.itemType === 'trip') {
+        // For trips and points, just skip silently instead of erroring
+        if (data.itemType === 'trip' || data.itemType === 'points') {
           return {
             id: existing.rows[0].id as string,
             sharedByUserId: existing.rows[0].sharedByUserId as string,
             sharedWithUserId: existing.rows[0].sharedWithUserId as string,
-            itemType: existing.rows[0].itemType as 'memory' | 'note' | 'event' | 'trip' | 'event_plan',
+            itemType: existing.rows[0].itemType as 'memory' | 'note' | 'event' | 'trip' | 'event_plan' | 'points',
             itemId: existing.rows[0].itemId as string,
             status: existing.rows[0].status as 'pending' | 'accepted' | 'rejected',
             message: existing.rows[0].message as string | null,
@@ -3697,6 +3697,23 @@ export const prisma = {
               status: eventPlanRow.status as string,
             };
           }
+        } else if (itemType === 'points') {
+          // Points notifications reference the event that was completed
+          const eventResult = await client.execute({
+            sql: 'SELECT * FROM events WHERE id = ?',
+            args: [itemId],
+          });
+          if (eventResult.rows.length > 0) {
+            const eventRow = eventResult.rows[0];
+            item = {
+              id: eventRow.id as string,
+              title: eventRow.title as string,
+              description: eventRow.description as string | null,
+              eventDate: new Date(eventRow.eventDate as string),
+              location: eventRow.location as string | null,
+              category: eventRow.category as string | null,
+            };
+          }
         }
 
         const sharedBy = userMap.get(row.sharedByUserId as string) || { id: row.sharedByUserId as string, name: 'Unknown', email: '', profileImage: null };
@@ -3706,7 +3723,7 @@ export const prisma = {
           id: row.id as string,
           sharedByUserId: row.sharedByUserId as string,
           sharedWithUserId: row.sharedWithUserId as string,
-          itemType: row.itemType as 'memory' | 'note' | 'event' | 'trip' | 'event_plan',
+          itemType: row.itemType as 'memory' | 'note' | 'event' | 'trip' | 'event_plan' | 'points',
           itemId: row.itemId as string,
           status: row.status as 'pending' | 'accepted' | 'rejected',
           message: row.message as string | null,
@@ -3745,7 +3762,7 @@ export const prisma = {
         id: row.id as string,
         sharedByUserId: row.sharedByUserId as string,
         sharedWithUserId: row.sharedWithUserId as string,
-        itemType: row.itemType as 'memory' | 'note' | 'event' | 'trip' | 'event_plan',
+        itemType: row.itemType as 'memory' | 'note' | 'event' | 'trip' | 'event_plan' | 'points',
         itemId: row.itemId as string,
         status: args.status,
         message: row.message as string | null,

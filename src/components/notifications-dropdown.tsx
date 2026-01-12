@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, UserPlus, Share2, FileText, Calendar, Image as ImageIcon, Plane, Check, X, Loader2, ChevronRight, MessageCircle, Trash2 } from 'lucide-react';
+import { Bell, UserPlus, Share2, FileText, Calendar, Image as ImageIcon, Plane, Check, X, Loader2, ChevronRight, MessageCircle, Trash2, Star } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -26,7 +26,7 @@ type SharedItem = {
   id: string;
   sharedByUserId: string;
   sharedWithUserId: string;
-  itemType: 'memory' | 'note' | 'event' | 'trip';
+  itemType: 'memory' | 'note' | 'event' | 'trip' | 'points';
   itemId: string;
   status: 'pending' | 'accepted' | 'rejected';
   message: string | null;
@@ -47,6 +47,7 @@ type SharedItem = {
     imageUrl?: string | null;
     startDate?: string;
     endDate?: string;
+    category?: string;
   };
 };
 
@@ -176,12 +177,19 @@ export function NotificationsDropdown({ pendingCount, onCountChange }: Notificat
         return <Calendar className="w-4 h-4" />;
       case 'trip':
         return <Plane className="w-4 h-4" />;
+      case 'points':
+        return <Star className="w-4 h-4 text-yellow-500" />;
       default:
         return <Share2 className="w-4 h-4" />;
     }
   };
 
   const getItemPreview = (item: SharedItem) => {
+    // For points, use the message directly if available
+    if (item.itemType === 'points') {
+      return item.message || `Points earned for "${item.item?.title || 'an event'}"`;
+    }
+
     if (!item.item) return 'Content unavailable';
 
     switch (item.itemType) {
@@ -362,15 +370,59 @@ export function NotificationsDropdown({ pendingCount, onCountChange }: Notificat
                   </div>
                 )}
 
-                {/* Shared Items */}
-                {sharedItems.length > 0 && (
+                {/* Points Earned - Show points notifications separately */}
+                {sharedItems.filter((i) => i.itemType === 'points').length > 0 && (
+                  <div className="py-2 border-t border-gray-100">
+                    <div className="px-4 py-1">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Points Earned
+                      </p>
+                    </div>
+                    {sharedItems.filter((item) => item.itemType === 'points').map((item) => (
+                      <div
+                        key={item.id}
+                        className="px-4 py-2 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                            <Star className="w-4 h-4 text-yellow-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1">
+                              <span className="text-sm font-medium truncate">From {item.sharedBy.name}</span>
+                            </div>
+                            <p className="text-xs text-gray-600">{getItemPreview(item)}</p>
+                            <p className="text-xs text-gray-500">
+                              {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => handleSharedItemResponse(item.id, 'accepted')}
+                            disabled={processing === item.id}
+                            className="h-7 px-2 bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white text-xs"
+                          >
+                            {processing === item.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              'Dismiss'
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Shared Items - exclude points */}
+                {sharedItems.filter((i) => i.itemType !== 'points').length > 0 && (
                   <div className="py-2 border-t border-gray-100">
                     <div className="px-4 py-1">
                       <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Shared With You
                       </p>
                     </div>
-                    {sharedItems.map((item) => (
+                    {sharedItems.filter((item) => item.itemType !== 'points').map((item) => (
                       <div
                         key={item.id}
                         className="px-4 py-2 hover:bg-gray-50 transition-colors"

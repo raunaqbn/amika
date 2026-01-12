@@ -21,6 +21,7 @@ import {
   Inbox,
   Clock,
   CheckCircle,
+  Star,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 
@@ -42,7 +43,7 @@ type SharedItem = {
   id: string;
   sharedByUserId: string;
   sharedWithUserId: string;
-  itemType: 'memory' | 'note' | 'event' | 'trip';
+  itemType: 'memory' | 'note' | 'event' | 'trip' | 'points';
   itemId: string;
   status: 'pending' | 'accepted' | 'rejected';
   message: string | null;
@@ -63,6 +64,7 @@ type SharedItem = {
     imageUrl?: string | null;
     startDate?: string;
     endDate?: string;
+    category?: string;
   };
 };
 
@@ -171,12 +173,19 @@ export default function NotificationsPage() {
         return <Calendar className="w-4 h-4" />;
       case 'trip':
         return <Plane className="w-4 h-4" />;
+      case 'points':
+        return <Star className="w-4 h-4 text-yellow-500" />;
       default:
         return <Share2 className="w-4 h-4" />;
     }
   };
 
   const getItemPreview = (item: SharedItem) => {
+    // For points, use the message directly if available
+    if (item.itemType === 'points') {
+      return item.message || `Points earned for "${item.item?.title || 'an event'}"`;
+    }
+
     if (!item.item) return 'Content unavailable';
 
     switch (item.itemType) {
@@ -371,8 +380,80 @@ export default function NotificationsPage() {
               </Card>
             )}
 
-            {/* Shared Items */}
-            {filteredSharedItems.length > 0 && (
+            {/* Points Earned */}
+            {filteredSharedItems.filter((i) => i.itemType === 'points').length > 0 && (
+              <Card className="border-yellow-200">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Star className="w-5 h-5 text-yellow-500" />
+                    Points Earned
+                  </CardTitle>
+                  <CardDescription>
+                    {filteredSharedItems.filter((i) => i.itemType === 'points').length} notification{filteredSharedItems.filter((i) => i.itemType === 'points').length !== 1 ? 's' : ''}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {filteredSharedItems.filter((item) => item.itemType === 'points').map((item) => (
+                    <div
+                      key={item.id}
+                      className={`p-3 rounded-lg space-y-2 ${
+                        item.status === 'pending' ? 'bg-yellow-50' : 'bg-green-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                          <Star className="w-4 h-4 text-yellow-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm">
+                            <span className="font-medium">From {item.sharedBy.name}</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="pl-11">
+                        <div className="p-2 bg-background rounded border text-sm">
+                          {getItemPreview(item)}
+                        </div>
+                      </div>
+
+                      {item.status === 'pending' ? (
+                        <div className="flex gap-2 pl-11">
+                          <Button
+                            size="sm"
+                            onClick={() => handleSharedItemResponse(item.id, 'accepted', item)}
+                            disabled={processing === item.id}
+                            className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
+                          >
+                            {processing === item.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Check className="w-4 h-4 mr-1" />
+                                Dismiss
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="pl-11">
+                          <Badge variant="secondary" className="bg-green-100 text-green-700">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Acknowledged
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Shared Items - exclude points */}
+            {filteredSharedItems.filter((i) => i.itemType !== 'points').length > 0 && (
               <Card className="border-[#A8C5A8]/30">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -380,11 +461,11 @@ export default function NotificationsPage() {
                     Shared With You
                   </CardTitle>
                   <CardDescription>
-                    {filteredSharedItems.length} item{filteredSharedItems.length !== 1 ? 's' : ''}
+                    {filteredSharedItems.filter((i) => i.itemType !== 'points').length} item{filteredSharedItems.filter((i) => i.itemType !== 'points').length !== 1 ? 's' : ''}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {filteredSharedItems.map((item) => (
+                  {filteredSharedItems.filter((item) => item.itemType !== 'points').map((item) => (
                     <div
                       key={item.id}
                       className={`p-3 rounded-lg space-y-2 ${
