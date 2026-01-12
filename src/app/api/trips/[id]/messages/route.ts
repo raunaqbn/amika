@@ -360,17 +360,32 @@ When you suggest specific events or places, format them with **bold** titles so 
           maxSteps: 3,
         });
 
-        // Collect the full response
+        // Collect the full response and tool results
         let aiResponse = '';
         for await (const chunk of result.textStream) {
           aiResponse += chunk;
         }
 
-        // Save AI response
+        // Collect tool results for card rendering
+        const toolResults: any[] = [];
+        const steps = await result.steps;
+        for (const step of steps) {
+          if (step.toolResults) {
+            for (const toolResult of step.toolResults) {
+              toolResults.push({
+                toolName: toolResult.toolName,
+                result: toolResult.result,
+              });
+            }
+          }
+        }
+
+        // Save AI response with tool results
         const aiMessage = await prisma.tripMessage.create(id, {
           content: aiResponse,
           context,
           role: 'assistant',
+          toolResults: toolResults.length > 0 ? JSON.stringify(toolResults) : null,
         }, userId);
 
         return NextResponse.json({ userMessage, aiMessage });

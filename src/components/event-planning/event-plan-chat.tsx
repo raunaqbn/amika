@@ -7,6 +7,7 @@ import { Textarea } from '../ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Send, Loader2, Sparkles, Circle, Calendar, MapPin, Star, ExternalLink, Ticket, Clock, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import React from 'react';
 import { EmojiPickerButton } from '../ui/emoji-picker';
 
@@ -336,6 +337,7 @@ const ToolResultCards = memo(function ToolResultCards({ toolResultsJson }: { too
 const MarkdownMessage = memo(function MarkdownMessage({ content, isUser, mentionNames }: { content: string; isUser: boolean; mentionNames: string[] }) {
   return (
     <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
       components={{
         p: ({ children }) => {
           const processedChildren = React.Children.map(children, (child) => {
@@ -857,7 +859,7 @@ export function EventPlanChat({
                     }`}>
                       {sender.isCurrentUser ? 'You' : sender.name}
                     </p>
-                    <div className="text-sm break-words text-left prose prose-sm max-w-none">
+                    <div className="text-sm break-words text-left prose prose-sm max-w-none select-text">
                       <MarkdownMessage
                         content={msg.content}
                         isUser={sender.isCurrentUser}

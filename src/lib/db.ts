@@ -112,7 +112,7 @@ type SharedItem = {
   id: string;
   sharedByUserId: string;
   sharedWithUserId: string;
-  itemType: 'memory' | 'note' | 'event' | 'trip';
+  itemType: 'memory' | 'note' | 'event' | 'trip' | 'event_plan';
   itemId: string;
   status: 'pending' | 'accepted' | 'rejected';
   message: string | null;
@@ -235,6 +235,7 @@ export type TripMessage = {
   context: 'general' | 'dates' | 'location' | 'events' | 'tickets';
   role: 'user' | 'assistant';
   content: string;
+  toolResults: string | null; // JSON string of tool results for card rendering
   createdAt: Date;
 };
 
@@ -1122,6 +1123,13 @@ async function ensureTablesExist() {
     // Add toolResults column if it doesn't exist (migration for existing tables)
     try {
       await client.execute(`ALTER TABLE event_plan_messages ADD COLUMN toolResults TEXT`);
+    } catch {
+      // Column already exists
+    }
+
+    // Add toolResults column to trip_messages if it doesn't exist
+    try {
+      await client.execute(`ALTER TABLE trip_messages ADD COLUMN toolResults TEXT`);
     } catch {
       // Column already exists
     }
@@ -3493,7 +3501,7 @@ export const prisma = {
   // Shared items between users
   sharedItem: {
     // Share an item with a connected user
-    create: async (data: { sharedByUserId: string; sharedWithUserId: string; itemType: 'memory' | 'note' | 'event' | 'trip'; itemId: string; message?: string; skipConnectionCheck?: boolean }): Promise<SharedItem> => {
+    create: async (data: { sharedByUserId: string; sharedWithUserId: string; itemType: 'memory' | 'note' | 'event' | 'trip' | 'event_plan'; itemId: string; message?: string; skipConnectionCheck?: boolean }): Promise<SharedItem> => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -3518,7 +3526,7 @@ export const prisma = {
             id: existing.rows[0].id as string,
             sharedByUserId: existing.rows[0].sharedByUserId as string,
             sharedWithUserId: existing.rows[0].sharedWithUserId as string,
-            itemType: existing.rows[0].itemType as 'memory' | 'note' | 'event' | 'trip',
+            itemType: existing.rows[0].itemType as 'memory' | 'note' | 'event' | 'trip' | 'event_plan',
             itemId: existing.rows[0].itemId as string,
             status: existing.rows[0].status as 'pending' | 'accepted' | 'rejected',
             message: existing.rows[0].message as string | null,
@@ -3672,6 +3680,23 @@ export const prisma = {
               status: tripRow.status as string,
             };
           }
+        } else if (itemType === 'event_plan') {
+          const eventPlanResult = await client.execute({
+            sql: 'SELECT * FROM event_plan_sessions WHERE id = ?',
+            args: [itemId],
+          });
+          if (eventPlanResult.rows.length > 0) {
+            const eventPlanRow = eventPlanResult.rows[0];
+            item = {
+              id: eventPlanRow.id as string,
+              title: eventPlanRow.title as string,
+              description: eventPlanRow.description as string | null,
+              eventDate: eventPlanRow.eventDate ? new Date(eventPlanRow.eventDate as string) : null,
+              eventTime: eventPlanRow.eventTime as string | null,
+              eventLocation: eventPlanRow.eventLocation as string | null,
+              status: eventPlanRow.status as string,
+            };
+          }
         }
 
         const sharedBy = userMap.get(row.sharedByUserId as string) || { id: row.sharedByUserId as string, name: 'Unknown', email: '', profileImage: null };
@@ -3681,7 +3706,7 @@ export const prisma = {
           id: row.id as string,
           sharedByUserId: row.sharedByUserId as string,
           sharedWithUserId: row.sharedWithUserId as string,
-          itemType: row.itemType as 'memory' | 'note' | 'event' | 'trip',
+          itemType: row.itemType as 'memory' | 'note' | 'event' | 'trip' | 'event_plan',
           itemId: row.itemId as string,
           status: row.status as 'pending' | 'accepted' | 'rejected',
           message: row.message as string | null,
@@ -3720,7 +3745,7 @@ export const prisma = {
         id: row.id as string,
         sharedByUserId: row.sharedByUserId as string,
         sharedWithUserId: row.sharedWithUserId as string,
-        itemType: row.itemType as 'memory' | 'note' | 'event',
+        itemType: row.itemType as 'memory' | 'note' | 'event' | 'trip' | 'event_plan',
         itemId: row.itemId as string,
         status: args.status,
         message: row.message as string | null,
@@ -5786,6 +5811,7 @@ export const prisma = {
         context: row.context,
         role: row.role,
         content: row.content,
+        toolResults: row.toolResults || null,
         createdAt: new Date(row.createdAt as string),
       }));
     },
@@ -5794,6 +5820,7 @@ export const prisma = {
       content: string;
       context?: TripMessage['context'];
       role?: TripMessage['role'];
+      toolResults?: string | null;
     }, userId: string): Promise<TripMessage> => {
       await ensureTablesExist();
       const client = getClient();
@@ -5819,12 +5846,13 @@ export const prisma = {
         context: data.context || 'general',
         role: data.role || 'user',
         content: data.content,
+        toolResults: data.toolResults || null,
         createdAt: now,
       };
 
       await client.execute({
-        sql: 'INSERT INTO trip_messages (id, tripId, userId, friendId, context, role, content, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        args: [message.id, tripId, userId, null, message.context, message.role, message.content, now.toISOString()],
+        sql: 'INSERT INTO trip_messages (id, tripId, userId, friendId, context, role, content, toolResults, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [message.id, tripId, userId, null, message.context, message.role, message.content, message.toolResults, now.toISOString()],
       });
 
       return message;
@@ -6379,6 +6407,7 @@ export const prisma = {
           context: row.context,
           role: row.role,
           content: row.content,
+          toolResults: row.toolResults || null,
           createdAt: new Date(row.createdAt as string),
         })),
         polls,
@@ -6842,9 +6871,9 @@ export const prisma = {
               await prisma.sharedItem.create({
                 sharedByUserId: data.userId,
                 sharedWithUserId: linkedUserId,
-                itemType: 'event',
+                itemType: 'event_plan',
                 itemId: eventPlan.id,
-                message: `You've been invited to collaborate on the event "${data.title}"`,
+                message: `You've been invited to collaborate on planning "${data.title}"`,
                 skipConnectionCheck: true,
               });
             } catch (notifError) {
@@ -7354,9 +7383,9 @@ export const prisma = {
             await prisma.sharedItem.create({
               sharedByUserId: eventPlanOwnerId,
               sharedWithUserId: linkedUserId,
-              itemType: 'event',
+              itemType: 'event_plan',
               itemId: eventPlanId,
-              message: `You've been invited to collaborate on the event "${eventPlanTitle}"`,
+              message: `You've been invited to collaborate on planning "${eventPlanTitle}"`,
               skipConnectionCheck: true,
             });
           } catch (notifError) {
