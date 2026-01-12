@@ -5,7 +5,7 @@ import type { Message } from 'ai';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Plus, MessageSquare, Calendar, MapPin, Clock, Trash2, Sparkles, ChevronDown, Star, Ticket, ExternalLink, Bot } from 'lucide-react';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, memo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Card } from './ui/card';
 import {
@@ -72,8 +72,8 @@ function detectEvents(content: string): DetectedEvent[] {
   return events.slice(0, 3); // Limit to 3 events max
 }
 
-// Event card component for chat
-function EventCard({
+// Memoized Event card component for chat
+const EventCard = memo(function EventCard({
   event,
   onCreateEvent
 }: {
@@ -115,10 +115,10 @@ function EventCard({
       </div>
     </Card>
   );
-}
+});
 
-// Component to render text with highlighted @mentions
-function HighlightMentions({ text, isUser, friendNames }: { text: string; isUser: boolean; friendNames: string[] }) {
+// Memoized component to render text with highlighted @mentions
+const HighlightMentions = memo(function HighlightMentions({ text, isUser, friendNames }: { text: string; isUser: boolean; friendNames: string[] }) {
   // Create a regex pattern for all friend names and @amika
   const allNames = ['amika', ...friendNames];
   if (allNames.length === 0) return <>{text}</>;
@@ -172,10 +172,10 @@ function HighlightMentions({ text, isUser, friendNames }: { text: string; isUser
       })}
     </>
   );
-}
+});
 
-// Markdown renderer component for messages
-function MarkdownMessage({ content, isUser, friendNames = [] }: { content: string; isUser: boolean; friendNames?: string[] }) {
+// Memoized Markdown renderer component for messages
+const MarkdownMessage = memo(function MarkdownMessage({ content, isUser, friendNames = [] }: { content: string; isUser: boolean; friendNames?: string[] }) {
   return (
     <ReactMarkdown
       components={{
@@ -230,7 +230,7 @@ function MarkdownMessage({ content, isUser, friendNames = [] }: { content: strin
       {content}
     </ReactMarkdown>
   );
-}
+});
 
 export function ChatInterface() {
   const [initialMessages] = useState(() => {

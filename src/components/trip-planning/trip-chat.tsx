@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
@@ -74,8 +74,8 @@ interface TripChatProps {
   friends?: Friend[];
 }
 
-// Component to render text with highlighted @mentions
-function HighlightMentions({ text, isUser, mentionNames }: { text: string; isUser: boolean; mentionNames: string[] }) {
+// Memoized component to render text with highlighted @mentions
+const HighlightMentions = memo(function HighlightMentions({ text, isUser, mentionNames }: { text: string; isUser: boolean; mentionNames: string[] }) {
   const allNames = ['amika', ...mentionNames];
   if (allNames.length === 0) return <>{text}</>;
 
@@ -127,10 +127,10 @@ function HighlightMentions({ text, isUser, mentionNames }: { text: string; isUse
       })}
     </>
   );
-}
+});
 
-// Markdown renderer component for chat messages
-function MarkdownMessage({ content, isUser, mentionNames }: { content: string; isUser: boolean; mentionNames: string[] }) {
+// Memoized Markdown renderer component for chat messages
+const MarkdownMessage = memo(function MarkdownMessage({ content, isUser, mentionNames }: { content: string; isUser: boolean; mentionNames: string[] }) {
   return (
     <ReactMarkdown
       components={{
@@ -184,7 +184,7 @@ function MarkdownMessage({ content, isUser, mentionNames }: { content: string; i
       {content}
     </ReactMarkdown>
   );
-}
+});
 
 export function TripChat({
   tripId,

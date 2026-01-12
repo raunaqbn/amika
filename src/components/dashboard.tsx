@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -121,12 +121,13 @@ export function Dashboard() {
     }
   };
 
-  const handleEditEvent = (event: Event) => {
+  const handleEditEvent = useCallback((event: Event) => {
     setEventToEdit(event);
     setAddEventDialogOpen(true);
-  };
+  }, []);
 
-  const getUpcomingBirthdays = () => {
+  // Memoize upcoming birthdays calculation
+  const upcomingBirthdays = useMemo(() => {
     const today = new Date();
     const thirtyDaysFromNow = addDays(today, 30);
 
@@ -152,9 +153,10 @@ export function Dashboard() {
       })
       .filter((friend) => friend.nextBirthday <= thirtyDaysFromNow)
       .sort((a, b) => a.daysUntil - b.daysUntil);
-  };
+  }, [friends]);
 
-  const getFriendsToContact = () => {
+  // Memoize friends to contact calculation
+  const friendsToContact = useMemo(() => {
     const fourteenDaysAgo = addDays(new Date(), -14);
 
     return friends
@@ -164,15 +166,32 @@ export function Dashboard() {
           isBefore(new Date(friend.lastContact), fourteenDaysAgo)
       )
       .slice(0, 5);
-  };
+  }, [friends]);
 
-  const upcomingBirthdays = getUpcomingBirthdays();
-  const friendsToContact = getFriendsToContact();
+  // Memoize upcoming events calculation
+  const upcomingEvents = useMemo(() => {
+    const now = new Date();
+    return events
+      .filter((event) => new Date(event.eventDate) >= now)
+      .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())
+      .slice(0, 5);
+  }, [events]);
 
-  const upcomingEvents = events
-    .filter((event) => new Date(event.eventDate) >= new Date())
-    .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())
-    .slice(0, 5);
+  // Memoize friends data for dialogs to prevent unnecessary re-renders
+  const friendsForAddEvent = useMemo(() =>
+    friends.map((f) => ({ id: f.id, name: f.name, email: f.email, linkedUserId: f.linkedUserId })),
+    [friends]
+  );
+
+  const friendsForFindEvents = useMemo(() =>
+    friends.map((f) => ({ id: f.id, name: f.name, notes: f.notes })),
+    [friends]
+  );
+
+  const friendsForNewNote = useMemo(() =>
+    friends.map((f) => ({ id: f.id, name: f.name })),
+    [friends]
+  );
 
   if (loading) {
     return (
@@ -350,7 +369,7 @@ export function Dashboard() {
           setAddEventDialogOpen(open);
           if (!open) setEventToEdit(null);
         }}
-        friends={friends.map((f) => ({ id: f.id, name: f.name, email: f.email, linkedUserId: f.linkedUserId }))}
+        friends={friendsForAddEvent}
         onEventAdded={() => {
           fetchEvents();
         }}
@@ -367,7 +386,7 @@ export function Dashboard() {
       <FindEventsDialog
         open={findEventsDialogOpen}
         onOpenChange={setFindEventsDialogOpen}
-        friends={friends.map((f) => ({ id: f.id, name: f.name, notes: f.notes }))}
+        friends={friendsForFindEvents}
         onEventCreated={() => {
           fetchEvents();
         }}
@@ -376,7 +395,7 @@ export function Dashboard() {
       <NewNoteDialog
         open={newNoteDialogOpen}
         onOpenChange={setNewNoteDialogOpen}
-        friends={friends.map((f) => ({ id: f.id, name: f.name }))}
+        friends={friendsForNewNote}
       />
       </div>
     </div>

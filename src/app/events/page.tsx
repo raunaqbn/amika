@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -168,36 +168,66 @@ export default function EventsPage() {
     }
   };
 
-  const handleEditEvent = (event: Event) => {
+  const handleEditEvent = useCallback((event: Event) => {
     setEventToEdit(event);
     setAddEventDialogOpen(true);
-  };
+  }, []);
 
-  const now = new Date();
+  // Memoize filtered events to prevent recalculation on every render
+  const { upcomingEvents, pastEvents, categoryCounts } = useMemo(() => {
+    const now = new Date();
 
-  // Filter by category
-  const filteredEvents = selectedCategory === null
-    ? events
-    : events.filter((event) => event.category === selectedCategory);
-
-  const upcomingEvents = filteredEvents
-    .filter((event) => new Date(event.eventDate) >= now && !event.completed)
-    .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
-
-  const pastEvents = filteredEvents
-    .filter((event) => new Date(event.eventDate) < now || event.completed)
-    .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
-
-  // Count events per category for badge display
-  const getCategoryCount = (categoryValue: string | null, upcoming: boolean) => {
-    const baseFiltered = categoryValue === null
+    // Filter by category
+    const filteredEvents = selectedCategory === null
       ? events
-      : events.filter((e) => e.category === categoryValue);
+      : events.filter((event) => event.category === selectedCategory);
 
-    return upcoming
-      ? baseFiltered.filter((e) => new Date(e.eventDate) >= now && !e.completed).length
-      : baseFiltered.filter((e) => new Date(e.eventDate) < now || e.completed).length;
-  };
+    const upcoming = filteredEvents
+      .filter((event) => new Date(event.eventDate) >= now && !event.completed)
+      .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+
+    const past = filteredEvents
+      .filter((event) => new Date(event.eventDate) < now || event.completed)
+      .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
+
+    // Pre-calculate category counts to avoid recalculating on every category tab render
+    const counts: Record<string, { upcoming: number; past: number }> = {};
+    for (const cat of categories) {
+      const catFiltered = cat.value === null
+        ? events
+        : events.filter((e) => e.category === cat.value);
+
+      counts[cat.label] = {
+        upcoming: catFiltered.filter((e) => new Date(e.eventDate) >= now && !e.completed).length,
+        past: catFiltered.filter((e) => new Date(e.eventDate) < now || e.completed).length,
+      };
+    }
+
+    return { upcomingEvents: upcoming, pastEvents: past, categoryCounts: counts };
+  }, [events, selectedCategory]);
+
+  // Memoize active planning sessions
+  const activePlanningSessions = useMemo(() =>
+    eventPlans.filter(ep => ep.status === 'planning' || ep.status === 'confirmed'),
+    [eventPlans]
+  );
+
+  // Memoize friends data for dialogs
+  const friendsForAddEvent = useMemo(() =>
+    friends.map((f) => ({ id: f.id, name: f.name, email: f.email, linkedUserId: f.linkedUserId })),
+    [friends]
+  );
+
+  const friendsForPlanEvent = useMemo(() =>
+    friends.map((f) => ({ id: f.id, name: f.name, linkedUserId: f.linkedUserId })),
+    [friends]
+  );
+
+  // Helper function to get category count using memoized data
+  const getCategoryCount = useCallback((categoryLabel: string, upcoming: boolean) => {
+    const counts = categoryCounts[categoryLabel];
+    return counts ? (upcoming ? counts.upcoming : counts.past) : 0;
+  }, [categoryCounts]);
 
   if (loading) {
     return (
@@ -273,7 +303,7 @@ export default function EventsPage() {
         {/* Category Tabs */}
         <div className="flex flex-wrap gap-2 mb-6">
           {categories.map((cat) => {
-            const count = getCategoryCount(cat.value, activeTab === 'upcoming');
+            const count = getCategoryCount(cat.label, activeTab === 'upcoming');
             return (
               <button
                 key={cat.label}
@@ -299,17 +329,17 @@ export default function EventsPage() {
         </div>
 
         {/* Planning Sessions Section */}
-        {eventPlans.filter(ep => ep.status === 'planning' || ep.status === 'confirmed').length > 0 && (
+        {activePlanningSessions.length > 0 && (
           <section className="mb-8">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-[#7BA3C9]" />
                 <h2 className="text-lg font-semibold text-gray-900">Planning Sessions</h2>
                 <span className="text-sm text-gray-500">
-                  ({eventPlans.filter(ep => ep.status === 'planning' || ep.status === 'confirmed').length})
+                  ({activePlanningSessions.length})
                 </span>
               </div>
-              {eventPlans.filter(ep => ep.status === 'planning' || ep.status === 'confirmed').length > 3 && (
+              {activePlanningSessions.length > 3 && (
                 <button
                   onClick={() => setShowAllPlanningSessions(!showAllPlanningSessions)}
                   className="flex items-center gap-1 text-sm text-[#7BA3C9] hover:text-[#7BA3C9]/80 transition-colors"
@@ -329,8 +359,7 @@ export default function EventsPage() {
               )}
             </div>
             <div className="space-y-3">
-              {eventPlans
-                .filter(ep => ep.status === 'planning' || ep.status === 'confirmed')
+              {activePlanningSessions
                 .slice(0, showAllPlanningSessions ? undefined : 3)
                 .map((eventPlan) => (
                   <EventPlanCard key={eventPlan.id} eventPlan={eventPlan} />
@@ -423,7 +452,7 @@ export default function EventsPage() {
             setAddEventDialogOpen(open);
             if (!open) setEventToEdit(null);
           }}
-          friends={friends.map((f) => ({ id: f.id, name: f.name, email: f.email, linkedUserId: f.linkedUserId }))}
+          friends={friendsForAddEvent}
           onEventAdded={() => {
             fetchEvents();
           }}
@@ -449,11 +478,7 @@ export default function EventsPage() {
         <PlanEventDialog
           open={planEventDialogOpen}
           onOpenChange={setPlanEventDialogOpen}
-          friends={friends.map((f) => ({
-            id: f.id,
-            name: f.name,
-            linkedUserId: f.linkedUserId,
-          }))}
+          friends={friendsForPlanEvent}
           onEventCreated={() => {
             fetchEventPlans();
           }}

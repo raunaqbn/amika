@@ -1,9 +1,15 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
+import { useState, useRef, useEffect, Suspense, lazy, memo } from 'react';
+import type { EmojiClickData, Theme } from 'emoji-picker-react';
 import { Smile } from 'lucide-react';
 import { Button } from './button';
+
+// Lazy load the heavy emoji picker library (~100KB)
+const EmojiPickerLib = lazy(() => import('emoji-picker-react').then(mod => ({ default: mod.default })));
+
+// Store Theme enum for use when picker is loaded
+const LIGHT_THEME: Theme = 'light' as Theme;
 
 interface EmojiPickerButtonProps {
   onEmojiSelect: (emoji: string) => void;
@@ -13,7 +19,15 @@ interface EmojiPickerButtonProps {
   buttonSize?: 'default' | 'sm' | 'lg' | 'icon';
 }
 
-export function EmojiPickerButton({
+function EmojiPickerLoading() {
+  return (
+    <div className="w-[320px] h-[400px] bg-white rounded-lg shadow-lg border flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A8C5A8]"></div>
+    </div>
+  );
+}
+
+function EmojiPickerButtonInner({
   onEmojiSelect,
   disabled = false,
   className = '',
@@ -70,18 +84,23 @@ export function EmojiPickerButton({
           ref={pickerRef}
           className="absolute bottom-full right-0 mb-2 z-50"
         >
-          <EmojiPicker
-            onEmojiClick={handleEmojiClick}
-            theme={Theme.LIGHT}
-            width={320}
-            height={400}
-            searchPlaceHolder="Search emoji..."
-            previewConfig={{
-              showPreview: false,
-            }}
-          />
+          <Suspense fallback={<EmojiPickerLoading />}>
+            <EmojiPickerLib
+              onEmojiClick={handleEmojiClick}
+              theme={LIGHT_THEME}
+              width={320}
+              height={400}
+              searchPlaceHolder="Search emoji..."
+              previewConfig={{
+                showPreview: false,
+              }}
+            />
+          </Suspense>
         </div>
       )}
     </div>
   );
 }
+
+// Memoize the component to prevent unnecessary re-renders
+export const EmojiPickerButton = memo(EmojiPickerButtonInner);

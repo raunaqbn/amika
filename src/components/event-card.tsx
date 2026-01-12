@@ -6,7 +6,7 @@ import { Card } from './ui/card';
 import { ShareItemDialog } from '@/components/share-item-dialog';
 import { EventShareDialog } from '@/components/event-share-dialog';
 import { format, formatDistanceToNow } from 'date-fns';
-import { useState } from 'react';
+import { useState, memo } from 'react';
 
 interface Event {
   id: string;
@@ -27,7 +27,8 @@ interface EventCardProps {
   onEdit?: (event: Event) => void;
 }
 
-export function EventCard({ event, friendName, onDelete, onToggleComplete, onEdit }: EventCardProps) {
+// Memoized EventCard to prevent unnecessary re-renders in lists
+export const EventCard = memo(function EventCard({ event, friendName, onDelete, onToggleComplete, onEdit }: EventCardProps) {
   const [isCompleting, setIsCompleting] = useState(false);
 
   const handleDelete = () => {
@@ -177,4 +178,4 @@ export function EventCard({ event, friendName, onDelete, onToggleComplete, onEdi
       </div>
     </Card>
   );
-}
+});
