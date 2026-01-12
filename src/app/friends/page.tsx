@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { FriendCard } from '@/components/friend-card';
 import { AddFriendDialog } from '@/components/add-friend-dialog';
 import { FriendRequests } from '@/components/friend-requests';
@@ -47,7 +47,7 @@ export default function FriendsPage() {
     setRefreshKey((k) => k + 1);
   };
 
-  const handleRemoveFriend = async (friendId: string) => {
+  const handleRemoveFriend = useCallback(async (friendId: string) => {
     try {
       const response = await fetch(`/api/friends?id=${friendId}`, {
         method: 'DELETE',
@@ -58,15 +58,29 @@ export default function FriendsPage() {
     } catch (error) {
       console.error('Error removing friend:', error);
     }
-  };
+  }, []);
 
-  const filteredFriends = friends.filter((friend) =>
-    friend.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Memoize filtered friends and their separation
+  const { filteredFriends, amikaFriends, regularFriends } = useMemo(() => {
+    const filtered = friends.filter((friend) =>
+      friend.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
-  // Separate Amika friends (linked users) and regular friends
-  const amikaFriends = filteredFriends.filter((f) => f.linkedUserId);
-  const regularFriends = filteredFriends.filter((f) => !f.linkedUserId);
+    return {
+      filteredFriends: filtered,
+      amikaFriends: filtered.filter((f) => f.linkedUserId),
+      regularFriends: filtered.filter((f) => !f.linkedUserId),
+    };
+  }, [friends, searchQuery]);
+
+  // Memoize metrics calculations
+  const metrics = useMemo(() => {
+    const totalPoints = friends.reduce((sum, f) => sum + (f.friendshipPoints || 0), 0);
+    const activeFriends = friends.filter(f => (f.friendshipPoints || 0) > 0).length;
+    const avgPoints = friends.length > 0 ? Math.round(totalPoints / friends.length) : 0;
+
+    return { totalPoints, activeFriends, avgPoints };
+  }, [friends]);
 
   if (loading) {
     return (
@@ -102,7 +116,7 @@ export default function FriendsPage() {
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <Trophy className="w-4 h-4 text-yellow-500" />
                   <span className="text-2xl font-bold text-gray-900">
-                    {friends.reduce((sum, f) => sum + (f.friendshipPoints || 0), 0)}
+                    {metrics.totalPoints}
                   </span>
                 </div>
                 <p className="text-xs text-gray-600">Total Points</p>
@@ -120,7 +134,7 @@ export default function FriendsPage() {
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <TrendingUp className="w-4 h-4 text-[#A8C5A8]" />
                   <span className="text-2xl font-bold text-gray-900">
-                    {friends.filter(f => (f.friendshipPoints || 0) > 0).length}
+                    {metrics.activeFriends}
                   </span>
                 </div>
                 <p className="text-xs text-gray-600">Active</p>
@@ -129,9 +143,7 @@ export default function FriendsPage() {
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <Calendar className="w-4 h-4 text-[#D4A5A5]" />
                   <span className="text-2xl font-bold text-gray-900">
-                    {friends.length > 0
-                      ? Math.round(friends.reduce((sum, f) => sum + (f.friendshipPoints || 0), 0) / friends.length)
-                      : 0}
+                    {metrics.avgPoints}
                   </span>
                 </div>
                 <p className="text-xs text-gray-600">Avg Points</p>

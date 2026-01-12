@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FriendAvatar } from '@/components/friend-avatar';
@@ -37,7 +37,8 @@ interface FriendCardProps {
   onRemove?: (friendId: string) => void;
 }
 
-export function FriendCard({ friend, isAmikaFriend, onRemove }: FriendCardProps) {
+// Memoized FriendCard to prevent unnecessary re-renders in lists
+export const FriendCard = memo(function FriendCard({ friend, isAmikaFriend, onRemove }: FriendCardProps) {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
 
@@ -162,4 +163,4 @@ export function FriendCard({ friend, isAmikaFriend, onRemove }: FriendCardProps)
       </Dialog>
     </>
   );
-}
+});

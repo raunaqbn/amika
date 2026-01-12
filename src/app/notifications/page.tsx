@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -112,7 +112,7 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleFriendResponse = async (connectionId: string, status: 'accepted' | 'rejected') => {
+  const handleFriendResponse = useCallback(async (connectionId: string, status: 'accepted' | 'rejected') => {
     setProcessing(connectionId);
     try {
       const response = await fetch('/api/connections', {
@@ -123,7 +123,7 @@ export default function NotificationsPage() {
 
       if (response.ok) {
         // Update the local state to reflect the change
-        setFriendRequests(friendRequests.map((r) =>
+        setFriendRequests((prev) => prev.map((r) =>
           r.id === connectionId ? { ...r, status } : r
         ));
       }
@@ -132,9 +132,9 @@ export default function NotificationsPage() {
     } finally {
       setProcessing(null);
     }
-  };
+  }, []);
 
-  const handleSharedItemResponse = async (itemId: string, status: 'accepted' | 'rejected', item?: SharedItem) => {
+  const handleSharedItemResponse = useCallback(async (itemId: string, status: 'accepted' | 'rejected', item?: SharedItem) => {
     setProcessing(itemId);
     try {
       const response = await fetch('/api/shared-items', {
@@ -145,7 +145,7 @@ export default function NotificationsPage() {
 
       if (response.ok) {
         // Update the local state to reflect the change
-        setSharedItems(sharedItems.map((i) =>
+        setSharedItems((prev) => prev.map((i) =>
           i.id === itemId ? { ...i, status } : i
         ));
 
@@ -159,7 +159,7 @@ export default function NotificationsPage() {
     } finally {
       setProcessing(null);
     }
-  };
+  }, [router]);
 
   const getItemIcon = (type: string) => {
     switch (type) {
@@ -201,23 +201,30 @@ export default function NotificationsPage() {
     }
   };
 
-  // Filter notifications based on active tab
-  const filteredFriendRequests = friendRequests.filter((r) => {
-    if (activeTab === 'pending') return r.status === 'pending';
-    if (activeTab === 'accepted') return r.status === 'accepted';
-    return true;
-  });
+  // Memoize filtered notifications based on active tab
+  const { filteredFriendRequests, filteredSharedItems, pendingCount, hasNotifications } = useMemo(() => {
+    const filteredRequests = friendRequests.filter((r) => {
+      if (activeTab === 'pending') return r.status === 'pending';
+      if (activeTab === 'accepted') return r.status === 'accepted';
+      return true;
+    });
 
-  const filteredSharedItems = sharedItems.filter((i) => {
-    if (activeTab === 'pending') return i.status === 'pending';
-    if (activeTab === 'accepted') return i.status === 'accepted';
-    return true;
-  });
+    const filteredItems = sharedItems.filter((i) => {
+      if (activeTab === 'pending') return i.status === 'pending';
+      if (activeTab === 'accepted') return i.status === 'accepted';
+      return true;
+    });
 
-  const pendingCount = friendRequests.filter((r) => r.status === 'pending').length +
-    sharedItems.filter((i) => i.status === 'pending').length;
+    const pending = friendRequests.filter((r) => r.status === 'pending').length +
+      sharedItems.filter((i) => i.status === 'pending').length;
 
-  const hasNotifications = filteredFriendRequests.length > 0 || filteredSharedItems.length > 0;
+    return {
+      filteredFriendRequests: filteredRequests,
+      filteredSharedItems: filteredItems,
+      pendingCount: pending,
+      hasNotifications: filteredRequests.length > 0 || filteredItems.length > 0,
+    };
+  }, [friendRequests, sharedItems, activeTab]);
 
   if (authLoading) {
     return (

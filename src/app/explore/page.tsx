@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,8 @@ import {
   type JournalCategory,
 } from '@/lib/guided-journals';
 
-function JournalCard({ journal, onClick }: { journal: GuidedJournal; onClick: () => void }) {
+// Memoized JournalCard to prevent re-renders
+const JournalCard = memo(function JournalCard({ journal, onClick }: { journal: GuidedJournal; onClick: () => void }) {
   return (
     <Card
       onClick={onClick}
@@ -31,9 +32,10 @@ function JournalCard({ journal, onClick }: { journal: GuidedJournal; onClick: ()
       </div>
     </Card>
   );
-}
+});
 
-function CategorySection({
+// Memoized CategorySection to prevent re-renders
+const CategorySection = memo(function CategorySection({
   category,
   journals,
   onJournalClick,
@@ -96,15 +98,15 @@ function CategorySection({
       </div>
     </div>
   );
-}
+});
 
 export default function ExplorePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'journals' | 'prompts' | 'saved'>('journals');
 
-  const handleJournalClick = (journal: GuidedJournal) => {
+  const handleJournalClick = useCallback((journal: GuidedJournal) => {
     router.push(`/explore/${journal.id}`);
-  };
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-gray-50">
