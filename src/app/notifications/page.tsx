@@ -237,14 +237,14 @@ export default function NotificationsPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#FFFBF5] md:pt-16 pb-20 md:pb-8 flex items-center justify-center">
+      <div className="min-h-screen bg-[#FFFBF5] pt-14 md:pt-16 pb-20 md:pb-8 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-[#A8C5A8]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#FFFBF5] md:pt-16 pb-20 md:pb-8">
+    <div className="min-h-screen bg-[#FFFBF5] pt-14 md:pt-16 pb-20 md:pb-8">
       <div className="px-4 max-w-2xl mx-auto">
         <div className="py-8">
           <div className="flex items-center gap-3 mb-2">

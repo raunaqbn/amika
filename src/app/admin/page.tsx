@@ -217,7 +217,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FFFBF5] md:pt-16 pb-20 md:pb-8">
+      <div className="min-h-screen bg-[#FFFBF5] pt-14 md:pt-16 pb-20 md:pb-8">
         <div className="px-4 max-w-6xl mx-auto">
           <div className="py-8">
             <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
@@ -233,7 +233,7 @@ export default function AdminDashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#FFFBF5] md:pt-16 pb-20 md:pb-8">
+      <div className="min-h-screen bg-[#FFFBF5] pt-14 md:pt-16 pb-20 md:pb-8">
         <div className="px-4 max-w-6xl mx-auto">
           <div className="py-8">
             <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
@@ -256,7 +256,7 @@ export default function AdminDashboard() {
   if (!stats) return null;
 
   return (
-    <div className="min-h-screen bg-[#FFFBF5] md:pt-16 pb-20 md:pb-8">
+    <div className="min-h-screen bg-[#FFFBF5] pt-14 md:pt-16 pb-20 md:pb-8">
       <div className="px-4 max-w-6xl mx-auto">
         {/* Header */}
         <div className="py-8 flex items-center justify-between">

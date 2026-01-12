@@ -109,9 +109,9 @@ export default function ExplorePage() {
   }, [router]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pt-14 md:pt-16">
       {/* Header */}
-      <div className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+      <div className="border-b bg-white/80 backdrop-blur-sm sticky top-14 md:top-16 z-10">
         <div className="max-w-6xl mx-auto px-4 py-4 lg:px-8">
           <div className="flex items-center justify-between">
             <div>
