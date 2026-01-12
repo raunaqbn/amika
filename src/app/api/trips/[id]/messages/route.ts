@@ -186,6 +186,10 @@ export async function POST(
         return NextResponse.json({ userMessage });
       }
 
+      // Fetch current user to get their interests
+      const currentUser = await prisma.user.findById(userId);
+      const currentUserInterests = currentUser?.interests ? parseInterests(currentUser.interests) : [];
+
       // For Amika collaborators (those with linkedUserId), fetch their actual user interests
       const amikaCollaboratorUserIds = trip.collaborators
         .filter((c: any) => c.linkedUserId)
@@ -229,6 +233,11 @@ Collaborators: ${collaboratorNames || 'Just the organizer'}
 Current section: ${context}
       `.trim();
 
+      // Build current user's interests section
+      const currentUserInterestsSection = currentUserInterests.length > 0
+        ? `\n\n## Your Interests (the person asking)\n${formatInterestsForAI(currentUserInterests)}`
+        : '';
+
       // Build collaborator interests section for personalized suggestions
       const collaboratorInterestsSection = trip.collaborators.length > 0
         ? `\n\n## Group Member Interests\nUse these interests to make personalized suggestions that the group will enjoy:\n${collaboratorDetails}`
@@ -252,15 +261,15 @@ Current section: ${context}
 
       const systemPrompt = `You are Amika, a helpful AI assistant helping plan a collaborative trip. You're friendly, concise, and practical.
 
-${tripContext}${collaboratorInterestsSection}${taggedFriendsSection}${chatTranscriptSection}
+${tripContext}${currentUserInterestsSection}${collaboratorInterestsSection}${taggedFriendsSection}${chatTranscriptSection}
 
 Help the group with their trip planning by:
-- Suggesting activities and places based on the destination AND the group's shared interests
-- Finding common interests among collaborators to suggest activities everyone will enjoy
+- Suggesting activities and places based on the destination AND everyone's interests (including the person asking)
+- Finding common interests among all participants to suggest activities everyone will enjoy
 - Helping decide on dates
-- Recommending restaurants and experiences that match the group's preferences
+- Recommending restaurants and experiences that match everyone's preferences
 - Providing practical travel tips
-- Being inclusive of all collaborators' preferences
+- Being inclusive of all participants' preferences, including the person asking
 
 When making suggestions, consider what activities might appeal to multiple group members based on their interests. Highlight when a suggestion matches specific members' interests.
 
