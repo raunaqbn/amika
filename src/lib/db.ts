@@ -967,6 +967,10 @@ async function ensureTablesExist() {
         cost REAL,
         currency TEXT DEFAULT 'USD',
         url TEXT,
+        passengerName TEXT,
+        flightDirection TEXT,
+        departureLocation TEXT,
+        arrivalLocation TEXT,
         createdById TEXT NOT NULL,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL,
@@ -1142,6 +1146,28 @@ async function ensureTablesExist() {
     // Add toolResults column to trip_messages if it doesn't exist
     try {
       await client.execute(`ALTER TABLE trip_messages ADD COLUMN toolResults TEXT`);
+    } catch {
+      // Column already exists
+    }
+
+    // Add flight-related columns to trip_tickets if they don't exist
+    try {
+      await client.execute(`ALTER TABLE trip_tickets ADD COLUMN passengerName TEXT`);
+    } catch {
+      // Column already exists
+    }
+    try {
+      await client.execute(`ALTER TABLE trip_tickets ADD COLUMN flightDirection TEXT`);
+    } catch {
+      // Column already exists
+    }
+    try {
+      await client.execute(`ALTER TABLE trip_tickets ADD COLUMN departureLocation TEXT`);
+    } catch {
+      // Column already exists
+    }
+    try {
+      await client.execute(`ALTER TABLE trip_tickets ADD COLUMN arrivalLocation TEXT`);
     } catch {
       // Column already exists
     }
