@@ -11,6 +11,10 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Heart, ArrowLeft, User, Share2, Plus, Image as ImageIcon, X, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+} from '@/components/ui/dialog';
 import { formatDistanceToNow, format } from 'date-fns';
 
 interface Friend {
@@ -72,6 +76,9 @@ export default function MemoriesPage() {
   const [shareWithFriends, setShareWithFriends] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Image viewer state
+  const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -574,7 +581,10 @@ export default function MemoriesPage() {
                     </p>
 
                     {memory.imageUrl && (
-                      <div className="relative w-full max-w-md h-48 rounded-lg overflow-hidden mb-2">
+                      <div
+                        className="relative w-full max-w-md h-48 rounded-lg overflow-hidden mb-2 cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setViewerImageUrl(memory.imageUrl)}
+                      >
                         <Image
                           src={memory.imageUrl}
                           alt="Memory"
@@ -597,6 +607,27 @@ export default function MemoriesPage() {
           </div>
         ) : null}
       </div>
+
+      {/* Image Viewer Dialog */}
+      <Dialog open={!!viewerImageUrl} onOpenChange={(open) => !open && setViewerImageUrl(null)}>
+        <DialogContent className="sm:max-w-3xl max-w-[95vw] p-0 bg-black/95 border-none" showCloseButton={false}>
+          <div className="relative">
+            <button
+              onClick={() => setViewerImageUrl(null)}
+              className="absolute top-3 right-3 z-10 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            {viewerImageUrl && (
+              <img
+                src={viewerImageUrl}
+                alt="Memory"
+                className="w-full h-auto max-h-[85vh] object-contain"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
