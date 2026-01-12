@@ -112,7 +112,7 @@ type SharedItem = {
   id: string;
   sharedByUserId: string;
   sharedWithUserId: string;
-  itemType: 'memory' | 'note' | 'event' | 'trip';
+  itemType: 'memory' | 'note' | 'event' | 'trip' | 'event_plan';
   itemId: string;
   status: 'pending' | 'accepted' | 'rejected';
   message: string | null;
@@ -3501,7 +3501,7 @@ export const prisma = {
   // Shared items between users
   sharedItem: {
     // Share an item with a connected user
-    create: async (data: { sharedByUserId: string; sharedWithUserId: string; itemType: 'memory' | 'note' | 'event' | 'trip'; itemId: string; message?: string; skipConnectionCheck?: boolean }): Promise<SharedItem> => {
+    create: async (data: { sharedByUserId: string; sharedWithUserId: string; itemType: 'memory' | 'note' | 'event' | 'trip' | 'event_plan'; itemId: string; message?: string; skipConnectionCheck?: boolean }): Promise<SharedItem> => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -3526,7 +3526,7 @@ export const prisma = {
             id: existing.rows[0].id as string,
             sharedByUserId: existing.rows[0].sharedByUserId as string,
             sharedWithUserId: existing.rows[0].sharedWithUserId as string,
-            itemType: existing.rows[0].itemType as 'memory' | 'note' | 'event' | 'trip',
+            itemType: existing.rows[0].itemType as 'memory' | 'note' | 'event' | 'trip' | 'event_plan',
             itemId: existing.rows[0].itemId as string,
             status: existing.rows[0].status as 'pending' | 'accepted' | 'rejected',
             message: existing.rows[0].message as string | null,
@@ -3680,6 +3680,23 @@ export const prisma = {
               status: tripRow.status as string,
             };
           }
+        } else if (itemType === 'event_plan') {
+          const eventPlanResult = await client.execute({
+            sql: 'SELECT * FROM event_plan_sessions WHERE id = ?',
+            args: [itemId],
+          });
+          if (eventPlanResult.rows.length > 0) {
+            const eventPlanRow = eventPlanResult.rows[0];
+            item = {
+              id: eventPlanRow.id as string,
+              title: eventPlanRow.title as string,
+              description: eventPlanRow.description as string | null,
+              eventDate: eventPlanRow.eventDate ? new Date(eventPlanRow.eventDate as string) : null,
+              eventTime: eventPlanRow.eventTime as string | null,
+              eventLocation: eventPlanRow.eventLocation as string | null,
+              status: eventPlanRow.status as string,
+            };
+          }
         }
 
         const sharedBy = userMap.get(row.sharedByUserId as string) || { id: row.sharedByUserId as string, name: 'Unknown', email: '', profileImage: null };
@@ -3689,7 +3706,7 @@ export const prisma = {
           id: row.id as string,
           sharedByUserId: row.sharedByUserId as string,
           sharedWithUserId: row.sharedWithUserId as string,
-          itemType: row.itemType as 'memory' | 'note' | 'event' | 'trip',
+          itemType: row.itemType as 'memory' | 'note' | 'event' | 'trip' | 'event_plan',
           itemId: row.itemId as string,
           status: row.status as 'pending' | 'accepted' | 'rejected',
           message: row.message as string | null,
@@ -3728,7 +3745,7 @@ export const prisma = {
         id: row.id as string,
         sharedByUserId: row.sharedByUserId as string,
         sharedWithUserId: row.sharedWithUserId as string,
-        itemType: row.itemType as 'memory' | 'note' | 'event',
+        itemType: row.itemType as 'memory' | 'note' | 'event' | 'trip' | 'event_plan',
         itemId: row.itemId as string,
         status: args.status,
         message: row.message as string | null,
@@ -6854,9 +6871,9 @@ export const prisma = {
               await prisma.sharedItem.create({
                 sharedByUserId: data.userId,
                 sharedWithUserId: linkedUserId,
-                itemType: 'event',
+                itemType: 'event_plan',
                 itemId: eventPlan.id,
-                message: `You've been invited to collaborate on the event "${data.title}"`,
+                message: `You've been invited to collaborate on planning "${data.title}"`,
                 skipConnectionCheck: true,
               });
             } catch (notifError) {
@@ -7366,9 +7383,9 @@ export const prisma = {
             await prisma.sharedItem.create({
               sharedByUserId: eventPlanOwnerId,
               sharedWithUserId: linkedUserId,
-              itemType: 'event',
+              itemType: 'event_plan',
               itemId: eventPlanId,
-              message: `You've been invited to collaborate on the event "${eventPlanTitle}"`,
+              message: `You've been invited to collaborate on planning "${eventPlanTitle}"`,
               skipConnectionCheck: true,
             });
           } catch (notifError) {
