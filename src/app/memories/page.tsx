@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -10,12 +10,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, ArrowLeft, User, Share2, Plus, Image as ImageIcon, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Heart, Share2, Plus, Image as ImageIcon, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
 } from '@/components/ui/dialog';
 import { formatDistanceToNow, format } from 'date-fns';
+import { useMemoriesPageData } from '@/hooks/use-data';
 
 interface Friend {
   id: string;
@@ -61,11 +62,47 @@ interface SharedMemory {
 
 export default function MemoriesPage() {
   const router = useRouter();
-  const [memories, setMemories] = useState<Memory[]>([]);
-  const [sharedMemories, setSharedMemories] = useState<SharedMemory[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [friends, setFriends] = useState<Map<string, Friend>>(new Map());
-  const [friendsList, setFriendsList] = useState<Friend[]>([]);
+
+  // Use SWR hooks for cached data fetching
+  const {
+    friends: friendsData,
+    memories: memoriesData,
+    sharedMemories: sharedMemoriesData,
+    isLoading: loading,
+    error,
+    refreshAll,
+  } = useMemoriesPageData();
+
+  // Create a map of friends for quick lookup
+  const { friendsMap, friendsList } = useMemo(() => {
+    const map = new Map<string, Friend>();
+    const list: Friend[] = [];
+    friendsData.forEach((friend: Friend) => {
+      map.set(friend.id, {
+        id: friend.id,
+        name: friend.name,
+        profileImage: friend.profileImage,
+        linkedUserId: friend.linkedUserId,
+      });
+      list.push({
+        id: friend.id,
+        name: friend.name,
+        profileImage: friend.profileImage,
+        linkedUserId: friend.linkedUserId,
+      });
+    });
+    return { friendsMap: map, friendsList: list };
+  }, [friendsData]);
+
+  // Attach friend info to memories
+  const memories = useMemo(() => {
+    return memoriesData.map((memory: Memory) => ({
+      ...memory,
+      friend: friendsMap.get(memory.friendId) || null,
+    }));
+  }, [memoriesData, friendsMap]);
+
+  const sharedMemories = sharedMemoriesData;
 
   // Add Memory form state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -80,67 +117,10 @@ export default function MemoriesPage() {
   // Image viewer state
   const [viewerImageUrl, setViewerImageUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      // Fetch all data in parallel
-      const [memoriesRes, friendsRes, sharedRes] = await Promise.all([
-        fetch('/api/memories'),
-        fetch('/api/friends'),
-        fetch('/api/shared-items?type=received&status=accepted&itemType=memory'),
-      ]);
-
-      if (!memoriesRes.ok || !friendsRes.ok) {
-        if (memoriesRes.status === 401 || friendsRes.status === 401) {
-          router.push('/signin');
-          return;
-        }
-        throw new Error('Failed to fetch data');
-      }
-
-      const [memoriesData, friendsData, sharedData] = await Promise.all([
-        memoriesRes.json(),
-        friendsRes.json(),
-        sharedRes.ok ? sharedRes.json() : [],
-      ]);
-
-      // Create a map of friends for quick lookup
-      const friendsMap = new Map<string, Friend>();
-      const friendsArr: Friend[] = [];
-      friendsData.forEach((friend: Friend) => {
-        friendsMap.set(friend.id, {
-          id: friend.id,
-          name: friend.name,
-          profileImage: friend.profileImage,
-          linkedUserId: friend.linkedUserId,
-        });
-        friendsArr.push({
-          id: friend.id,
-          name: friend.name,
-          profileImage: friend.profileImage,
-          linkedUserId: friend.linkedUserId,
-        });
-      });
-      setFriends(friendsMap);
-      setFriendsList(friendsArr);
-
-      // Attach friend info to memories
-      const memoriesWithFriends = memoriesData.map((memory: Memory) => ({
-        ...memory,
-        friend: friendsMap.get(memory.friendId) || null,
-      }));
-
-      setMemories(memoriesWithFriends);
-      setSharedMemories(sharedData || []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Handle auth errors
+  if (error?.status === 401) {
+    router.push('/signin');
+  }
 
   // Image compression helper
   const compressImage = async (file: File): Promise<File> => {
@@ -280,7 +260,7 @@ export default function MemoriesPage() {
       if (response.ok) {
         resetForm();
         setShowAddForm(false);
-        fetchData();
+        refreshAll();
       } else {
         throw new Error('Failed to create memory');
       }

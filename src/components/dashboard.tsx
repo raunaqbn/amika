@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,7 @@ import { FriendRequests } from '@/components/friend-requests';
 import { SharedItemsInbox } from '@/components/shared-items';
 import { differenceInDays, format, isBefore, addDays } from 'date-fns';
 import { Cake, Clock, Calendar, Plus, TrendingUp, Sparkles, PenLine } from 'lucide-react';
+import { useDashboardData, revalidateFriends, revalidateEvents } from '@/hooks/use-data';
 
 interface Friend {
   id: string;
@@ -38,56 +39,26 @@ interface Event {
 
 export function Dashboard() {
   const router = useRouter();
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // Use SWR hooks for cached data fetching
+  const {
+    friends,
+    events,
+    isLoading: loading,
+    error,
+    refreshFriends,
+    refreshEvents,
+  } = useDashboardData();
+
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
   const [findEventsDialogOpen, setFindEventsDialogOpen] = useState(false);
   const [newNoteDialogOpen, setNewNoteDialogOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
 
-  useEffect(() => {
-    fetchFriends();
-    fetchEvents();
-  }, []);
-
-  const fetchFriends = async () => {
-    try {
-      const response = await fetch('/api/friends');
-      if (!response.ok) {
-        if (response.status === 401) {
-          router.push('/signin');
-          return;
-        }
-        throw new Error('Failed to fetch friends');
-      }
-      const data = await response.json();
-      setFriends(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error fetching friends:', error);
-      setFriends([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchEvents = async () => {
-    try {
-      const response = await fetch('/api/events');
-      if (!response.ok) {
-        if (response.status === 401) {
-          router.push('/signin');
-          return;
-        }
-        throw new Error('Failed to fetch events');
-      }
-      const data = await response.json();
-      setEvents(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error fetching events:', error);
-      setEvents([]);
-    }
-  };
+  // Handle auth errors
+  if (error?.status === 401) {
+    router.push('/signin');
+  }
 
   const handleDeleteEvent = async (eventId: string) => {
     try {
@@ -96,7 +67,8 @@ export function Dashboard() {
       });
 
       if (response.ok) {
-        setEvents(events.filter((e) => e.id !== eventId));
+        // Revalidate events cache to reflect deletion
+        refreshEvents();
       }
     } catch (error) {
       console.error('Error deleting event:', error);
@@ -112,9 +84,8 @@ export function Dashboard() {
       });
 
       if (response.ok) {
-        setEvents(events.map((e) =>
-          e.id === eventId ? { ...e, completed } : e
-        ));
+        // Revalidate events cache to reflect update
+        refreshEvents();
       }
     } catch (error) {
       console.error('Error updating event:', error);
@@ -371,15 +342,15 @@ export function Dashboard() {
         }}
         friends={friendsForAddEvent}
         onEventAdded={() => {
-          fetchEvents();
+          refreshEvents();
         }}
         eventToEdit={eventToEdit}
         onEventUpdated={() => {
-          fetchEvents();
+          refreshEvents();
           setEventToEdit(null);
         }}
         onFriendsUpdated={() => {
-          fetchFriends();
+          refreshFriends();
         }}
       />
 
@@ -388,7 +359,7 @@ export function Dashboard() {
         onOpenChange={setFindEventsDialogOpen}
         friends={friendsForFindEvents}
         onEventCreated={() => {
-          fetchEvents();
+          refreshEvents();
         }}
       />
 

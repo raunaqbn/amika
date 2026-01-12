@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Nav } from "@/components/nav";
 import { AuthProvider } from "@/lib/auth-context";
+import { SWRProvider } from "@/lib/swr-config";
 
 export const viewport: Viewport = {
   themeColor: "#A8C5A8",
@@ -46,10 +47,12 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased">
         <AuthProvider>
-          <Nav />
-          <main>
-            {children}
-          </main>
+          <SWRProvider>
+            <Nav />
+            <main>
+              {children}
+            </main>
+          </SWRProvider>
         </AuthProvider>
       </body>
     </html>
