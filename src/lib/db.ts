@@ -235,6 +235,7 @@ export type TripMessage = {
   context: 'general' | 'dates' | 'location' | 'events' | 'tickets';
   role: 'user' | 'assistant';
   content: string;
+  toolResults: string | null; // JSON string of tool results for card rendering
   createdAt: Date;
 };
 
@@ -1122,6 +1123,13 @@ async function ensureTablesExist() {
     // Add toolResults column if it doesn't exist (migration for existing tables)
     try {
       await client.execute(`ALTER TABLE event_plan_messages ADD COLUMN toolResults TEXT`);
+    } catch {
+      // Column already exists
+    }
+
+    // Add toolResults column to trip_messages if it doesn't exist
+    try {
+      await client.execute(`ALTER TABLE trip_messages ADD COLUMN toolResults TEXT`);
     } catch {
       // Column already exists
     }
@@ -5786,6 +5794,7 @@ export const prisma = {
         context: row.context,
         role: row.role,
         content: row.content,
+        toolResults: row.toolResults || null,
         createdAt: new Date(row.createdAt as string),
       }));
     },
@@ -5794,6 +5803,7 @@ export const prisma = {
       content: string;
       context?: TripMessage['context'];
       role?: TripMessage['role'];
+      toolResults?: string | null;
     }, userId: string): Promise<TripMessage> => {
       await ensureTablesExist();
       const client = getClient();
@@ -5819,12 +5829,13 @@ export const prisma = {
         context: data.context || 'general',
         role: data.role || 'user',
         content: data.content,
+        toolResults: data.toolResults || null,
         createdAt: now,
       };
 
       await client.execute({
-        sql: 'INSERT INTO trip_messages (id, tripId, userId, friendId, context, role, content, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        args: [message.id, tripId, userId, null, message.context, message.role, message.content, now.toISOString()],
+        sql: 'INSERT INTO trip_messages (id, tripId, userId, friendId, context, role, content, toolResults, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        args: [message.id, tripId, userId, null, message.context, message.role, message.content, message.toolResults, now.toISOString()],
       });
 
       return message;
@@ -6379,6 +6390,7 @@ export const prisma = {
           context: row.context,
           role: row.role,
           content: row.content,
+          toolResults: row.toolResults || null,
           createdAt: new Date(row.createdAt as string),
         })),
         polls,

@@ -856,7 +856,7 @@ export function EventPlanChat({
                     }`}>
                       {sender.isCurrentUser ? 'You' : sender.name}
                     </p>
-                    <div className="text-sm break-words text-left prose prose-sm max-w-none">
+                    <div className="text-sm break-words text-left prose prose-sm max-w-none select-text">
                       <MarkdownMessage
                         content={msg.content}
                         isUser={sender.isCurrentUser}

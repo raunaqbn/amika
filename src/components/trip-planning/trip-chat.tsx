@@ -5,7 +5,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Send, Loader2, Sparkles, Circle, Trash2 } from 'lucide-react';
+import { Send, Loader2, Sparkles, Circle, Trash2, Calendar, MapPin, Star, ExternalLink, Ticket } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import React from 'react';
 import { EmojiPickerButton } from '../ui/emoji-picker';
@@ -23,6 +23,7 @@ interface Message {
   context: string;
   role: string;
   content: string;
+  toolResults?: string | null;
   createdAt: Date;
   senderName?: string;
   senderImage?: string;
@@ -126,6 +127,151 @@ function HighlightMentions({ text, isUser, mentionNames }: { text: string; isUse
         return <span key={index}>{part}</span>;
       })}
     </>
+  );
+}
+
+// Component to render tool results as cards
+function ToolResultCards({ toolResultsJson }: { toolResultsJson: string }) {
+  let toolResults: any[] = [];
+  try {
+    toolResults = JSON.parse(toolResultsJson);
+  } catch {
+    return null;
+  }
+
+  if (!toolResults || toolResults.length === 0) return null;
+
+  return (
+    <div className="space-y-2 mt-2">
+      {toolResults.map((tool, idx) => {
+        const result = tool.result;
+
+        // Render events
+        if (tool.toolName === 'searchEvents' && result?.events?.length > 0) {
+          return (
+            <div key={idx} className="space-y-2">
+              {result.events.slice(0, 5).map((event: any, i: number) => (
+                <Card key={i} className="p-3 bg-white border-[#D4A5A5]/30 hover:shadow-md transition-shadow">
+                  <div className="flex gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-gray-900 mb-1 text-sm">{event.title}</h4>
+                      {event.date && (
+                        <p className="text-xs text-[#D4A5A5] flex items-center gap-1 mb-1">
+                          <Calendar className="w-3 h-3" />
+                          {event.date}
+                        </p>
+                      )}
+                      {(event.address || event.location) && (
+                        <p className="text-xs text-gray-500 flex items-center gap-1 mb-1">
+                          <MapPin className="w-3 h-3" />
+                          {event.address || event.location}
+                        </p>
+                      )}
+                      {event.venue && (
+                        <p className="text-xs text-gray-500 flex items-center gap-1 mb-1">
+                          <Star className="w-3 h-3" />
+                          {event.venue}
+                        </p>
+                      )}
+                      {event.description && (
+                        <p className="text-xs text-gray-600 line-clamp-2 mt-1">{event.description}</p>
+                      )}
+                      {event.link && (
+                        <a
+                          href={event.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-[#A8C5A8] hover:underline mt-2"
+                        >
+                          <Ticket className="w-3 h-3" />
+                          Get Tickets
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          );
+        }
+
+        // Render places
+        if (tool.toolName === 'searchPlaces' && result?.places?.length > 0) {
+          return (
+            <div key={idx} className="space-y-2">
+              {result.places.slice(0, 5).map((place: any, i: number) => (
+                <Card key={i} className="p-3 bg-white border-[#A8C5A8]/30 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start">
+                    <h4 className="font-semibold text-gray-900 text-sm">{place.title || place.name}</h4>
+                    {place.rating && (
+                      <span className="flex items-center gap-1 text-xs bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded">
+                        <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                        {place.rating}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1 space-y-1">
+                    {place.type && <p>{place.type}</p>}
+                    {place.address && (
+                      <p className="flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {place.address}
+                      </p>
+                    )}
+                    {place.price && <p className="text-green-600">{place.price}</p>}
+                  </div>
+                  {place.website && (
+                    <a
+                      href={place.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-[#A8C5A8] hover:underline mt-2"
+                    >
+                      Visit Website
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </Card>
+              ))}
+            </div>
+          );
+        }
+
+        // Render restaurants
+        if (tool.toolName === 'searchRestaurants' && result?.restaurants?.length > 0) {
+          return (
+            <div key={idx} className="space-y-2">
+              {result.restaurants.slice(0, 5).map((restaurant: any, i: number) => (
+                <Card key={i} className="p-3 bg-white border-red-100 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start">
+                    <h4 className="font-semibold text-gray-900 text-sm">{restaurant.name}</h4>
+                    {restaurant.rating && (
+                      <span className="flex items-center gap-1 text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded">
+                        <Star className="w-3 h-3 fill-red-500 text-red-500" />
+                        {restaurant.rating} {restaurant.reviews && `(${restaurant.reviews})`}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1 space-y-1">
+                    {restaurant.categories && <p>{restaurant.categories}</p>}
+                    {restaurant.address && (
+                      <p className="flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {restaurant.address}
+                      </p>
+                    )}
+                    {restaurant.price && <p className="text-green-600">{restaurant.price}</p>}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          );
+        }
+
+        return null;
+      })}
+    </div>
   );
 }
 
@@ -720,13 +866,17 @@ export function TripChat({
                     }`}>
                       {sender.isCurrentUser ? 'You' : sender.name}
                     </p>
-                    <div className="text-sm break-words text-left prose prose-sm max-w-none">
+                    <div className="text-sm break-words text-left prose prose-sm max-w-none select-text">
                       <MarkdownMessage
                         content={msg.content}
                         isUser={sender.isCurrentUser}
                         mentionNames={allMentionableNames}
                       />
                     </div>
+                    {/* Render tool results as cards for assistant messages */}
+                    {sender.isAssistant && msg.toolResults && (
+                      <ToolResultCards toolResultsJson={msg.toolResults} />
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
                     {new Date(msg.createdAt).toLocaleTimeString([], {
