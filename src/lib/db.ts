@@ -1069,6 +1069,13 @@ async function ensureTablesExist() {
       )
     `);
 
+    // Add eventLocation column if it doesn't exist (for existing tables)
+    try {
+      await client.execute(`ALTER TABLE event_plan_sessions ADD COLUMN eventLocation TEXT`);
+    } catch {
+      // Column already exists, ignore error
+    }
+
     await client.execute(`
       CREATE TABLE IF NOT EXISTS event_plan_collaborators (
         id TEXT PRIMARY KEY,
