@@ -268,9 +268,9 @@ export default function GuidedJournalPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen md:h-[calc(100vh-4rem)] bg-gray-50">
+    <div className="flex flex-col mt-14 h-[calc(100vh-3.5rem)] md:mt-16 md:h-[calc(100vh-4rem)] bg-gray-50">
       {/* Header */}
-      <div className="border-b bg-white sticky top-0 z-10">
+      <div className="border-b bg-white sticky top-14 md:top-16 z-10">
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             <Button

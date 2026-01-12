@@ -173,7 +173,7 @@ export function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFFBF5] md:pt-16 pb-20 md:pb-8">
+    <div className="min-h-screen bg-[#FFFBF5] pt-14 md:pt-16 pb-20 md:pb-8">
       <div className="px-4 max-w-2xl mx-auto">
         <div className="py-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Amika</h1>

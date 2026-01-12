@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Bell, UserPlus, Share2, FileText, Calendar, Image as ImageIcon, Plane, Check, X, Loader2, ChevronRight, MessageCircle, Trash2, Star } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -545,13 +545,18 @@ export function NotificationsDropdown({ pendingCount, onCountChange }: Notificat
 
 // Mobile version - simpler bell icon for bottom nav
 export function NotificationsBellMobile({ pendingCount }: { pendingCount: number }) {
+  const pathname = usePathname();
+  const isActive = pathname === '/notifications';
+
   return (
     <Link
       href="/notifications"
-      className="relative flex flex-col items-center justify-center flex-1 h-full transition-colors text-gray-400 hover:text-[#A8C5A8]"
+      className={`relative flex flex-col items-center justify-center flex-1 h-full transition-colors ${
+        isActive ? 'text-[#A8C5A8]' : 'text-gray-400 hover:text-[#A8C5A8]'
+      }`}
     >
       <Bell className="w-6 h-6" />
-      <span className="text-xs mt-1">Alerts</span>
+      <span className="text-xs mt-1">Notifications</span>
       {pendingCount > 0 && (
         <span className="absolute top-1 right-1/4 w-4 h-4 bg-[#D4A5A5] text-white text-[10px] rounded-full flex items-center justify-center">
           {pendingCount > 9 ? '9+' : pendingCount}

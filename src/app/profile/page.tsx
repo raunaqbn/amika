@@ -148,7 +148,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="max-w-2xl mx-auto px-4 pt-14 md:pt-16 pb-8">
       {/* Handle Google OAuth callback params */}
       <Suspense fallback={null}>
         <ProfileSearchParamsHandler setSuccess={setSuccess} setError={setError} />
