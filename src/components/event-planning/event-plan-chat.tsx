@@ -7,6 +7,7 @@ import { Textarea } from '../ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Send, Loader2, Sparkles, Circle, Calendar, MapPin, Star, ExternalLink, Ticket, Clock, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import React from 'react';
 import { EmojiPickerButton } from '../ui/emoji-picker';
 
@@ -335,6 +336,7 @@ function ToolResultCards({ toolResultsJson }: { toolResultsJson: string }) {
 function MarkdownMessage({ content, isUser, mentionNames }: { content: string; isUser: boolean; mentionNames: string[] }) {
   return (
     <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
       components={{
         p: ({ children }) => {
           const processedChildren = React.Children.map(children, (child) => {

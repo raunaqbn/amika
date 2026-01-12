@@ -14,6 +14,7 @@ import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Send, MapPin, Calendar, Users, Video, Sparkles, Plus, ExternalLink, Star, Clock, Ticket, X, UserPlus, CalendarPlus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { formatInterestsForAI, parseInterests } from '@/lib/interests';
 
 interface Friend {
@@ -621,6 +622,7 @@ export function FindEventsDialog({
                   {/* Render text content */}
                   {message.content && (
                     <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
                       components={{
                         p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
                         ul: ({ children }) => <ul className="list-disc ml-4 mb-2 space-y-1">{children}</ul>,

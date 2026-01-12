@@ -15,6 +15,7 @@ import { ArrowLeft, Sparkles, Settings, X, Image as ImageIcon } from 'lucide-rea
 import { useChat } from 'ai/react';
 import type { Message } from 'ai';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Friend {
   id: string;
@@ -34,6 +35,7 @@ type NoteMode = 'select' | 'freeform' | 'amika-chat';
 function MarkdownMessage({ content, isUser }: { content: string; isUser: boolean }) {
   return (
     <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
       components={{
         p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
         ul: ({ children }) => <ul className="list-disc ml-4 mb-2 space-y-1">{children}</ul>,
