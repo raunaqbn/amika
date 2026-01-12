@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Send, Plus, MessageSquare, Calendar, MapPin, Clock, Trash2, Sparkles, ChevronDown, Star, Ticket, ExternalLink, Bot } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Card } from './ui/card';
 import {
   Dialog,
@@ -178,6 +179,7 @@ function HighlightMentions({ text, isUser, friendNames }: { text: string; isUser
 function MarkdownMessage({ content, isUser, friendNames = [] }: { content: string; isUser: boolean; friendNames?: string[] }) {
   return (
     <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
       components={{
         p: ({ children }) => {
           // Process children to highlight mentions in text nodes
