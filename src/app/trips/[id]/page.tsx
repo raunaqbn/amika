@@ -163,6 +163,7 @@ interface Message {
   context: string;
   role: string;
   content: string;
+  toolResults?: string | null;
   createdAt: Date;
 }
 
