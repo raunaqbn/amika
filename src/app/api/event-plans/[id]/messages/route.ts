@@ -160,6 +160,10 @@ export async function POST(
       // Fetch full chat transcript for context
       const chatHistory = await prisma.eventPlanMessage.findMany(id, userId, { context });
 
+      // Fetch current user to get their interests
+      const currentUser = await prisma.user.findById(userId);
+      const currentUserInterests = currentUser?.interests ? parseInterests(currentUser.interests) : [];
+
       // Fetch all user's friends to get their interests
       const userFriends = await prisma.friend.findMany({ userId });
 
@@ -213,6 +217,9 @@ ${collaboratorContext || 'No collaborators added yet'}
 
 All friends and their interests (for reference when suggesting activities):
 ${allFriendsInterests || 'No friend interests available'}
+
+Your interests (the organizer asking for suggestions):
+${currentUserInterests.length > 0 ? formatInterestsForAI(currentUserInterests) : 'Not specified'}
       `.trim();
 
       const systemPrompt = `You are Amika, a helpful AI assistant helping plan a group event. You're friendly, concise, and practical.
@@ -220,11 +227,11 @@ ${allFriendsInterests || 'No friend interests available'}
 ${eventPlanContext}
 
 Help the group with their event planning by:
-- Suggesting events based on their interests (use the friend interests above to personalize suggestions)
+- Suggesting events based on everyone's interests (use both the organizer's interests AND collaborator interests to personalize suggestions)
 - Helping decide on dates and times
 - Recommending venues and experiences
 - Providing practical tips
-- Being inclusive of all collaborators' preferences
+- Being inclusive of all participants' preferences, including the person asking
 - Using location context when searching for venues or events
 
 IMPORTANT: When searching for venues, restaurants, events, or activities:

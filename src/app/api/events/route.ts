@@ -104,6 +104,20 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Point system for events based on bonding potential and time/energy investment
+const EVENT_POINTS: Record<string, number> = {
+  fitness: 25,       // High commitment, shared physical activity
+  experiences: 20,   // Unique bonding, memorable moments
+  places: 15,        // Travel/exploration together
+  restaurants: 10,   // Social dining, casual bonding
+  virtual: 5,        // Phone calls, video chats - lower investment
+  default: 10,       // Uncategorized events
+};
+
+function getEventPoints(category: string | null): number {
+  return EVENT_POINTS[category || 'default'] || EVENT_POINTS.default;
+}
+
 // PUT /api/events - Update an event
 export async function PUT(request: NextRequest) {
   try {
@@ -121,6 +135,11 @@ export async function PUT(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Get the current event to check if it's being marked as complete for the first time
+    const existingEvents = await prisma.event.findMany({ userId, includeFriends: true });
+    const existingEvent = existingEvents.find((e: { id: string }) => e.id === id);
+    const wasNotCompleted = existingEvent && !existingEvent.completed;
 
     // Build update data
     const updateData: Record<string, any> = {};
@@ -165,6 +184,51 @@ export async function PUT(request: NextRequest) {
         }
       } catch (shareError) {
         console.error('Error auto-sharing event:', shareError);
+      }
+    }
+
+    // Send points notifications to all participants when event is marked as complete
+    if (completed === true && wasNotCompleted && existingEvent) {
+      try {
+        // Get all friends to find their linkedUserId
+        const allFriends = await prisma.friend.findMany({ userId });
+
+        // Get all participating friends (primary + additional from event_friends)
+        const participatingFriendIds = new Set<string>();
+        participatingFriendIds.add(existingEvent.friendId);
+
+        // Add friends from the event's friends array
+        if (existingEvent.friends && Array.isArray(existingEvent.friends)) {
+          for (const f of existingEvent.friends) {
+            participatingFriendIds.add(f.id);
+          }
+        }
+
+        // Calculate points for this event
+        const eventCategory = existingEvent.category || category || 'default';
+        const points = getEventPoints(eventCategory);
+
+        // Notify each Amika friend who participated
+        for (const participantId of participatingFriendIds) {
+          const friend = allFriends.find((f: { id: string }) => f.id === participantId);
+          if (friend && friend.linkedUserId) {
+            try {
+              await prisma.sharedItem.create({
+                sharedByUserId: userId,
+                sharedWithUserId: friend.linkedUserId,
+                itemType: 'points',
+                itemId: id, // Reference to the event
+                message: `You earned ${points} friendship points for completing "${existingEvent.title}"!`,
+                skipConnectionCheck: true, // Allow notifications even without explicit connection
+              });
+            } catch (notifyError) {
+              // Ignore errors (may already be notified)
+              console.error('Error sending points notification:', notifyError);
+            }
+          }
+        }
+      } catch (notifyError) {
+        console.error('Error notifying participants of points:', notifyError);
       }
     }
 
