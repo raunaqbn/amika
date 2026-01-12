@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { FindEventsDialog } from '@/components/find-events-dialog';
 import { PlanEventDialog } from '@/components/event-planning/plan-event-dialog';
 import { EventPlanCard } from '@/components/event-planning/event-plan-card';
 import { Calendar, Plus, Sparkles, Clock, CheckCircle2, Utensils, MapPin, Dumbbell, Video, CalendarDays, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { useEventsPageData } from '@/hooks/use-data';
 
 interface Friend {
   id: string;
@@ -63,10 +64,19 @@ const categories = [
 
 export default function EventsPage() {
   const router = useRouter();
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [eventPlans, setEventPlans] = useState<EventPlan[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // Use SWR hooks for cached data fetching
+  const {
+    friends,
+    events,
+    eventPlans,
+    isLoading: loading,
+    error,
+    refreshFriends,
+    refreshEvents,
+    refreshEventPlans,
+  } = useEventsPageData();
+
   const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
   const [findEventsDialogOpen, setFindEventsDialogOpen] = useState(false);
   const [planEventDialogOpen, setPlanEventDialogOpen] = useState(false);
@@ -75,66 +85,10 @@ export default function EventsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showAllPlanningSessions, setShowAllPlanningSessions] = useState(false);
 
-  useEffect(() => {
-    fetchFriends();
-    fetchEvents();
-    fetchEventPlans();
-  }, []);
-
-  const fetchFriends = async () => {
-    try {
-      const response = await fetch('/api/friends');
-      if (!response.ok) {
-        if (response.status === 401) {
-          router.push('/signin');
-          return;
-        }
-        throw new Error('Failed to fetch friends');
-      }
-      const data = await response.json();
-      setFriends(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error fetching friends:', error);
-      setFriends([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchEvents = async () => {
-    try {
-      const response = await fetch('/api/events');
-      if (!response.ok) {
-        if (response.status === 401) {
-          router.push('/signin');
-          return;
-        }
-        throw new Error('Failed to fetch events');
-      }
-      const data = await response.json();
-      setEvents(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error fetching events:', error);
-      setEvents([]);
-    }
-  };
-
-  const fetchEventPlans = async () => {
-    try {
-      const response = await fetch('/api/event-plans');
-      if (!response.ok) {
-        if (response.status === 401) {
-          return;
-        }
-        throw new Error('Failed to fetch event plans');
-      }
-      const data = await response.json();
-      setEventPlans(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error fetching event plans:', error);
-      setEventPlans([]);
-    }
-  };
+  // Handle auth errors
+  if (error?.status === 401) {
+    router.push('/signin');
+  }
 
   const handleDeleteEvent = async (eventId: string) => {
     try {
@@ -143,7 +97,8 @@ export default function EventsPage() {
       });
 
       if (response.ok) {
-        setEvents(events.filter((e) => e.id !== eventId));
+        // Revalidate events cache
+        refreshEvents();
       }
     } catch (error) {
       console.error('Error deleting event:', error);
@@ -159,9 +114,8 @@ export default function EventsPage() {
       });
 
       if (response.ok) {
-        setEvents(events.map((e) =>
-          e.id === eventId ? { ...e, completed } : e
-        ));
+        // Revalidate events cache
+        refreshEvents();
       }
     } catch (error) {
       console.error('Error updating event:', error);
@@ -454,15 +408,15 @@ export default function EventsPage() {
           }}
           friends={friendsForAddEvent}
           onEventAdded={() => {
-            fetchEvents();
+            refreshEvents();
           }}
           eventToEdit={eventToEdit}
           onEventUpdated={() => {
-            fetchEvents();
+            refreshEvents();
             setEventToEdit(null);
           }}
           onFriendsUpdated={() => {
-            fetchFriends();
+            refreshFriends();
           }}
         />
 
@@ -471,7 +425,7 @@ export default function EventsPage() {
           onOpenChange={setFindEventsDialogOpen}
           friends={friends}
           onEventCreated={() => {
-            fetchEvents();
+            refreshEvents();
           }}
         />
 
@@ -480,7 +434,7 @@ export default function EventsPage() {
           onOpenChange={setPlanEventDialogOpen}
           friends={friendsForPlanEvent}
           onEventCreated={() => {
-            fetchEventPlans();
+            refreshEventPlans();
           }}
         />
       </div>

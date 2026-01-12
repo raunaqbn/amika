@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,6 @@ import {
   Users,
   Clock,
   CheckCircle2,
-  ArrowRight,
   MoreVertical,
   Trash2,
 } from 'lucide-react';
@@ -25,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useTripsPageData } from '@/hooks/use-data';
 
 interface Friend {
   id: string;
@@ -54,48 +54,23 @@ interface Trip {
 
 export default function TripsPage() {
   const router = useRouter();
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // Use SWR hooks for cached data fetching
+  const {
+    friends,
+    trips,
+    isLoading: loading,
+    error,
+    refreshTrips,
+  } = useTripsPageData();
+
   const [planTripDialogOpen, setPlanTripDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'planning' | 'completed'>('planning');
 
-  useEffect(() => {
-    fetchTrips();
-    fetchFriends();
-  }, []);
-
-  const fetchTrips = async () => {
-    try {
-      const response = await fetch('/api/trips');
-      if (!response.ok) {
-        if (response.status === 401) {
-          router.push('/signin');
-          return;
-        }
-        throw new Error('Failed to fetch trips');
-      }
-      const data = await response.json();
-      setTrips(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Error fetching trips:', error);
-      setTrips([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchFriends = async () => {
-    try {
-      const response = await fetch('/api/friends');
-      if (response.ok) {
-        const data = await response.json();
-        setFriends(Array.isArray(data) ? data : []);
-      }
-    } catch (error) {
-      console.error('Error fetching friends:', error);
-    }
-  };
+  // Handle auth errors
+  if (error?.status === 401) {
+    router.push('/signin');
+  }
 
   const formatDateRange = (startDate: string | null, endDate: string | null) => {
     if (!startDate) return 'Dates not set';
@@ -132,7 +107,8 @@ export default function TripsPage() {
       });
 
       if (response.ok) {
-        setTrips(trips.filter((trip) => trip.id !== tripId));
+        // Revalidate trips cache
+        refreshTrips();
       } else {
         console.error('Failed to delete trip');
       }

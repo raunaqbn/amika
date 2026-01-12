@@ -2,6 +2,22 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+// Hook to track document visibility
+function useDocumentVisibility() {
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setIsVisible(document.visibilityState === 'visible');
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  return isVisible;
+}
+
 interface EventPlanMessage {
   id: string;
   eventPlanId: string;
@@ -98,6 +114,9 @@ export function useEventPlanSync(
     onActiveUsersUpdated,
   } = options;
 
+  // Track visibility to optimize polling when tab is hidden
+  const isVisible = useDocumentVisibility();
+
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
@@ -105,6 +124,10 @@ export function useEventPlanSync(
   const lastSyncRef = useRef<Date>(new Date(0)); // Start at epoch to fetch all historical messages
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const presenceIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Slow down polling interval when tab is hidden (10x slower)
+  const effectiveInterval = isVisible ? interval : interval * 10;
+  const effectivePresenceInterval = isVisible ? 2000 : 20000;
 
   // Sync messages, polls, and goals
   const sync = useCallback(async () => {
@@ -218,11 +241,13 @@ export function useEventPlanSync(
       return;
     }
 
-    // Initial sync
-    sync();
+    // Initial sync (only when visible)
+    if (isVisible) {
+      sync();
+    }
 
-    // Set up interval
-    intervalRef.current = setInterval(sync, interval);
+    // Set up interval with visibility-aware timing
+    intervalRef.current = setInterval(sync, effectiveInterval);
 
     return () => {
       if (intervalRef.current) {
@@ -230,9 +255,9 @@ export function useEventPlanSync(
         intervalRef.current = null;
       }
     };
-  }, [enabled, eventPlanId, interval, sync]);
+  }, [enabled, eventPlanId, effectiveInterval, sync, isVisible]);
 
-  // Set up polling for presence and typing (faster interval)
+  // Set up polling for presence and typing (faster interval, paused when hidden)
   useEffect(() => {
     if (!enabled || !eventPlanId) {
       if (presenceIntervalRef.current) {
@@ -242,17 +267,19 @@ export function useEventPlanSync(
       return;
     }
 
-    // Initial fetch
-    fetchTypingUsers();
-    fetchActiveUsers();
-    sendPresenceHeartbeat();
+    // Initial fetch (only when visible)
+    if (isVisible) {
+      fetchTypingUsers();
+      fetchActiveUsers();
+      sendPresenceHeartbeat();
+    }
 
-    // Set up faster interval for typing/presence (every 2 seconds)
+    // Set up interval with visibility-aware timing
     presenceIntervalRef.current = setInterval(() => {
       fetchTypingUsers();
       fetchActiveUsers();
       sendPresenceHeartbeat();
-    }, 2000);
+    }, effectivePresenceInterval);
 
     return () => {
       if (presenceIntervalRef.current) {
@@ -260,7 +287,7 @@ export function useEventPlanSync(
         presenceIntervalRef.current = null;
       }
     };
-  }, [enabled, eventPlanId, fetchTypingUsers, fetchActiveUsers, sendPresenceHeartbeat]);
+  }, [enabled, eventPlanId, effectivePresenceInterval, fetchTypingUsers, fetchActiveUsers, sendPresenceHeartbeat, isVisible]);
 
   // Reset last sync when event plan changes - use epoch to fetch all historical messages
   useEffect(() => {
