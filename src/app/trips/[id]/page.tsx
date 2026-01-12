@@ -113,6 +113,10 @@ interface TripTicket {
   cost: number | null;
   currency: string;
   url: string | null;
+  passengerName: string | null;
+  flightDirection: 'outbound' | 'return' | null;
+  departureLocation: string | null;
+  arrivalLocation: string | null;
   createdById: string;
   createdAt: Date;
   updatedAt: Date;
@@ -501,7 +505,7 @@ export default function TripPlanningPage() {
                     </TabsTrigger>
                     <TabsTrigger value="tickets" className="flex items-center gap-2">
                       <Ticket className="w-4 h-4" />
-                      Tickets
+                      Travel Docs
                     </TabsTrigger>
                   </TabsList>
                 </div>
