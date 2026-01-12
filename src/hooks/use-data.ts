@@ -12,6 +12,10 @@ export interface Friend {
   email?: string | null;
   linkedUserId?: string | null;
   profileImage?: string | null;
+  friendshipPoints?: number;
+  eventsCount?: number;
+  memoriesCount?: number;
+  notesCount?: number;
 }
 
 export interface Event {

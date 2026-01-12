@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { FriendCard } from '@/components/friend-card';
 import { AddFriendDialog } from '@/components/add-friend-dialog';
 import { FriendRequests } from '@/components/friend-requests';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Search, Users, Share2, Trophy, TrendingUp, Heart, Calendar } from 'lucide-react';
+import { useFriends } from '@/hooks/use-data';
 
 interface Friend {
   id: string;
@@ -22,29 +23,17 @@ interface Friend {
 }
 
 export default function FriendsPage() {
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    fetchFriends();
-  }, [refreshKey]);
-
-  const fetchFriends = async () => {
-    try {
-      const response = await fetch('/api/friends');
-      const data = await response.json();
-      setFriends(data);
-    } catch (error) {
-      console.error('Error fetching friends:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Use SWR for cached data fetching
+  const {
+    friends,
+    isLoading: loading,
+    refresh: refreshFriends,
+  } = useFriends();
 
   const handleConnectionUpdate = () => {
-    setRefreshKey((k) => k + 1);
+    refreshFriends();
   };
 
   const handleRemoveFriend = useCallback(async (friendId: string) => {
@@ -53,12 +42,13 @@ export default function FriendsPage() {
         method: 'DELETE',
       });
       if (response.ok) {
-        setFriends((prev) => prev.filter((f) => f.id !== friendId));
+        // Revalidate friends cache
+        refreshFriends();
       }
     } catch (error) {
       console.error('Error removing friend:', error);
     }
-  }, []);
+  }, [refreshFriends]);
 
   // Memoize filtered friends and their separation
   const { filteredFriends, amikaFriends, regularFriends } = useMemo(() => {
@@ -153,7 +143,7 @@ export default function FriendsPage() {
         )}
 
         {/* Friend Requests Section */}
-        <FriendRequests key={refreshKey} onUpdate={handleConnectionUpdate} />
+        <FriendRequests onUpdate={handleConnectionUpdate} />
 
         {friends.length > 0 && (
           <div className="relative mb-6">
