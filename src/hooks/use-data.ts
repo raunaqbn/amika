@@ -98,6 +98,48 @@ export interface SharedItem {
   };
 }
 
+// Conversation types for direct messaging
+export interface ConversationParticipant {
+  id: string;
+  conversationId: string;
+  userId: string;
+  joinedAt: Date;
+  lastReadAt: Date | null;
+  user: {
+    id: string;
+    name: string;
+    profileImage: string | null;
+  };
+}
+
+export interface DirectMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  content: string;
+  createdAt: Date;
+  editedAt: Date | null;
+  deletedAt: Date | null;
+  sender: {
+    id: string;
+    name: string;
+    profileImage?: string | null;
+  };
+}
+
+export interface Conversation {
+  id: string;
+  name: string | null;
+  isGroup: boolean;
+  createdById: string;
+  lastMessageAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  participants: ConversationParticipant[];
+  lastMessage?: DirectMessage;
+  unreadCount: number;
+}
+
 // Cache keys for manual revalidation
 export const CACHE_KEYS = {
   FRIENDS: '/api/friends',
@@ -109,6 +151,8 @@ export const CACHE_KEYS = {
   CONNECTIONS_PENDING: '/api/connections?type=received&status=pending',
   SHARED_ITEMS_PENDING: '/api/shared-items?type=received&status=pending',
   CHAT_NOTIFICATIONS: '/api/chat-notifications?unreadOnly=true',
+  CONVERSATIONS: '/api/messages',
+  MESSAGE_UNREAD_COUNT: '/api/messages/unread-count',
 };
 
 // Revalidation helpers
@@ -117,11 +161,14 @@ export const revalidateEvents = () => mutate(CACHE_KEYS.EVENTS);
 export const revalidateEventPlans = () => mutate(CACHE_KEYS.EVENT_PLANS);
 export const revalidateTrips = () => mutate(CACHE_KEYS.TRIPS);
 export const revalidateMemories = () => mutate(CACHE_KEYS.MEMORIES);
+export const revalidateConversations = () => mutate(CACHE_KEYS.CONVERSATIONS);
+export const revalidateMessageUnreadCount = () => mutate(CACHE_KEYS.MESSAGE_UNREAD_COUNT);
 export const revalidateNotifications = () => {
   mutate(CACHE_KEYS.NOTIFICATIONS_PENDING);
   mutate(CACHE_KEYS.CONNECTIONS_PENDING);
   mutate(CACHE_KEYS.SHARED_ITEMS_PENDING);
   mutate(CACHE_KEYS.CHAT_NOTIFICATIONS);
+  mutate(CACHE_KEYS.MESSAGE_UNREAD_COUNT);
 };
 
 // Hook options type
@@ -479,6 +526,102 @@ export function useMemoriesPageData() {
       mutateFriends();
       mutateMemories();
       mutateShared();
+    },
+  };
+}
+
+/**
+ * Hook for fetching conversations list
+ */
+export function useConversations(options: UseDataOptions = {}) {
+  const { data, error, isLoading, isValidating, mutate: mutateConversations } = useSWR<Conversation[]>(
+    CACHE_KEYS.CONVERSATIONS,
+    {
+      dedupingInterval: 10000, // 10 second deduplication for more real-time feel
+      revalidateOnMount: options.revalidateOnMount ?? true,
+      refreshInterval: options.refreshInterval ?? 0,
+      isPaused: () => options.isPaused ?? false,
+    }
+  );
+
+  return {
+    conversations: data ?? [],
+    isLoading,
+    isValidating,
+    error,
+    mutate: mutateConversations,
+    refresh: () => mutateConversations(),
+  };
+}
+
+/**
+ * Hook for fetching messages in a conversation
+ */
+export function useMessages(conversationId: string | null, options: UseDataOptions = {}) {
+  const { data, error, isLoading, isValidating, mutate: mutateMessages } = useSWR<{
+    conversation: Conversation;
+    messages: DirectMessage[];
+  }>(
+    conversationId ? `/api/messages/${conversationId}` : null,
+    {
+      dedupingInterval: 5000, // 5 second deduplication for real-time messaging
+      revalidateOnMount: options.revalidateOnMount ?? true,
+      refreshInterval: options.refreshInterval ?? 0,
+      isPaused: () => options.isPaused ?? false,
+    }
+  );
+
+  return {
+    conversation: data?.conversation ?? null,
+    messages: data?.messages ?? [],
+    isLoading,
+    isValidating,
+    error,
+    mutate: mutateMessages,
+    refresh: () => mutateMessages(),
+  };
+}
+
+/**
+ * Hook for fetching unread message count
+ */
+export function useMessageUnreadCount(options: UseDataOptions = {}) {
+  const { data, error, isLoading, mutate: mutateCount } = useSWR<{ count: number }>(
+    CACHE_KEYS.MESSAGE_UNREAD_COUNT,
+    {
+      dedupingInterval: 30000,
+      refreshInterval: options.refreshInterval ?? 30000, // Refresh every 30 seconds by default
+      revalidateOnMount: options.revalidateOnMount ?? true,
+      isPaused: () => options.isPaused ?? false,
+    }
+  );
+
+  return {
+    unreadCount: data?.count ?? 0,
+    isLoading,
+    error,
+    mutate: mutateCount,
+    refresh: () => mutateCount(),
+  };
+}
+
+/**
+ * Combined hook for messages page data
+ */
+export function useMessagesPageData() {
+  const { conversations, isLoading: conversationsLoading, error: conversationsError, mutate: mutateConversations } = useConversations();
+  const { friends, isLoading: friendsLoading, error: friendsError, mutate: mutateFriends } = useFriends();
+
+  return {
+    conversations,
+    friends,
+    isLoading: conversationsLoading || friendsLoading,
+    error: conversationsError || friendsError,
+    refreshConversations: mutateConversations,
+    refreshFriends: mutateFriends,
+    refreshAll: () => {
+      mutateConversations();
+      mutateFriends();
     },
   };
 }

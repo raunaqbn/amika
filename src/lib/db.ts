@@ -387,6 +387,46 @@ export type ChatNotification = {
   updatedAt: Date;
 };
 
+// Direct Messaging Types
+export type Conversation = {
+  id: string;
+  name: string | null;
+  isGroup: boolean;
+  createdById: string;
+  lastMessageAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type ConversationParticipant = {
+  id: string;
+  conversationId: string;
+  userId: string;
+  joinedAt: Date;
+  lastReadAt: Date | null;
+};
+
+export type DirectMessage = {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  content: string;
+  createdAt: Date;
+  editedAt: Date | null;
+  deletedAt: Date | null;
+};
+
+// Extended types for API responses
+export type ConversationWithDetails = Conversation & {
+  participants: (ConversationParticipant & { user: Pick<User, 'id' | 'name' | 'profileImage'> })[];
+  lastMessage?: DirectMessage & { sender: Pick<User, 'id' | 'name'> };
+  unreadCount: number;
+};
+
+export type DirectMessageWithSender = DirectMessage & {
+  sender: Pick<User, 'id' | 'name' | 'profileImage'>;
+};
+
 let clientInstance: Client | null = null;
 let tablesInitialized = false;
 let joinTokenColumnChecked = false;
@@ -1255,6 +1295,56 @@ async function ensureTablesExist() {
         UNIQUE (recipientUserId, chatType, chatId)
       )
     `);
+
+    // Direct Messaging tables
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS conversations (
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        isGroup INTEGER DEFAULT 0,
+        createdById TEXT NOT NULL,
+        lastMessageAt TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (createdById) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS conversation_participants (
+        id TEXT PRIMARY KEY,
+        conversationId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        joinedAt TEXT NOT NULL,
+        lastReadAt TEXT,
+        FOREIGN KEY (conversationId) REFERENCES conversations(id) ON DELETE CASCADE,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE (conversationId, userId)
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS direct_messages (
+        id TEXT PRIMARY KEY,
+        conversationId TEXT NOT NULL,
+        senderId TEXT NOT NULL,
+        content TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        editedAt TEXT,
+        deletedAt TEXT,
+        FOREIGN KEY (conversationId) REFERENCES conversations(id) ON DELETE CASCADE,
+        FOREIGN KEY (senderId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Create indexes for direct messaging
+    await client.execute(`CREATE INDEX IF NOT EXISTS idx_conversations_createdById ON conversations(createdById)`);
+    await client.execute(`CREATE INDEX IF NOT EXISTS idx_conversations_lastMessageAt ON conversations(lastMessageAt)`);
+    await client.execute(`CREATE INDEX IF NOT EXISTS idx_conversation_participants_conversationId ON conversation_participants(conversationId)`);
+    await client.execute(`CREATE INDEX IF NOT EXISTS idx_conversation_participants_userId ON conversation_participants(userId)`);
+    await client.execute(`CREATE INDEX IF NOT EXISTS idx_direct_messages_conversationId ON direct_messages(conversationId)`);
+    await client.execute(`CREATE INDEX IF NOT EXISTS idx_direct_messages_senderId ON direct_messages(senderId)`);
+    await client.execute(`CREATE INDEX IF NOT EXISTS idx_direct_messages_createdAt ON direct_messages(conversationId, createdAt)`);
 
     tablesInitialized = true;
   } catch (error) {
@@ -8587,6 +8677,466 @@ export const prisma = {
         sql: 'DELETE FROM chat_notifications WHERE isRead = 1 AND updatedAt < ?',
         args: [sevenDaysAgo],
       });
+    },
+  },
+
+  // Conversation operations for Direct Messaging
+  conversation: {
+    // Create a new conversation (1:1 or group)
+    create: async (data: {
+      name?: string;
+      isGroup: boolean;
+      createdById: string;
+      participantIds: string[]; // User IDs to include (should include creator)
+    }): Promise<Conversation> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const id = randomUUID();
+      const now = new Date().toISOString();
+
+      // Create the conversation
+      await client.execute({
+        sql: `INSERT INTO conversations (id, name, isGroup, createdById, lastMessageAt, createdAt, updatedAt)
+              VALUES (?, ?, ?, ?, NULL, ?, ?)`,
+        args: [id, data.name || null, data.isGroup ? 1 : 0, data.createdById, now, now],
+      });
+
+      // Add all participants
+      for (const userId of data.participantIds) {
+        const participantId = randomUUID();
+        await client.execute({
+          sql: `INSERT INTO conversation_participants (id, conversationId, userId, joinedAt, lastReadAt)
+                VALUES (?, ?, ?, ?, ?)`,
+          args: [participantId, id, userId, now, now],
+        });
+      }
+
+      return {
+        id,
+        name: data.name || null,
+        isGroup: data.isGroup,
+        createdById: data.createdById,
+        lastMessageAt: null,
+        createdAt: new Date(now),
+        updatedAt: new Date(now),
+      };
+    },
+
+    // Find an existing 1:1 conversation between two users
+    findDirectConversation: async (userId1: string, userId2: string): Promise<Conversation | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Find a non-group conversation where both users are participants
+      const result = await client.execute({
+        sql: `SELECT c.* FROM conversations c
+              WHERE c.isGroup = 0
+              AND EXISTS (SELECT 1 FROM conversation_participants cp1 WHERE cp1.conversationId = c.id AND cp1.userId = ?)
+              AND EXISTS (SELECT 1 FROM conversation_participants cp2 WHERE cp2.conversationId = c.id AND cp2.userId = ?)
+              AND (SELECT COUNT(*) FROM conversation_participants cp3 WHERE cp3.conversationId = c.id) = 2
+              LIMIT 1`,
+        args: [userId1, userId2],
+      });
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+      return {
+        id: row.id as string,
+        name: row.name as string | null,
+        isGroup: row.isGroup === 1,
+        createdById: row.createdById as string,
+        lastMessageAt: row.lastMessageAt ? new Date(row.lastMessageAt as string) : null,
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: new Date(row.updatedAt as string),
+      };
+    },
+
+    // Get a conversation by ID
+    findById: async (conversationId: string): Promise<Conversation | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: 'SELECT * FROM conversations WHERE id = ?',
+        args: [conversationId],
+      });
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+      return {
+        id: row.id as string,
+        name: row.name as string | null,
+        isGroup: row.isGroup === 1,
+        createdById: row.createdById as string,
+        lastMessageAt: row.lastMessageAt ? new Date(row.lastMessageAt as string) : null,
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: new Date(row.updatedAt as string),
+      };
+    },
+
+    // Get all conversations for a user with details
+    findManyForUser: async (userId: string): Promise<ConversationWithDetails[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      // Get all conversations the user is part of
+      const conversationsResult = await client.execute({
+        sql: `SELECT c.* FROM conversations c
+              INNER JOIN conversation_participants cp ON c.id = cp.conversationId
+              WHERE cp.userId = ?
+              ORDER BY COALESCE(c.lastMessageAt, c.createdAt) DESC`,
+        args: [userId],
+      });
+
+      const conversations: ConversationWithDetails[] = [];
+
+      for (const row of conversationsResult.rows) {
+        const conversationId = row.id as string;
+
+        // Get participants with user details
+        const participantsResult = await client.execute({
+          sql: `SELECT cp.*, u.id as u_id, u.name as u_name, u.profileImage as u_profileImage
+                FROM conversation_participants cp
+                INNER JOIN users u ON cp.userId = u.id
+                WHERE cp.conversationId = ?`,
+          args: [conversationId],
+        });
+
+        const participants = participantsResult.rows.map((pRow: any) => ({
+          id: pRow.id as string,
+          conversationId: pRow.conversationId as string,
+          userId: pRow.userId as string,
+          joinedAt: new Date(pRow.joinedAt as string),
+          lastReadAt: pRow.lastReadAt ? new Date(pRow.lastReadAt as string) : null,
+          user: {
+            id: pRow.u_id as string,
+            name: pRow.u_name as string,
+            profileImage: pRow.u_profileImage as string | null,
+          },
+        }));
+
+        // Get last message
+        const lastMessageResult = await client.execute({
+          sql: `SELECT dm.*, u.id as u_id, u.name as u_name
+                FROM direct_messages dm
+                INNER JOIN users u ON dm.senderId = u.id
+                WHERE dm.conversationId = ? AND dm.deletedAt IS NULL
+                ORDER BY dm.createdAt DESC
+                LIMIT 1`,
+          args: [conversationId],
+        });
+
+        let lastMessage: (DirectMessage & { sender: Pick<User, 'id' | 'name'> }) | undefined;
+        if (lastMessageResult.rows.length > 0) {
+          const msgRow = lastMessageResult.rows[0];
+          lastMessage = {
+            id: msgRow.id as string,
+            conversationId: msgRow.conversationId as string,
+            senderId: msgRow.senderId as string,
+            content: msgRow.content as string,
+            createdAt: new Date(msgRow.createdAt as string),
+            editedAt: msgRow.editedAt ? new Date(msgRow.editedAt as string) : null,
+            deletedAt: null,
+            sender: {
+              id: msgRow.u_id as string,
+              name: msgRow.u_name as string,
+            },
+          };
+        }
+
+        // Get unread count for this user
+        const currentParticipant = participants.find(p => p.userId === userId);
+        const lastReadAt = currentParticipant?.lastReadAt?.toISOString() || '1970-01-01';
+
+        const unreadResult = await client.execute({
+          sql: `SELECT COUNT(*) as count FROM direct_messages
+                WHERE conversationId = ? AND senderId != ? AND deletedAt IS NULL
+                AND createdAt > ?`,
+          args: [conversationId, userId, lastReadAt],
+        });
+
+        const unreadCount = Number(unreadResult.rows[0]?.count || 0);
+
+        conversations.push({
+          id: row.id as string,
+          name: row.name as string | null,
+          isGroup: row.isGroup === 1,
+          createdById: row.createdById as string,
+          lastMessageAt: row.lastMessageAt ? new Date(row.lastMessageAt as string) : null,
+          createdAt: new Date(row.createdAt as string),
+          updatedAt: new Date(row.updatedAt as string),
+          participants,
+          lastMessage,
+          unreadCount,
+        });
+      }
+
+      return conversations;
+    },
+
+    // Update conversation name (for group chats)
+    updateName: async (conversationId: string, name: string): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      await client.execute({
+        sql: 'UPDATE conversations SET name = ?, updatedAt = ? WHERE id = ?',
+        args: [name, new Date().toISOString(), conversationId],
+      });
+    },
+
+    // Update lastMessageAt timestamp
+    updateLastMessageAt: async (conversationId: string): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const now = new Date().toISOString();
+      await client.execute({
+        sql: 'UPDATE conversations SET lastMessageAt = ?, updatedAt = ? WHERE id = ?',
+        args: [now, now, conversationId],
+      });
+    },
+
+    // Add participant to group conversation
+    addParticipant: async (conversationId: string, userId: string): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const id = randomUUID();
+      const now = new Date().toISOString();
+
+      await client.execute({
+        sql: `INSERT OR IGNORE INTO conversation_participants (id, conversationId, userId, joinedAt, lastReadAt)
+              VALUES (?, ?, ?, ?, ?)`,
+        args: [id, conversationId, userId, now, now],
+      });
+    },
+
+    // Remove participant from group conversation
+    removeParticipant: async (conversationId: string, userId: string): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      await client.execute({
+        sql: 'DELETE FROM conversation_participants WHERE conversationId = ? AND userId = ?',
+        args: [conversationId, userId],
+      });
+    },
+
+    // Check if user is a participant
+    isParticipant: async (conversationId: string, userId: string): Promise<boolean> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: 'SELECT 1 FROM conversation_participants WHERE conversationId = ? AND userId = ?',
+        args: [conversationId, userId],
+      });
+
+      return result.rows.length > 0;
+    },
+
+    // Get participants for a conversation
+    getParticipants: async (conversationId: string): Promise<(ConversationParticipant & { user: Pick<User, 'id' | 'name' | 'profileImage'> })[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: `SELECT cp.*, u.id as u_id, u.name as u_name, u.profileImage as u_profileImage
+              FROM conversation_participants cp
+              INNER JOIN users u ON cp.userId = u.id
+              WHERE cp.conversationId = ?`,
+        args: [conversationId],
+      });
+
+      return result.rows.map((row: any) => ({
+        id: row.id as string,
+        conversationId: row.conversationId as string,
+        userId: row.userId as string,
+        joinedAt: new Date(row.joinedAt as string),
+        lastReadAt: row.lastReadAt ? new Date(row.lastReadAt as string) : null,
+        user: {
+          id: row.u_id as string,
+          name: row.u_name as string,
+          profileImage: row.u_profileImage as string | null,
+        },
+      }));
+    },
+
+    // Mark conversation as read for a user
+    markAsRead: async (conversationId: string, userId: string): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      await client.execute({
+        sql: 'UPDATE conversation_participants SET lastReadAt = ? WHERE conversationId = ? AND userId = ?',
+        args: [new Date().toISOString(), conversationId, userId],
+      });
+    },
+
+    // Get total unread count across all conversations for a user
+    getTotalUnreadCount: async (userId: string): Promise<number> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: `SELECT SUM(unread) as total FROM (
+                SELECT COUNT(*) as unread FROM direct_messages dm
+                INNER JOIN conversation_participants cp ON dm.conversationId = cp.conversationId
+                WHERE cp.userId = ? AND dm.senderId != ? AND dm.deletedAt IS NULL
+                AND dm.createdAt > COALESCE(cp.lastReadAt, '1970-01-01')
+              )`,
+        args: [userId, userId],
+      });
+
+      return Number(result.rows[0]?.total || 0);
+    },
+
+    // Delete a conversation
+    delete: async (conversationId: string): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      await client.execute({
+        sql: 'DELETE FROM conversations WHERE id = ?',
+        args: [conversationId],
+      });
+    },
+  },
+
+  // Direct Message operations
+  directMessage: {
+    // Create a new message
+    create: async (data: {
+      conversationId: string;
+      senderId: string;
+      content: string;
+    }): Promise<DirectMessage> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const id = randomUUID();
+      const now = new Date().toISOString();
+
+      await client.execute({
+        sql: `INSERT INTO direct_messages (id, conversationId, senderId, content, createdAt, editedAt, deletedAt)
+              VALUES (?, ?, ?, ?, ?, NULL, NULL)`,
+        args: [id, data.conversationId, data.senderId, data.content, now],
+      });
+
+      // Update conversation's lastMessageAt
+      await client.execute({
+        sql: 'UPDATE conversations SET lastMessageAt = ?, updatedAt = ? WHERE id = ?',
+        args: [now, now, data.conversationId],
+      });
+
+      return {
+        id,
+        conversationId: data.conversationId,
+        senderId: data.senderId,
+        content: data.content,
+        createdAt: new Date(now),
+        editedAt: null,
+        deletedAt: null,
+      };
+    },
+
+    // Get messages for a conversation with sender details
+    findManyForConversation: async (
+      conversationId: string,
+      options?: { limit?: number; before?: Date; after?: Date }
+    ): Promise<DirectMessageWithSender[]> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      let sql = `SELECT dm.*, u.id as u_id, u.name as u_name, u.profileImage as u_profileImage
+                 FROM direct_messages dm
+                 INNER JOIN users u ON dm.senderId = u.id
+                 WHERE dm.conversationId = ? AND dm.deletedAt IS NULL`;
+      const args: any[] = [conversationId];
+
+      if (options?.before) {
+        sql += ' AND dm.createdAt < ?';
+        args.push(options.before.toISOString());
+      }
+
+      if (options?.after) {
+        sql += ' AND dm.createdAt > ?';
+        args.push(options.after.toISOString());
+      }
+
+      sql += ' ORDER BY dm.createdAt ASC';
+
+      if (options?.limit) {
+        sql += ' LIMIT ?';
+        args.push(options.limit);
+      }
+
+      const result = await client.execute({ sql, args });
+
+      return result.rows.map((row: any) => ({
+        id: row.id as string,
+        conversationId: row.conversationId as string,
+        senderId: row.senderId as string,
+        content: row.content as string,
+        createdAt: new Date(row.createdAt as string),
+        editedAt: row.editedAt ? new Date(row.editedAt as string) : null,
+        deletedAt: null,
+        sender: {
+          id: row.u_id as string,
+          name: row.u_name as string,
+          profileImage: row.u_profileImage as string | null,
+        },
+      }));
+    },
+
+    // Edit a message
+    update: async (messageId: string, content: string): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      await client.execute({
+        sql: 'UPDATE direct_messages SET content = ?, editedAt = ? WHERE id = ?',
+        args: [content, new Date().toISOString(), messageId],
+      });
+    },
+
+    // Soft delete a message
+    delete: async (messageId: string): Promise<void> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      await client.execute({
+        sql: 'UPDATE direct_messages SET deletedAt = ? WHERE id = ?',
+        args: [new Date().toISOString(), messageId],
+      });
+    },
+
+    // Get a message by ID
+    findById: async (messageId: string): Promise<DirectMessage | null> => {
+      await ensureTablesExist();
+      const client = getClient();
+
+      const result = await client.execute({
+        sql: 'SELECT * FROM direct_messages WHERE id = ?',
+        args: [messageId],
+      });
+
+      if (result.rows.length === 0) return null;
+
+      const row = result.rows[0];
+      return {
+        id: row.id as string,
+        conversationId: row.conversationId as string,
+        senderId: row.senderId as string,
+        content: row.content as string,
+        createdAt: new Date(row.createdAt as string),
+        editedAt: row.editedAt ? new Date(row.editedAt as string) : null,
+        deletedAt: row.deletedAt ? new Date(row.deletedAt as string) : null,
+      };
     },
   },
 };

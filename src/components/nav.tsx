@@ -3,11 +3,11 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, BookOpen, User, LogIn, Eye, Upload, CalendarDays, Heart, Plane, Shield, Menu, X, Bell } from 'lucide-react';
+import { Home, Users, BookOpen, User, LogIn, Eye, Upload, CalendarDays, Heart, Plane, Shield, Menu, X, Bell, MessageCircle } from 'lucide-react';
 import { NotificationsDropdown, NotificationsBellMobile } from '@/components/notifications-dropdown';
 import { useAuth } from '@/lib/auth-context';
 import { useNotificationSound } from '@/hooks/use-notification-sound';
-import { useNotificationCount } from '@/hooks/use-data';
+import { useNotificationCount, useMessageUnreadCount } from '@/hooks/use-data';
 import {
   Dialog,
   DialogContent,
@@ -40,6 +40,14 @@ export function Nav() {
     refresh: refreshPendingCount,
   } = useNotificationCount({
     refreshInterval: user ? 30000 : 0, // Only poll when user is logged in
+    isPaused: !user,
+  });
+
+  // Use SWR for message unread count
+  const {
+    unreadCount: messageUnreadCount,
+  } = useMessageUnreadCount({
+    refreshInterval: user ? 30000 : 0,
     isPaused: !user,
   });
 
@@ -127,6 +135,7 @@ export function Nav() {
   const desktopLinks = [
     { href: '/', icon: Home, label: 'Home' },
     { href: '/friends', icon: Users, label: 'Friends' },
+    { href: '/messages', icon: MessageCircle, label: 'Messages', badge: messageUnreadCount },
     { href: '/memories', icon: Heart, label: 'Memories' },
     { href: '/events', icon: CalendarDays, label: 'Events' },
     { href: '/trips', icon: Plane, label: 'Trips' },
@@ -143,6 +152,7 @@ export function Nav() {
 
   // Mobile menu links (accessible from top menu)
   const mobileMenuLinks = [
+    { href: '/messages', icon: MessageCircle, label: 'Messages', badge: messageUnreadCount },
     { href: '/friends', icon: Users, label: 'Friends' },
     { href: '/diary', icon: BookOpen, label: 'Diary' },
     { href: '/profile', icon: User, label: 'Profile' },
@@ -160,7 +170,7 @@ export function Nav() {
 
           {/* Center navigation */}
           <div className="flex items-center gap-1">
-            {desktopLinks.map(({ href, icon: Icon, label }) => {
+            {desktopLinks.map(({ href, icon: Icon, label, badge }) => {
               const isActive = pathname === href;
               return (
                 <Link
@@ -172,7 +182,14 @@ export function Nav() {
                       : 'text-gray-500 hover:text-[#A8C5A8] hover:bg-gray-50'
                   }`}
                 >
-                  <Icon className="w-5 h-5" />
+                  <div className="relative">
+                    <Icon className="w-5 h-5" />
+                    {badge !== undefined && badge > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 flex items-center justify-center bg-[#D4A5A5] text-white text-[10px] font-bold rounded-full px-1">
+                        {badge > 9 ? '9+' : badge}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-sm font-medium">{label}</span>
                 </Link>
               );
@@ -330,7 +347,7 @@ export function Nav() {
                     </div>
 
                     {/* Menu links */}
-                    {mobileMenuLinks.map(({ href, icon: Icon, label }) => (
+                    {mobileMenuLinks.map(({ href, icon: Icon, label, badge }) => (
                       <Link
                         key={href}
                         href={href}
@@ -341,8 +358,20 @@ export function Nav() {
                             : 'text-gray-700 hover:bg-gray-50'
                         }`}
                       >
-                        <Icon className="w-4 h-4" />
-                        {label}
+                        <div className="relative">
+                          <Icon className="w-4 h-4" />
+                          {badge !== undefined && badge > 0 && (
+                            <span className="absolute -top-1 -right-1.5 min-w-[14px] h-3.5 flex items-center justify-center bg-[#D4A5A5] text-white text-[9px] font-bold rounded-full px-0.5">
+                              {badge > 9 ? '9+' : badge}
+                            </span>
+                          )}
+                        </div>
+                        <span className="flex-1">{label}</span>
+                        {badge !== undefined && badge > 0 && (
+                          <span className="bg-[#D4A5A5] text-white text-xs font-bold rounded-full px-2 py-0.5">
+                            {badge > 99 ? '99+' : badge}
+                          </span>
+                        )}
                       </Link>
                     ))}
 
