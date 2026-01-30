@@ -168,7 +168,7 @@ export function useEvents(options: UseDataOptions = {}) {
   const { data, error, isLoading, isValidating, mutate: mutateEvents } = useSWR<Event[]>(
     CACHE_KEYS.EVENTS,
     {
-      dedupingInterval: 30000, // 30 second deduplication
+      dedupingInterval: 60000, // 60 second deduplication
       revalidateOnMount: options.revalidateOnMount ?? true,
       refreshInterval: options.refreshInterval ?? 0,
       isPaused: () => options.isPaused ?? false,
@@ -192,7 +192,7 @@ export function useEventPlans(options: UseDataOptions = {}) {
   const { data, error, isLoading, isValidating, mutate: mutateEventPlans } = useSWR<EventPlan[]>(
     CACHE_KEYS.EVENT_PLANS,
     {
-      dedupingInterval: 30000,
+      dedupingInterval: 60000,
       revalidateOnMount: options.revalidateOnMount ?? true,
       refreshInterval: options.refreshInterval ?? 0,
       isPaused: () => options.isPaused ?? false,
@@ -216,7 +216,7 @@ export function useTrips(options: UseDataOptions = {}) {
   const { data, error, isLoading, isValidating, mutate: mutateTrips } = useSWR<Trip[]>(
     CACHE_KEYS.TRIPS,
     {
-      dedupingInterval: 30000,
+      dedupingInterval: 60000,
       revalidateOnMount: options.revalidateOnMount ?? true,
       refreshInterval: options.refreshInterval ?? 0,
       isPaused: () => options.isPaused ?? false,
@@ -240,7 +240,7 @@ export function useMemories(options: UseDataOptions = {}) {
   const { data, error, isLoading, isValidating, mutate: mutateMemories } = useSWR<Memory[]>(
     CACHE_KEYS.MEMORIES,
     {
-      dedupingInterval: 30000,
+      dedupingInterval: 60000,
       revalidateOnMount: options.revalidateOnMount ?? true,
       refreshInterval: options.refreshInterval ?? 0,
       isPaused: () => options.isPaused ?? false,
@@ -264,7 +264,7 @@ export function useSharedMemories(options: UseDataOptions = {}) {
   const { data, error, isLoading, isValidating, mutate: mutateShared } = useSWR<SharedItem[]>(
     '/api/shared-items?type=received&status=accepted&itemType=memory',
     {
-      dedupingInterval: 30000,
+      dedupingInterval: 60000,
       revalidateOnMount: options.revalidateOnMount ?? true,
       refreshInterval: options.refreshInterval ?? 0,
       isPaused: () => options.isPaused ?? false,
@@ -294,8 +294,8 @@ export function useNotificationCount(options: UseDataOptions = {}) {
   const { data, error, isLoading, mutate: mutatePendingCount } = useSWR<NotificationCountResponse>(
     CACHE_KEYS.NOTIFICATIONS_PENDING,
     {
-      dedupingInterval: 30000,
-      refreshInterval: options.refreshInterval ?? 30000, // Refresh every 30 seconds by default
+      dedupingInterval: 60000,
+      refreshInterval: options.refreshInterval ?? 60000, // Refresh every 60 seconds by default
       revalidateOnMount: options.revalidateOnMount ?? true,
       isPaused: () => options.isPaused ?? false,
     }
@@ -325,7 +325,7 @@ export function usePendingConnections(options: UseDataOptions = {}) {
   const { data, error, isLoading, isValidating, mutate: mutatePending } = useSWR(
     CACHE_KEYS.CONNECTIONS_PENDING,
     {
-      dedupingInterval: 30000,
+      dedupingInterval: 60000,
       revalidateOnMount: options.revalidateOnMount ?? true,
       refreshInterval: options.refreshInterval ?? 0,
       isPaused: () => options.isPaused ?? false,
@@ -349,7 +349,7 @@ export function usePendingSharedItems(options: UseDataOptions = {}) {
   const { data, error, isLoading, isValidating, mutate: mutatePending } = useSWR(
     CACHE_KEYS.SHARED_ITEMS_PENDING,
     {
-      dedupingInterval: 30000,
+      dedupingInterval: 60000,
       revalidateOnMount: options.revalidateOnMount ?? true,
       refreshInterval: options.refreshInterval ?? 0,
       isPaused: () => options.isPaused ?? false,
@@ -373,7 +373,7 @@ export function useChatNotifications(options: UseDataOptions = {}) {
   const { data, error, isLoading, isValidating, mutate: mutateChat } = useSWR(
     CACHE_KEYS.CHAT_NOTIFICATIONS,
     {
-      dedupingInterval: 30000,
+      dedupingInterval: 60000,
       revalidateOnMount: options.revalidateOnMount ?? true,
       refreshInterval: options.refreshInterval ?? 0,
       isPaused: () => options.isPaused ?? false,

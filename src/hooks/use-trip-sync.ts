@@ -104,7 +104,7 @@ export function useTripSync(
 ) {
   const {
     enabled = true,
-    interval = 3000,
+    interval = 10000,
     context,
     onNewMessages,
     onPollsUpdated,
@@ -126,8 +126,8 @@ export function useTripSync(
   const presenceIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Slow down polling interval when tab is hidden (10x slower)
-  const effectiveInterval = isVisible ? interval : interval * 10;
-  const effectivePresenceInterval = isVisible ? 2000 : 20000;
+  const effectiveInterval = isVisible ? interval : interval * 6;
+  const effectivePresenceInterval = isVisible ? 10000 : 60000;
 
   // Sync messages, polls, and goals
   const sync = useCallback(async () => {

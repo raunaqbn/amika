@@ -6414,61 +6414,83 @@ export const prisma = {
         ...pollIdsWithVotes,
       ]);
 
-      // Fetch full poll data with options and votes for all updated polls
+      // Fetch full poll data with options and votes in batch queries
       const polls: any[] = [];
-      for (const pollId of Array.from(allUpdatedPollIds)) {
-        const pollResult = await client.execute({
-          sql: 'SELECT * FROM trip_polls WHERE id = ?',
-          args: [pollId],
+      const pollIdArray = Array.from(allUpdatedPollIds);
+      if (pollIdArray.length > 0) {
+        const pollPlaceholders = pollIdArray.map(() => '?').join(',');
+
+        // Batch fetch all polls
+        const allPollsResult = await client.execute({
+          sql: `SELECT * FROM trip_polls WHERE id IN (${pollPlaceholders})`,
+          args: pollIdArray,
         });
 
-        if (pollResult.rows.length === 0) continue;
-        const poll = pollResult.rows[0];
-
-        const optionsResult = await client.execute({
-          sql: 'SELECT * FROM trip_poll_options WHERE pollId = ? ORDER BY "order" ASC',
-          args: [pollId],
+        // Batch fetch all options for these polls
+        const allOptionsResult = await client.execute({
+          sql: `SELECT * FROM trip_poll_options WHERE pollId IN (${pollPlaceholders}) ORDER BY "order" ASC`,
+          args: pollIdArray,
         });
 
-        const optionsWithVotes: any[] = [];
-        for (const opt of optionsResult.rows) {
-          // Join with users table to get voter profile information
-          const votesResult = await client.execute({
+        // Batch fetch all votes with voter info for these options
+        const optionIds = allOptionsResult.rows.map((o: any) => o.id as string);
+        let allVotesResult: any = { rows: [] };
+        if (optionIds.length > 0) {
+          const optionPlaceholders = optionIds.map(() => '?').join(',');
+          allVotesResult = await client.execute({
             sql: `SELECT v.*, u.name as voterName, u.profileImage as voterProfileImage
                   FROM trip_poll_votes v
                   LEFT JOIN users u ON v.visitorId = u.id
-                  WHERE v.optionId = ?`,
-            args: [opt.id as string],
+                  WHERE v.optionId IN (${optionPlaceholders})`,
+            args: optionIds,
           });
-          optionsWithVotes.push({
+        }
+
+        // Group votes by optionId
+        const votesByOption = new Map<string, any[]>();
+        for (const v of allVotesResult.rows) {
+          const optId = v.optionId as string;
+          if (!votesByOption.has(optId)) votesByOption.set(optId, []);
+          votesByOption.get(optId)!.push({
+            id: v.id,
+            optionId: v.optionId,
+            visitorId: v.visitorId,
+            friendId: v.friendId,
+            votedAt: new Date(v.votedAt as string),
+            voterName: v.voterName,
+            voterProfileImage: v.voterProfileImage,
+          });
+        }
+
+        // Group options by pollId
+        const optionsByPoll = new Map<string, any[]>();
+        for (const opt of allOptionsResult.rows) {
+          const pId = opt.pollId as string;
+          if (!optionsByPoll.has(pId)) optionsByPoll.set(pId, []);
+          optionsByPoll.get(pId)!.push({
             id: opt.id,
             pollId: opt.pollId,
             label: opt.label,
             url: opt.url,
             order: opt.order,
-            votes: votesResult.rows.map((v: any) => ({
-              id: v.id,
-              optionId: v.optionId,
-              visitorId: v.visitorId,
-              friendId: v.friendId,
-              votedAt: new Date(v.votedAt as string),
-              voterName: v.voterName,
-              voterProfileImage: v.voterProfileImage,
-            })),
+            votes: votesByOption.get(opt.id as string) || [],
           });
         }
 
-        polls.push({
-          id: poll.id,
-          tripId: poll.tripId,
-          context: poll.context,
-          question: poll.question,
-          status: poll.status,
-          createdById: poll.createdById,
-          createdAt: new Date(poll.createdAt as string),
-          closedAt: poll.closedAt ? new Date(poll.closedAt as string) : null,
-          options: optionsWithVotes,
-        });
+        // Assemble polls
+        for (const poll of allPollsResult.rows) {
+          polls.push({
+            id: poll.id,
+            tripId: poll.tripId,
+            context: poll.context,
+            question: poll.question,
+            status: poll.status,
+            createdById: poll.createdById,
+            createdAt: new Date(poll.createdAt as string),
+            closedAt: poll.closedAt ? new Date(poll.closedAt as string) : null,
+            options: optionsByPoll.get(poll.id as string) || [],
+          });
+        }
       }
 
       // Get goal progress
@@ -8194,60 +8216,83 @@ export const prisma = {
         ...pollIdsWithVotes,
       ]);
 
+      // Fetch full poll data with options and votes in batch queries
       const polls: any[] = [];
-      for (const pollId of Array.from(allUpdatedPollIds)) {
-        const pollResult = await client.execute({
-          sql: 'SELECT * FROM event_plan_polls WHERE id = ?',
-          args: [pollId],
+      const pollIdArray = Array.from(allUpdatedPollIds);
+      if (pollIdArray.length > 0) {
+        const pollPlaceholders = pollIdArray.map(() => '?').join(',');
+
+        // Batch fetch all polls
+        const allPollsResult = await client.execute({
+          sql: `SELECT * FROM event_plan_polls WHERE id IN (${pollPlaceholders})`,
+          args: pollIdArray,
         });
 
-        if (pollResult.rows.length === 0) continue;
-        const poll = pollResult.rows[0];
-
-        const optionsResult = await client.execute({
-          sql: 'SELECT * FROM event_plan_poll_options WHERE pollId = ? ORDER BY "order" ASC',
-          args: [pollId],
+        // Batch fetch all options for these polls
+        const allOptionsResult = await client.execute({
+          sql: `SELECT * FROM event_plan_poll_options WHERE pollId IN (${pollPlaceholders}) ORDER BY "order" ASC`,
+          args: pollIdArray,
         });
 
-        const optionsWithVotes: any[] = [];
-        for (const opt of optionsResult.rows) {
-          // Join with users table to get voter profile information
-          const votesResult = await client.execute({
+        // Batch fetch all votes with voter info for these options
+        const optionIds = allOptionsResult.rows.map((o: any) => o.id as string);
+        let allVotesResult: any = { rows: [] };
+        if (optionIds.length > 0) {
+          const optionPlaceholders = optionIds.map(() => '?').join(',');
+          allVotesResult = await client.execute({
             sql: `SELECT v.*, u.name as voterName, u.profileImage as voterProfileImage
                   FROM event_plan_poll_votes v
                   LEFT JOIN users u ON v.visitorId = u.id
-                  WHERE v.optionId = ?`,
-            args: [opt.id as string],
+                  WHERE v.optionId IN (${optionPlaceholders})`,
+            args: optionIds,
           });
-          optionsWithVotes.push({
+        }
+
+        // Group votes by optionId
+        const votesByOption = new Map<string, any[]>();
+        for (const v of allVotesResult.rows) {
+          const optId = v.optionId as string;
+          if (!votesByOption.has(optId)) votesByOption.set(optId, []);
+          votesByOption.get(optId)!.push({
+            id: v.id,
+            optionId: v.optionId,
+            visitorId: v.visitorId,
+            friendId: v.friendId,
+            votedAt: new Date(v.votedAt as string),
+            voterName: v.voterName,
+            voterProfileImage: v.voterProfileImage,
+          });
+        }
+
+        // Group options by pollId
+        const optionsByPoll = new Map<string, any[]>();
+        for (const opt of allOptionsResult.rows) {
+          const pId = opt.pollId as string;
+          if (!optionsByPoll.has(pId)) optionsByPoll.set(pId, []);
+          optionsByPoll.get(pId)!.push({
             id: opt.id,
             pollId: opt.pollId,
             label: opt.label,
             url: opt.url,
             order: opt.order,
-            votes: votesResult.rows.map((v: any) => ({
-              id: v.id,
-              optionId: v.optionId,
-              visitorId: v.visitorId,
-              friendId: v.friendId,
-              votedAt: new Date(v.votedAt as string),
-              voterName: v.voterName,
-              voterProfileImage: v.voterProfileImage,
-            })),
+            votes: votesByOption.get(opt.id as string) || [],
           });
         }
 
-        polls.push({
-          id: poll.id,
-          eventPlanId: poll.eventPlanId,
-          context: poll.context,
-          question: poll.question,
-          status: poll.status,
-          createdById: poll.createdById,
-          createdAt: new Date(poll.createdAt as string),
-          closedAt: poll.closedAt ? new Date(poll.closedAt as string) : null,
-          options: optionsWithVotes,
-        });
+        // Assemble polls
+        for (const poll of allPollsResult.rows) {
+          polls.push({
+            id: poll.id,
+            eventPlanId: poll.eventPlanId,
+            context: poll.context,
+            question: poll.question,
+            status: poll.status,
+            createdById: poll.createdById,
+            createdAt: new Date(poll.createdAt as string),
+            closedAt: poll.closedAt ? new Date(poll.closedAt as string) : null,
+            options: optionsByPoll.get(poll.id as string) || [],
+          });
+        }
       }
 
       // Get goal progress

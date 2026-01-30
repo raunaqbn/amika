@@ -30,14 +30,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get all friends from friends table
+    // Get all friends from friends table (without loading full memory objects)
     const friends = await prisma.friend.findMany({
       userId,
-      include: {
-        memories: {
-          orderBy: { createdAt: 'desc' },
-        },
-      },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -63,10 +58,7 @@ export async function GET() {
             linkedUserId: connection.id,
           },
         });
-        newFriends.push({
-          ...newFriend,
-          memories: [],
-        });
+        newFriends.push(newFriend);
       }
     }
 
@@ -161,11 +153,15 @@ export async function GET() {
       }
     }
 
-    // Count memories per friend
+    // Count memories per friend (using count query instead of loading all memory objects)
+    const allMemories = await prisma.memory.findMany({ userId });
     const friendMemoriesMap = new Map<string, number>();
-    for (const friend of allFriends as any[]) {
-      if (friend.memories && Array.isArray(friend.memories)) {
-        friendMemoriesMap.set(friend.id, friend.memories.length);
+    for (const memory of allMemories) {
+      if (memory.friendId) {
+        friendMemoriesMap.set(
+          memory.friendId,
+          (friendMemoriesMap.get(memory.friendId) || 0) + 1
+        );
       }
     }
 

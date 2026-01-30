@@ -24,7 +24,7 @@ const swrConfig = {
   // Revalidate on reconnect (when network is restored)
   revalidateOnReconnect: true,
   // Dedupe requests within this time window (prevents duplicate requests)
-  dedupingInterval: 5000,
+  dedupingInterval: 30000,
   // Keep previous data while revalidating
   keepPreviousData: true,
   // Don't revalidate on mount if data is fresh
@@ -33,7 +33,7 @@ const swrConfig = {
   errorRetryCount: 3,
   errorRetryInterval: 5000,
   // Focus throttle - don't revalidate more than once every 5 seconds on focus
-  focusThrottleInterval: 5000,
+  focusThrottleInterval: 30000,
 };
 
 interface SWRProviderProps {
