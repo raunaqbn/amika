@@ -208,7 +208,7 @@ export default function InvitePage() {
         {/* Header */}
         <div className="text-center mb-6">
           <h1 className="text-3xl font-semibold text-[#A8C5A8] tracking-tight">amika</h1>
-          <p className="text-gray-500 mt-1 text-sm">Plan memories, events & trips with friends</p>
+          <p className="text-gray-500 mt-1 text-sm">Keep everyday memories with friends</p>
         </div>
 
         {/* Invite Info */}
@@ -229,7 +229,7 @@ export default function InvitePage() {
           </div>
           <div className="mt-4 p-3 bg-[#A8C5A8]/10 rounded-lg">
             <p className="text-sm text-gray-700">
-              Join Amika to plan memories, events, and trips together. You&apos;ll automatically become friends when you sign up!
+              Join Amika to share everyday memories and stay close. You&apos;ll automatically become friends when you sign up!
             </p>
           </div>
         </div>
@@ -405,11 +405,11 @@ export default function InvitePage() {
         <div className="mt-6 flex justify-center gap-6 text-center">
           <div className="flex flex-col items-center gap-1">
             <Calendar className="w-6 h-6 text-[#A8C5A8]" />
-            <span className="text-xs text-gray-500">Plan Events</span>
+            <span className="text-xs text-gray-500">Share Memories</span>
           </div>
           <div className="flex flex-col items-center gap-1">
             <MapPin className="w-6 h-6 text-[#A8C5A8]" />
-            <span className="text-xs text-gray-500">Trips</span>
+            <span className="text-xs text-gray-500">Messages</span>
           </div>
           <div className="flex flex-col items-center gap-1">
             <Users className="w-6 h-6 text-[#A8C5A8]" />

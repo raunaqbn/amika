@@ -1,8 +1,7 @@
 'use client';
 
-import { Calendar, Eye, ImagePlus, User, Image as ImageIcon, Camera, FolderOpen, X, RotateCcw } from 'lucide-react';
+import { Eye, ImagePlus, User, Image as ImageIcon, Camera, FolderOpen, X, RotateCcw } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -11,26 +10,22 @@ interface FriendAvatarProps {
   name: string;
   profileImage?: string | null;  // Default/synced profile image
   customProfileImage?: string | null;  // User-uploaded custom image
-  hasUpcomingEvent?: boolean;
   size?: 'sm' | 'md' | 'lg';
   editable?: boolean;
   onImageUpload?: (file: File) => void;
   onResetToDefault?: () => void;  // Callback to reset to default image
   linkedUserId?: string | null;
-  friendId?: string;
 }
 
 export function FriendAvatar({
   name,
   profileImage,
   customProfileImage,
-  hasUpcomingEvent = false,
   size = 'md',
   editable = false,
   onImageUpload,
   onResetToDefault,
   linkedUserId,
-  friendId,
 }: FriendAvatarProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -187,15 +182,6 @@ export function FriendAvatar({
           {getInitials(name)}
         </AvatarFallback>
       </Avatar>
-
-      {hasUpcomingEvent && (
-        <Badge
-          className="absolute -top-1 -right-1 w-6 h-6 p-0 flex items-center justify-center bg-[#D4A5A5] hover:bg-[#D4A5A5] border-2 border-white"
-          title="Has upcoming event"
-        >
-          <Calendar className="w-3 h-3" />
-        </Badge>
-      )}
 
       {/* Hidden file inputs */}
       <input

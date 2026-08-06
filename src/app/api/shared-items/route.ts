@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'sharedWithUserId, itemType, and itemId are required' }, { status: 400 });
     }
 
-    if (!['memory', 'note', 'event'].includes(itemType)) {
+    if (!['memory', 'note'].includes(itemType)) {
       return NextResponse.json({ error: 'Invalid item type' }, { status: 400 });
     }
 
@@ -121,19 +121,6 @@ export async function PUT(request: Request) {
                 sharedWithFriend: true, // Mark as shared
               },
             });
-          } else if (sharedItemDetails.itemType === 'event' && sharedItemDetails.item.title) {
-            await prisma.event.create({
-              data: {
-                userId: recipientUserId,
-                title: sharedItemDetails.item.title,
-                description: sharedItemDetails.item.description || null,
-                eventDate: new Date(sharedItemDetails.item.eventDate),
-                location: sharedItemDetails.item.location || null,
-                category: sharedItemDetails.item.category || null,
-                friendId: sharerFriend.id,
-                sharedWithFriend: true,
-              },
-            });
           } else if (sharedItemDetails.itemType === 'note' && sharedItemDetails.item.content) {
             await prisma.diaryNote.create({
               data: {
@@ -149,11 +136,6 @@ export async function PUT(request: Request) {
           }
         }
 
-        // For trip type, ensure the user is added as a collaborator
-        if (sharedItemDetails.itemType === 'trip') {
-          const tripId = sharedItemDetails.itemId;
-          await prisma.tripCollaborator.ensureUserAccess(tripId, recipientUserId);
-        }
       } catch (copyError) {
         console.error('Error copying shared item to recipient:', copyError);
         // Don't fail the acceptance if copy fails

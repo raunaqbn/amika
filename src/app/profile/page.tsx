@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { format } from 'date-fns';
 import {
@@ -12,48 +12,12 @@ import {
   LogOut,
   Users,
   BookOpen,
-  Calendar,
   Heart,
   Phone,
   MapPin,
   Sparkles
 } from 'lucide-react';
-import { WishlistSection } from '@/components/wishlist-section';
 import { InterestSelector } from '@/components/interest-selector';
-import { GoogleCalendarConnect } from '@/components/google-calendar-connect';
-
-// Component that handles search params (must be wrapped in Suspense)
-function ProfileSearchParamsHandler({
-  setSuccess,
-  setError
-}: {
-  setSuccess: (msg: string) => void;
-  setError: (msg: string) => void;
-}) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    const googleConnected = searchParams.get('google_connected');
-    const googleError = searchParams.get('google_error');
-
-    if (googleConnected === 'true') {
-      setSuccess('Google Calendar connected successfully!');
-      router.replace('/profile', { scroll: false });
-    } else if (googleError) {
-      const errorMessages: Record<string, string> = {
-        access_denied: 'Google Calendar access was denied',
-        invalid_request: 'Invalid request to Google',
-        invalid_state: 'Invalid authorization state',
-        callback_failed: 'Failed to connect Google Calendar',
-      };
-      setError(errorMessages[googleError] || 'Failed to connect Google Calendar');
-      router.replace('/profile', { scroll: false });
-    }
-  }, [searchParams, router, setSuccess, setError]);
-
-  return null;
-}
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -69,7 +33,6 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -148,12 +111,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 pt-14 md:pt-16 pb-8">
-      {/* Handle Google OAuth callback params */}
-      <Suspense fallback={null}>
-        <ProfileSearchParamsHandler setSuccess={setSuccess} setError={setError} />
-      </Suspense>
-
+    <div className="profile-page max-w-2xl mx-auto px-4 pt-14 md:pt-16 pb-8">
       <h1 className="text-2xl font-semibold text-gray-800 mb-6">Profile</h1>
 
       {/* Profile Picture */}
@@ -197,7 +155,7 @@ export default function ProfilePage() {
 
       {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
             <Users className="w-6 h-6 text-[#A8C5A8] mx-auto mb-2" />
             <div className="text-2xl font-semibold text-gray-800">{stats.friendsCount}</div>
@@ -213,18 +171,8 @@ export default function ProfilePage() {
             <div className="text-2xl font-semibold text-gray-800">{stats.diaryCount}</div>
             <div className="text-sm text-gray-500">Diary Entries</div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
-            <Calendar className="w-6 h-6 text-[#A8C5A8] mx-auto mb-2" />
-            <div className="text-2xl font-semibold text-gray-800">{stats.eventsCount}</div>
-            <div className="text-sm text-gray-500">Events</div>
-          </div>
         </div>
       )}
-
-      {/* Wishlist */}
-      <div className="mb-6">
-        <WishlistSection userId={user.id} userName={user.name} />
-      </div>
 
       {/* My Interests */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -245,17 +193,6 @@ export default function ProfilePage() {
               await refreshSession();
             }
           }}
-        />
-      </div>
-
-      {/* Google Calendar Integration */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Calendar className="w-5 h-5 text-[#A8C5A8]" />
-          <h3 className="text-lg font-semibold text-gray-800">Calendar Integration</h3>
-        </div>
-        <GoogleCalendarConnect
-          onConnectionChange={(connected) => setGoogleCalendarConnected(connected)}
         />
       </div>
 
@@ -317,7 +254,7 @@ export default function ProfilePage() {
               placeholder="e.g., +1 (555) 123-4567"
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#A8C5A8]/50 focus:border-[#A8C5A8]"
             />
-            <p className="text-xs text-gray-500 mt-1">Help friends reach you for last-minute plans</p>
+            <p className="text-xs text-gray-500 mt-1">Help close friends keep in touch beyond the app</p>
           </div>
 
           <div>
@@ -335,7 +272,7 @@ export default function ProfilePage() {
               placeholder="e.g., San Francisco, CA"
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#A8C5A8]/50 focus:border-[#A8C5A8]"
             />
-            <p className="text-xs text-gray-500 mt-1">Helps us suggest events and activities in your area</p>
+            <p className="text-xs text-gray-500 mt-1">Adds familiar context to the memories you keep</p>
           </div>
 
           <button

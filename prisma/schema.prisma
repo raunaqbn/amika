@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 datasource db {
   provider = "sqlite"
 }
@@ -16,38 +13,26 @@ model User {
   name         String
   birthday     DateTime?
   profileImage String?
-  interests    String?   // JSON array of interest IDs like ["hiking", "wine", "live-music"]
+  phone        String?
+  location     String?
+  googleId     String?   @unique
+  isTemporary  Boolean   @default(false)
+  interests    String?
   createdAt    DateTime  @default(now())
-  sessions     Session[]
-  friends      Friend[]
-  memories     Memory[]
-  diaryNotes   DiaryNote[]
-  events       Event[]
-  chatTranscripts ChatTranscript[]
-  wishlistItems WishlistItem[]
-  googleAccount GoogleAccount?
-  // User connections (friend requests between Amika users)
+
+  sessions            Session[]
+  friends             Friend[]
+  memories            Memory[]
+  memoryReactions     MemoryReaction[]
+  memoryComments      MemoryComment[]
+  diaryNotes          DiaryNote[]
+  chatTranscripts     ChatTranscript[]
   connectionsSent     UserConnection[] @relation("ConnectionRequester")
   connectionsReceived UserConnection[] @relation("ConnectionAddressee")
-  // Shared items
-  itemsShared    SharedItem[] @relation("SharedByUser")
-  itemsReceived  SharedItem[] @relation("SharedWithUser")
-  // Trip planning
-  tripSessions   TripSession[]
-  tripMessages   TripMessage[]
-}
-
-// Google OAuth account for Calendar integration
-model GoogleAccount {
-  id           String   @id @default(cuid())
-  userId       String   @unique
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  googleEmail  String   // Google account email
-  accessToken  String   // OAuth access token
-  refreshToken String   // OAuth refresh token for obtaining new access tokens
-  tokenExpiry  DateTime // When the access token expires
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  itemsShared         SharedItem[] @relation("SharedByUser")
+  itemsReceived       SharedItem[] @relation("SharedWithUser")
+  messagesSent        DirectMessage[] @relation("MessageSender")
+  messagesReceived    DirectMessage[] @relation("MessageRecipient")
 }
 
 model Session {
@@ -60,36 +45,81 @@ model Session {
 }
 
 model Friend {
-  id           String    @id @default(cuid())
-  userId       String
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name         String
-  email        String?   // Email address for calendar invites (for non-Amika friends)
-  birthday     DateTime?
-  howWeMet     String?
-  notes        String?
-  interests    String?   // JSON array of interest IDs like ["hiking", "wine", "live-music"]
-  lastContact  DateTime?
-  profileImage String?   // Default profile image (synced for Amika friends, user-set for regular friends)
-  customProfileImage String?  // User-uploaded custom image that overrides the default
-  linkedUserId String?   // If set, this friend is linked to an Amika user
-  createdAt    DateTime  @default(now())
-  memories     Memory[]
-  events       Event[]
-  diaryNoteTags DiaryNoteTag[]
-  tripCollaborations TripCollaborator[]
-  eventPlanCollaborations EventPlanCollaborator[]
+  id                 String    @id @default(cuid())
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name               String
+  email              String?
+  birthday           DateTime?
+  howWeMet           String?
+  notes              String?
+  interests          String?
+  lastContact        DateTime?
+  profileImage       String?
+  customProfileImage String?
+  linkedUserId       String?
+  createdAt          DateTime  @default(now())
+  memories           Memory[]
+  diaryNoteTags      DiaryNoteTag[]
 }
 
 model Memory {
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  friendId              String?
+  friend                Friend?  @relation(fields: [friendId], references: [id], onDelete: Cascade)
+  amikaFriendUserId     String?
+  content               String
+  imageUrl              String?
+  visibility            String   @default("private")
+  memoryDate             DateTime @default(now())
+  sharedWithFriend       Boolean  @default(false)
+  sharedWithAmikaFriend  Boolean  @default(false)
+  createdAt              DateTime @default(now())
+  reactions              MemoryReaction[]
+  comments               MemoryComment[]
+
+  @@index([userId, memoryDate])
+  @@index([visibility, memoryDate])
+}
+
+model MemoryReaction {
   id        String   @id @default(cuid())
+  memoryId  String
+  memory    Memory   @relation(fields: [memoryId], references: [id], onDelete: Cascade)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  friendId  String
-  friend    Friend   @relation(fields: [friendId], references: [id], onDelete: Cascade)
-  content   String
-  imageUrl  String?
+  emoji     String   @default("heart")
   createdAt DateTime @default(now())
+
+  @@unique([memoryId, userId, emoji])
+}
+
+model MemoryComment {
+  id        String   @id @default(cuid())
+  memoryId  String
+  memory    Memory   @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([memoryId, createdAt])
+}
+
+model DirectMessage {
+  id          String    @id @default(cuid())
+  senderId    String
+  sender      User      @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipientId String
+  recipient   User      @relation("MessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  content     String
+  createdAt   DateTime  @default(now())
+  readAt      DateTime?
+
+  @@index([senderId, recipientId, createdAt])
+  @@index([recipientId, readAt])
 }
 
 model DiaryNote {
@@ -106,32 +136,14 @@ model DiaryNote {
 }
 
 model DiaryNoteTag {
-  noteId    String
-  note      DiaryNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  friendId  String
-  friend    Friend    @relation(fields: [friendId], references: [id], onDelete: Cascade)
-  createdAt DateTime  @default(now())
+  noteId           String
+  note             DiaryNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  friendId         String
+  friend           Friend    @relation(fields: [friendId], references: [id], onDelete: Cascade)
+  sharedWithFriend Boolean   @default(false)
+  createdAt        DateTime  @default(now())
 
   @@id([noteId, friendId])
-}
-
-model Event {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title       String
-  description String?
-  eventDate   DateTime
-  location    String?
-  category    String?  // experiences, restaurants, places
-  friendId    String
-  friend      Friend   @relation(fields: [friendId], references: [id], onDelete: Cascade)
-
-  // Public sharing
-  shareToken  String?  @unique  // Token for public shareable link (read-only)
-  joinToken   String?  @unique  // Token for invite link (allows joining the event)
-
-  createdAt   DateTime @default(now())
 }
 
 model ChatTranscript {
@@ -144,380 +156,29 @@ model ChatTranscript {
   createdAt DateTime @default(now())
 }
 
-// User-to-user connections (adding friends from existing Amika users)
 model UserConnection {
   id          String   @id @default(cuid())
-  requesterId String   // User who sent the friend request
+  requesterId String
   requester   User     @relation("ConnectionRequester", fields: [requesterId], references: [id], onDelete: Cascade)
-  addresseeId String   // User who received the friend request
+  addresseeId String
   addressee   User     @relation("ConnectionAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
-  status      String   @default("pending") // pending, accepted, rejected
+  status      String   @default("pending")
   createdAt   DateTime @default(now())
 
   @@unique([requesterId, addresseeId])
 }
 
-// Shared items between connected users
 model SharedItem {
-  id             String   @id @default(cuid())
-  sharedByUserId String   // User who shared the item
-  sharedBy       User     @relation("SharedByUser", fields: [sharedByUserId], references: [id], onDelete: Cascade)
-  sharedWithUserId String // User receiving the shared item
-  sharedWith     User     @relation("SharedWithUser", fields: [sharedWithUserId], references: [id], onDelete: Cascade)
-  itemType       String   // memory, note, event
-  itemId         String   // ID of the memory, note, or event
-  status         String   @default("pending") // pending, accepted, rejected
-  message        String?  // Optional message from sharer
-  createdAt      DateTime @default(now())
+  id               String   @id @default(cuid())
+  sharedByUserId   String
+  sharedBy         User     @relation("SharedByUser", fields: [sharedByUserId], references: [id], onDelete: Cascade)
+  sharedWithUserId String
+  sharedWith       User     @relation("SharedWithUser", fields: [sharedWithUserId], references: [id], onDelete: Cascade)
+  itemType         String
+  itemId           String
+  status           String   @default("pending")
+  message          String?
+  createdAt        DateTime @default(now())
 
   @@unique([sharedByUserId, sharedWithUserId, itemType, itemId])
-}
-
-// User wishlist items
-model WishlistItem {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title       String
-  description String?
-  link        String?  // URL to product/experience
-  price       String?  // Price as string to handle different formats
-  category    String?  // gift, experience, travel, tech, home, fashion, other
-  priority    Int      @default(0) // 0=normal, 1=high, 2=top priority
-  imageUrl    String?
-  purchased   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-// Collaborative Trip Planning Models
-
-model TripSession {
-  id              String   @id @default(cuid())
-  userId          String   // Creator of the trip
-  title           String
-  description     String?
-  status          String   @default("planning") // "planning", "confirmed", "completed", "cancelled"
-
-  // Trip Goals (nullable until decided)
-  startDate       DateTime?
-  endDate         DateTime?
-  location        String?
-  locationDetails String?  // JSON string: {city, country, coordinates, etc.}
-
-  // Public sharing
-  shareToken      String?  @unique  // Token for public shareable link (read-only)
-  joinToken       String?  @unique  // Token for invite link (allows joining as collaborator)
-
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  collaborators   TripCollaborator[]
-  dailyPlans      TripDailyPlan[]
-  tickets         TripTicket[]
-  messages        TripMessage[]
-  polls           TripPoll[]
-  goalProgress    TripGoalProgress[]
-
-  @@index([userId])
-}
-
-model TripCollaborator {
-  id          String   @id @default(cuid())
-  tripId      String
-  friendId    String   // Reference to Friend model (can be linked Amika user)
-  userId      String?  // If friend is a linked Amika user, store their userId
-  role        String   @default("collaborator") // "owner", "collaborator"
-  joinedAt    DateTime @default(now())
-
-  trip        TripSession @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  friend      Friend      @relation(fields: [friendId], references: [id], onDelete: Cascade)
-
-  @@unique([tripId, friendId])
-  @@index([tripId])
-  @@index([userId])
-}
-
-model TripDailyPlan {
-  id          String   @id @default(cuid())
-  tripId      String
-  dayNumber   Int      // Day 1, Day 2, etc.
-  date        DateTime?
-
-  events      TripEvent[]
-  trip        TripSession @relation(fields: [tripId], references: [id], onDelete: Cascade)
-
-  @@unique([tripId, dayNumber])
-  @@index([tripId])
-}
-
-model TripEvent {
-  id            String   @id @default(cuid())
-  dailyPlanId   String
-  title         String
-  description   String?
-  startTime     String?  // "09:00", "14:30" etc.
-  endTime       String?
-  location      String?
-  category      String?  // "experiences", "restaurants", "places", "fitness", "virtual"
-  externalUrl   String?  // Link to event/venue
-  estimatedCost Float?
-  notes         String?
-  order         Int      @default(0) // For drag-drop reordering
-
-  createdById   String   // Who added this event
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  dailyPlan     TripDailyPlan @relation(fields: [dailyPlanId], references: [id], onDelete: Cascade)
-
-  @@index([dailyPlanId])
-}
-
-model TripTicket {
-  id              String   @id @default(cuid())
-  tripId          String
-  collaboratorId  String?  // Which collaborator this ticket is for
-  type            String   // "flight", "train", "bus", "accommodation", "activity", "other"
-  title           String
-  description     String?
-  confirmationNum String?
-  departureTime   DateTime?
-  arrivalTime     DateTime?
-  location        String?
-  cost            Float?
-  currency        String   @default("USD")
-  url             String?  // Booking link
-
-  // Flight-specific fields
-  passengerName     String?  // Name of the person this ticket is for
-  flightDirection   String?  // "outbound" or "return" for flights
-  departureLocation String?  // Departure airport/station
-  arrivalLocation   String?  // Arrival airport/station
-
-  createdById     String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  trip            TripSession @relation(fields: [tripId], references: [id], onDelete: Cascade)
-
-  @@index([tripId])
-  @@index([collaboratorId])
-}
-
-model TripMessage {
-  id          String   @id @default(cuid())
-  tripId      String
-  userId      String   // Who sent the message
-  friendId    String?  // If sent by a non-Amika friend (display purposes)
-  context     String   @default("general") // "general", "dates", "location", "events", "tickets"
-  role        String   // "user", "assistant" (for Amika AI responses)
-  content     String
-  createdAt   DateTime @default(now())
-
-  trip        TripSession @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  user        User?       @relation(fields: [userId], references: [id])
-
-  @@index([tripId, context])
-  @@index([tripId, createdAt])
-}
-
-model TripPoll {
-  id          String   @id @default(cuid())
-  tripId      String
-  context     String   // "dates", "location", "events", "tickets"
-  question    String
-  status      String   @default("active") // "active", "closed"
-  createdById String
-  createdAt   DateTime @default(now())
-  closedAt    DateTime?
-
-  options     TripPollOption[]
-  trip        TripSession @relation(fields: [tripId], references: [id], onDelete: Cascade)
-
-  @@index([tripId, context])
-}
-
-model TripPollOption {
-  id          String   @id @default(cuid())
-  pollId      String
-  label       String
-  url         String?  // Optional link (e.g., to event, venue, etc.)
-  order       Int      @default(0)
-
-  votes       TripPollVote[]
-  poll        TripPoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
-
-  @@index([pollId])
-}
-
-model TripPollVote {
-  id          String   @id @default(cuid())
-  optionId    String
-  visitorId   String?  // If voter is Amika user
-  friendId    String?  // If voter is a non-linked friend
-  votedAt     DateTime @default(now())
-
-  option      TripPollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
-
-  @@unique([optionId, visitorId])
-  @@unique([optionId, friendId])
-  @@index([optionId])
-}
-
-model TripGoalProgress {
-  id          String   @id @default(cuid())
-  tripId      String
-  goalType    String   // "dates", "location", "daily_events", "tickets"
-  status      String   @default("pending") // "pending", "in_progress", "completed"
-  completedAt DateTime?
-
-  trip        TripSession @relation(fields: [tripId], references: [id], onDelete: Cascade)
-
-  @@unique([tripId, goalType])
-  @@index([tripId])
-}
-
-// Collaborative Event Planning Models (Group Event Planning - Different from personal Event model)
-
-model EventPlanSession {
-  id              String   @id @default(cuid())
-  userId          String   // Creator of the event plan
-  title           String
-  description     String?
-  status          String   @default("planning") // "planning", "confirmed", "completed", "cancelled"
-
-  // Event Plan Goals (nullable until decided)
-  eventDate       DateTime?
-  eventTime       String?   // "19:00" etc.
-  eventLocation   String?   // Default location for the event
-  selectedEventId String?   // Reference to the chosen EventPlanCandidate
-
-  // Public sharing
-  shareToken      String?  @unique  // Token for public shareable link (read-only)
-  joinToken       String?  @unique  // Token for invite link (allows joining as collaborator)
-
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  collaborators   EventPlanCollaborator[]
-  candidates      EventPlanCandidate[]
-  messages        EventPlanMessage[]
-  polls           EventPlanPoll[]
-  goalProgress    EventPlanGoalProgress[]
-
-  @@index([userId])
-}
-
-model EventPlanCollaborator {
-  id          String   @id @default(cuid())
-  eventPlanId String
-  friendId    String   // Reference to Friend model (can be linked Amika user)
-  userId      String?  // If friend is a linked Amika user, store their userId
-  role        String   @default("collaborator") // "owner", "collaborator"
-  joinedAt    DateTime @default(now())
-
-  eventPlan   EventPlanSession @relation(fields: [eventPlanId], references: [id], onDelete: Cascade)
-  friend      Friend           @relation(fields: [friendId], references: [id], onDelete: Cascade)
-
-  @@unique([eventPlanId, friendId])
-  @@index([eventPlanId])
-  @@index([userId])
-}
-
-model EventPlanCandidate {
-  id            String   @id @default(cuid())
-  eventPlanId   String
-  title         String
-  description   String?
-  location      String?
-  category      String?  // "experiences", "restaurants", "concerts", "sports", "movies", "other"
-  externalUrl   String?  // Link to event/venue
-  imageUrl      String?  // Event image
-  eventDate     DateTime?
-  eventTime     String?  // "19:00" etc.
-  estimatedCost Float?
-  notes         String?
-  order         Int      @default(0) // For ordering
-
-  createdById   String   // Who added this candidate
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  eventPlan     EventPlanSession @relation(fields: [eventPlanId], references: [id], onDelete: Cascade)
-
-  @@index([eventPlanId])
-}
-
-model EventPlanMessage {
-  id          String   @id @default(cuid())
-  eventPlanId String
-  userId      String   // Who sent the message
-  friendId    String?  // If sent by a non-Amika friend (display purposes)
-  context     String   @default("general") // "general", "date", "event"
-  role        String   // "user", "assistant" (for Amika AI responses)
-  content     String
-  createdAt   DateTime @default(now())
-
-  eventPlan   EventPlanSession @relation(fields: [eventPlanId], references: [id], onDelete: Cascade)
-
-  @@index([eventPlanId, context])
-  @@index([eventPlanId, createdAt])
-}
-
-model EventPlanPoll {
-  id          String   @id @default(cuid())
-  eventPlanId String
-  context     String   // "date", "event"
-  question    String
-  status      String   @default("active") // "active", "closed"
-  createdById String
-  createdAt   DateTime @default(now())
-  closedAt    DateTime?
-
-  options     EventPlanPollOption[]
-  eventPlan   EventPlanSession @relation(fields: [eventPlanId], references: [id], onDelete: Cascade)
-
-  @@index([eventPlanId, context])
-}
-
-model EventPlanPollOption {
-  id          String   @id @default(cuid())
-  pollId      String
-  label       String
-  url         String?  // Optional link (e.g., to event, venue, etc.)
-  order       Int      @default(0)
-
-  votes       EventPlanPollVote[]
-  poll        EventPlanPoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
-
-  @@index([pollId])
-}
-
-model EventPlanPollVote {
-  id          String   @id @default(cuid())
-  optionId    String
-  visitorId   String?  // If voter is Amika user
-  friendId    String?  // If voter is a non-linked friend
-  votedAt     DateTime @default(now())
-
-  option      EventPlanPollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
-
-  @@unique([optionId, visitorId])
-  @@unique([optionId, friendId])
-  @@index([optionId])
-}
-
-model EventPlanGoalProgress {
-  id          String   @id @default(cuid())
-  eventPlanId String
-  goalType    String   // "date", "event"
-  status      String   @default("pending") // "pending", "in_progress", "completed"
-  completedAt DateTime?
-
-  eventPlan   EventPlanSession @relation(fields: [eventPlanId], references: [id], onDelete: Cascade)
-
-  @@unique([eventPlanId, goalType])
-  @@index([eventPlanId])
 }

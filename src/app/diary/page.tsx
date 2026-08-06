@@ -385,7 +385,7 @@ function DiaryPageContent() {
   }
 
   return (
-    <div className="mt-14 h-[calc(100vh-3.5rem)] md:mt-16 md:h-[calc(100vh-4rem)] flex flex-col bg-gray-50">
+    <div className="journal-page mt-14 h-[calc(100vh-3.5rem)] md:mt-16 md:h-[calc(100vh-4rem)] flex flex-col bg-gray-50">
       {/* Main container with two-column layout - centered on desktop */}
       <div className="flex-1 flex overflow-hidden md:max-w-6xl md:mx-auto md:w-full md:border-x md:border-gray-200">
         {/* Left Sidebar - Hidden on mobile */}
@@ -688,7 +688,7 @@ function DiaryPageContent() {
                       {/* Entry content */}
                       <div>
                         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                          What's on your mind?
+                          What&apos;s on your mind?
                         </h3>
                         <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
                           {selectedNote.content}

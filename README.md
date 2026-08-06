@@ -1,120 +1,61 @@
-# Amika - Nurture Your Friendships 🌿
+# Amika — daily memories with friends
 
-A minimal friendship management app to help you stay connected with the people who matter most.
+Amika is a private-by-default social memory app. Capture one photo or note from the day, connect it to the friends who were there, and build a living archive of the relationship over time.
 
-## Features
+## Product model
 
-- **Friends List** - Add and manage friends with birthdays, notes, and contact history
-- **Friend Profiles** - View detailed friend information and add memories
-- **Home Dashboard** - See upcoming birthdays and friends you haven't contacted recently
-- **Mirror AI** - Chat with an AI relationship coach for advice on being a better friend
+- **Daily memory ritual** — photo, caption, date, friend, and audience in one fast composer
+- **Friends feed** — a chronological, conversational feed from accepted friends
+- **Memory archive** — search and filter private, friends-only, and public moments
+- **Public discovery** — an opt-in surface containing only memories explicitly marked public
+- **Friend circles** — profiles organize shared memories and private notes around a person
+- **Direct messages** — lightweight one-to-one conversation between accepted friends
+- **Private journal** — reflective notes can remain private or be intentionally shared
+- **Notifications** — friend requests, shared memories or notes, and unread messages
 
-## Tech Stack
+Trip planning, event planning, calendar synchronization, wishlists, and gamified friendship points are intentionally outside the product.
 
-- **Framework**: Next.js 14 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS + shadcn/ui
-- **Database**: SQLite with Prisma
-- **AI**: Google Gemini via Vercel AI SDK
-- **Deployment**: Vercel
+## Privacy
 
-## Getting Started
+Every memory has an explicit audience:
 
-### Prerequisites
+- `private` — visible only to its author
+- `friends` — the default; visible to accepted friends
+- `public` — opt-in and eligible for Discover
 
-- Node.js 18+ installed
-- A Google AI API key ([Get one here](https://aistudio.google.com/apikey))
+Journal notes remain private unless the author deliberately shares one with a connected friend.
 
-### Installation
+## Stack
 
-1. Clone the repository:
+- Next.js 16 App Router, React 19, and TypeScript
+- Tailwind CSS and Radix/shadcn primitives
+- Turso/libSQL persistence with a memory-first schema
+- Vercel AI SDK for journal reflection assistance
+
+## Local development
+
+1. Install Node.js 20 or newer.
+2. Install dependencies with `npm install`.
+3. Copy `.env.example` to `.env` and configure Turso plus one supported AI provider.
+4. Run `npm run dev`.
+5. Open [http://localhost:3000](http://localhost:3000).
+
+Useful checks:
+
 ```bash
-git clone <your-repo-url>
-cd amika
+npx tsc --noEmit
+npm run build
+npm run lint
 ```
 
-2. Install dependencies:
-```bash
-npm install
-```
+## Design direction
 
-3. Set up environment variables:
-```bash
-cp .env.example .env
-```
+The interface uses a “daily contact sheet” model: graphite framing, paper surfaces, periwinkle memory fields, citrus actions, coral reactions, and sky-blue people tags. It prioritizes content and conversation over follower metrics or performance signals. See `DESIGN.md` and `DESIGN_AUDIT.md` for the maintained system and audit notes.
 
-Edit `.env` and add your Google AI API key:
-```
-GOOGLE_GENERATIVE_AI_API_KEY=your-key-here
-```
+## Deployment
 
-4. Initialize the database:
-```bash
-npx prisma db push
-npx prisma generate
-```
-
-5. Run the development server:
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-## Project Structure
-
-```
-src/
-├── app/
-│   ├── page.tsx              # Home - birthdays + nudges
-│   ├── friends/
-│   │   ├── page.tsx          # Friends list
-│   │   └── [id]/page.tsx     # Friend profile
-│   ├── mirror/page.tsx       # AI chat
-│   ├── api/
-│   │   ├── friends/route.ts  # CRUD API
-│   │   ├── memories/route.ts
-│   │   └── chat/route.ts     # AI streaming
-│   ├── layout.tsx
-│   └── globals.css
-├── components/
-│   ├── friend-card.tsx
-│   ├── add-friend-dialog.tsx
-│   ├── memory-list.tsx
-│   ├── chat-interface.tsx
-│   └── nav.tsx
-└── lib/
-    ├── db.ts                 # Prisma client
-    └── ai.ts                 # Gemini setup
-```
-
-## Deployment to Vercel
-
-1. Push your code to GitHub
-
-2. Import your repository in Vercel
-
-3. Add your environment variable:
-   - `GOOGLE_GENERATIVE_AI_API_KEY`
-
-4. Deploy!
-
-Vercel will automatically detect Next.js and configure the build settings.
-
-## Design
-
-- **Colors**:
-  - Background: `#FFFBF5` (warm white)
-  - Primary: `#A8C5A8` (sage green)
-  - Accent: `#D4A5A5` (rose)
-- **Typography**: Geist Sans
-- **Style**: Warm, friendly, rounded corners
-- **Layout**: Mobile-first with bottom navigation
+Deploy to Vercel with the environment variables in `.env.example`. The app requires a Turso database, OAuth credentials for optional Google sign-in, and at least one configured AI provider for journal assistance.
 
 ## License
 
 MIT
-
----
-
-Built with ❤️ for better friendships

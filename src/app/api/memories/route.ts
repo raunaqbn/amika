@@ -2,14 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const userId = await getUserId();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const memories = await prisma.memory.findMany({ userId });
+    const { searchParams } = new URL(request.url);
+    const scope = searchParams.get('scope');
+    const memories = scope === 'feed' || scope === 'public'
+      ? await prisma.memory.findFeed({ userId, scope: scope === 'public' ? 'public' : 'friends' })
+      : await prisma.memory.findMany({ userId });
     return NextResponse.json(memories);
   } catch (error) {
     console.error('Error fetching memories:', error);
@@ -25,12 +29,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { friendId, friendIds, content, imageUrl, sharedWithFriend } = body;
+    const { friendId, friendIds, content, imageUrl, visibility = 'friends', memoryDate, sharedWithFriend } = body;
 
     // Support both single friendId and multiple friendIds (use first one as primary)
     const primaryFriendId = friendId || (friendIds && friendIds[0]);
 
-    if (!primaryFriendId || !content) {
+    if (!primaryFriendId || !content?.trim()) {
       return NextResponse.json(
         { error: 'Friend ID and content required' },
         { status: 400 }
@@ -41,14 +45,16 @@ export async function POST(request: NextRequest) {
       data: {
         userId,
         friendId: primaryFriendId,
-        content,
+        content: content.trim(),
         imageUrl: imageUrl || null,
-        sharedWithFriend: sharedWithFriend || false,
+        visibility,
+        memoryDate: memoryDate ? new Date(memoryDate) : new Date(),
+        sharedWithFriend: sharedWithFriend ?? visibility !== 'private',
       },
     });
 
     // If sharing is enabled, auto-create SharedItem for Amika friends
-    if (sharedWithFriend) {
+    if ((sharedWithFriend ?? visibility !== 'private')) {
       try {
         // Get all friends to check which ones have linkedUserId (are Amika users)
         const friends = await prisma.friend.findMany({ userId });
@@ -93,7 +99,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, content, imageUrl, friendId, friendIds, sharedWithFriend } = body;
+    const { id, content, imageUrl, friendId, friendIds, visibility, memoryDate, sharedWithFriend } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Memory ID required' }, { status: 400 });
@@ -105,12 +111,14 @@ export async function PUT(request: NextRequest) {
       data: {
         content,
         imageUrl,
-        sharedWithFriend,
+        visibility,
+        memoryDate: memoryDate ? new Date(memoryDate) : undefined,
+        sharedWithFriend: sharedWithFriend ?? (visibility ? visibility !== 'private' : undefined),
       },
     });
 
     // Handle sharing with Amika friends if sharing is enabled
-    if (sharedWithFriend) {
+    if (sharedWithFriend || visibility === 'friends' || visibility === 'public') {
       try {
         const friends = await prisma.friend.findMany({ userId });
         const allFriendIds = friendIds || (friendId ? [friendId] : [updatedMemory.friendId].filter(Boolean));

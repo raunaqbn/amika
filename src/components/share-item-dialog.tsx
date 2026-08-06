@@ -22,7 +22,7 @@ type ConnectedFriend = {
 };
 
 type ShareItemDialogProps = {
-  itemType: 'memory' | 'note' | 'event';
+  itemType: 'memory' | 'note';
   itemId: string;
   itemTitle?: string;
   trigger?: React.ReactNode;
@@ -94,8 +94,6 @@ export function ShareItemDialog({ itemType, itemId, itemTitle, trigger, onShared
         return 'memory';
       case 'note':
         return 'diary note';
-      case 'event':
-        return 'event';
       default:
         return 'item';
     }

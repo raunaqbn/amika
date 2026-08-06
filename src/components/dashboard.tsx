@@ -1,373 +1,569 @@
 'use client';
 
-import { useMemo, useCallback, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { FriendCard } from '@/components/friend-card';
-import { EventCard } from '@/components/event-card';
-import { AddEventDialog } from '@/components/add-event-dialog';
-import { FindEventsDialog } from '@/components/find-events-dialog';
-import { NewNoteDialog } from '@/components/new-note-dialog';
-import { Timeline } from '@/components/timeline';
-import { FriendRequests } from '@/components/friend-requests';
-import { SharedItemsInbox } from '@/components/shared-items';
-import { differenceInDays, format, isBefore, addDays } from 'date-fns';
-import { Cake, Clock, Calendar, Plus, TrendingUp, Sparkles, PenLine } from 'lucide-react';
-import { useDashboardData, revalidateFriends, revalidateEvents } from '@/hooks/use-data';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import {
+  CalendarDays,
+  Camera,
+  Globe2,
+  Heart,
+  ImagePlus,
+  LoaderCircle,
+  LockKeyhole,
+  MessageCircle,
+  MoreHorizontal,
+  Send,
+  Sparkles,
+  Trash2,
+  Users,
+  X,
+} from 'lucide-react';
+import { format, formatDistanceToNow, isSameDay, subYears } from 'date-fns';
+import { useAuth } from '@/lib/auth-context';
 
-interface Friend {
+type Visibility = 'private' | 'friends' | 'public';
+
+type Friend = {
   id: string;
   name: string;
-  birthday?: Date | null;
-  lastContact?: Date | null;
-  notes?: string | null;
-  email?: string | null;
+  profileImage?: string | null;
+  customProfileImage?: string | null;
   linkedUserId?: string | null;
+};
+
+export type FeedMemory = {
+  id: string;
+  userId: string;
+  content: string;
+  imageUrl: string | null;
+  visibility: Visibility;
+  memoryDate: string;
+  createdAt: string;
+  reactionCount: number;
+  commentCount: number;
+  reactedByMe: boolean;
+  isOwn: boolean;
+  author: { id: string; name: string; profileImage: string | null };
+  friend: { id: string; name: string; profileImage: string | null } | null;
+};
+
+type Comment = {
+  id: string;
+  content: string;
+  createdAt: string;
+  author: { id: string; name: string; profileImage: string | null };
+};
+
+const VISIBILITY: Record<Visibility, { label: string; icon: typeof LockKeyhole }> = {
+  private: { label: 'Only me', icon: LockKeyhole },
+  friends: { label: 'Friends only', icon: Users },
+  public: { label: 'Public', icon: Globe2 },
+};
+
+function DirectionContract() {
+  return (
+    <span
+      hidden
+      aria-hidden="true"
+      dangerouslySetInnerHTML={{
+        __html:
+          '<!-- THESIS: Amika is a daily shared memory, not a planning dashboard or performance feed. OWN-WORLD: Graphite shell, periwinkle daily field, citrus action, coral reactions, sky friend tags, precise ink borders, photo contact sheets, and timestamp strips. STORY: Add today’s moment, choose the people and audience, then move directly into the living friendship conversation. FIRST VIEWPORT: Desktop rail at left, full-width daily composer across the main canvas, active friends in its edge, and the first large memory directly below; mobile begins with the same composer and collapses to one chronological stream. FORM: Group Chat Scrapbook, grounded direction five, Daily Contact Sheet staging, seed f06448bd. -->',
+      }}
+    />
+  );
 }
 
-interface Event {
-  id: string;
-  title: string;
-  description: string | null;
-  eventDate: Date;
-  location: string | null;
-  friendId: string;
-  completed?: boolean;
+function Avatar({ name, src, size = 'md' }: { name: string; src?: string | null; size?: 'sm' | 'md' | 'lg' }) {
+  const className = `memory-avatar memory-avatar--${size}`;
+  if (src) {
+    return (
+      <span className={className} aria-hidden="true">
+        <Image src={src} alt="" fill sizes={size === 'lg' ? '64px' : '40px'} className="object-cover" unoptimized />
+      </span>
+    );
+  }
+  return (
+    <span className={className} aria-hidden="true">
+      {name
+        .split(' ')
+        .map((part) => part[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()}
+    </span>
+  );
+}
+
+export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory; featured?: boolean; onRefresh: () => void }) {
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [comment, setComment] = useState('');
+  const [sending, setSending] = useState(false);
+  const [reacting, setReacting] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const visibility = VISIBILITY[memory.visibility] || VISIBILITY.private;
+  const VisibilityIcon = visibility.icon;
+
+  const toggleComments = async () => {
+    const next = !commentsOpen;
+    setCommentsOpen(next);
+    if (next && comments.length === 0 && memory.commentCount > 0) {
+      const response = await fetch(`/api/memories/${memory.id}/comments`);
+      if (response.ok) setComments(await response.json());
+    }
+  };
+
+  const toggleReaction = async () => {
+    if (reacting) return;
+    setReacting(true);
+    await fetch(`/api/memories/${memory.id}/reactions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emoji: 'heart' }),
+    });
+    setReacting(false);
+    onRefresh();
+  };
+
+  const sendComment = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!comment.trim() || sending) return;
+    setSending(true);
+    const response = await fetch(`/api/memories/${memory.id}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: comment.trim() }),
+    });
+    if (response.ok) {
+      setComment('');
+      const commentsResponse = await fetch(`/api/memories/${memory.id}/comments`);
+      if (commentsResponse.ok) setComments(await commentsResponse.json());
+      onRefresh();
+    }
+    setSending(false);
+  };
+
+  const deleteMemory = async () => {
+    if (!window.confirm('Delete this memory? This cannot be undone.')) return;
+    setDeleting(true);
+    const response = await fetch(`/api/memories?id=${memory.id}`, { method: 'DELETE' });
+    setDeleting(false);
+    setMenuOpen(false);
+    if (response.ok) onRefresh();
+  };
+
+  return (
+    <article className={`memory-post ${featured ? 'memory-post--featured' : ''}`}>
+      <header className="memory-post__header">
+        <Link className="memory-post__person" href={memory.isOwn ? '/profile' : `/friends/amika/${memory.author.id}`}>
+          <Avatar name={memory.author.name} src={memory.author.profileImage} />
+          <div>
+            <strong>{memory.author.name}</strong>
+            <span>
+              {formatDistanceToNow(new Date(memory.createdAt), { addSuffix: true })}
+              <span aria-hidden="true"> · </span>
+              <VisibilityIcon size={12} aria-hidden="true" /> {visibility.label}
+            </span>
+          </div>
+        </Link>
+        {memory.isOwn && (
+          <div className="memory-post__menu">
+            <button className="icon-action" type="button" onClick={() => setMenuOpen((current) => !current)} aria-label="Memory options" aria-expanded={menuOpen}>
+              <MoreHorizontal aria-hidden="true" />
+            </button>
+            {menuOpen && (
+              <button type="button" className="memory-post__delete" onClick={deleteMemory} disabled={deleting}>
+                <Trash2 aria-hidden="true" /> {deleting ? 'Deleting…' : 'Delete memory'}
+              </button>
+            )}
+          </div>
+        )}
+      </header>
+
+      {memory.imageUrl ? (
+        <div className="memory-post__image">
+          <Image
+            src={memory.imageUrl}
+            alt={`Memory shared by ${memory.author.name}`}
+            fill
+            sizes={featured ? '(max-width: 768px) 100vw, 720px' : '(max-width: 768px) 100vw, 420px'}
+            className="object-cover"
+            unoptimized
+          />
+          <time dateTime={memory.memoryDate}>{format(new Date(memory.memoryDate), 'MMM d')}</time>
+        </div>
+      ) : (
+        <div className="memory-post__text-only">
+          <Sparkles aria-hidden="true" />
+          <p>{memory.content}</p>
+          <time dateTime={memory.memoryDate}>{format(new Date(memory.memoryDate), 'MMMM d, yyyy')}</time>
+        </div>
+      )}
+
+      <div className="memory-post__body">
+        {memory.imageUrl && <p>{memory.content}</p>}
+        {memory.friend && (memory.isOwn ? (
+          <Link className="friend-tag" href={`/friends/${memory.friend.id}`}>with {memory.friend.name}</Link>
+        ) : (
+          <span className="friend-tag">with {memory.friend.name}</span>
+        ))}
+      </div>
+
+      <div className="memory-post__actions" aria-label="Memory actions">
+        <button
+          type="button"
+          className={memory.reactedByMe ? 'is-active' : ''}
+          onClick={toggleReaction}
+          disabled={reacting}
+          aria-pressed={memory.reactedByMe}
+        >
+          <Heart fill={memory.reactedByMe ? 'currentColor' : 'none'} aria-hidden="true" />
+          <span>{memory.reactionCount || 'Love'}</span>
+        </button>
+        <button type="button" onClick={toggleComments} aria-expanded={commentsOpen}>
+          <MessageCircle aria-hidden="true" />
+          <span>{memory.commentCount || 'Reply'}</span>
+        </button>
+      </div>
+
+      {commentsOpen && (
+        <div className="memory-thread">
+          {comments.length === 0 ? (
+            <p className="memory-thread__empty">Be the first to add to this memory.</p>
+          ) : (
+            comments.map((item) => (
+              <div className="memory-reply" key={item.id}>
+                <Avatar name={item.author.name} src={item.author.profileImage} size="sm" />
+                <div>
+                  <strong>{item.author.name}</strong>
+                  <p>{item.content}</p>
+                </div>
+                <time dateTime={item.createdAt}>{formatDistanceToNow(new Date(item.createdAt))}</time>
+              </div>
+            ))
+          )}
+          <form className="memory-reply-form" onSubmit={sendComment}>
+            <label className="sr-only" htmlFor={`reply-${memory.id}`}>Reply to this memory</label>
+            <input
+              id={`reply-${memory.id}`}
+              value={comment}
+              onChange={(event) => setComment(event.target.value)}
+              placeholder="Add to the memory…"
+              maxLength={240}
+            />
+            <button type="submit" disabled={!comment.trim() || sending} aria-label="Send reply">
+              {sending ? <LoaderCircle className="spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
+            </button>
+          </form>
+        </div>
+      )}
+    </article>
+  );
 }
 
 export function Dashboard() {
-  const router = useRouter();
+  const { user } = useAuth();
+  const [memories, setMemories] = useState<FeedMemory[]>([]);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [caption, setCaption] = useState('');
+  const [friendId, setFriendId] = useState('');
+  const [visibility, setVisibility] = useState<Visibility>('friends');
+  const [memoryDate, setMemoryDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Use SWR hooks for cached data fetching
-  const {
-    friends,
-    events,
-    isLoading: loading,
-    error,
-    refreshFriends,
-    refreshEvents,
-  } = useDashboardData();
-
-  const [addEventDialogOpen, setAddEventDialogOpen] = useState(false);
-  const [findEventsDialogOpen, setFindEventsDialogOpen] = useState(false);
-  const [newNoteDialogOpen, setNewNoteDialogOpen] = useState(false);
-  const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
-
-  // Handle auth errors
-  if (error?.status === 401) {
-    router.push('/signin');
-  }
-
-  const handleDeleteEvent = async (eventId: string) => {
+  const loadData = useCallback(async () => {
     try {
-      const response = await fetch(`/api/events?id=${eventId}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        // Revalidate events cache to reflect deletion
-        refreshEvents();
-      }
-    } catch (error) {
-      console.error('Error deleting event:', error);
+      const [memoriesResponse, friendsResponse] = await Promise.all([
+        fetch('/api/memories?scope=feed'),
+        fetch('/api/friends'),
+      ]);
+      if (!memoriesResponse.ok || !friendsResponse.ok) throw new Error('Could not load your memories.');
+      const [memoryData, friendData] = await Promise.all([memoriesResponse.json(), friendsResponse.json()]);
+      setMemories(memoryData);
+      setFriends(friendData);
+      if (!friendId && friendData[0]) setFriendId(friendData[0].id);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Could not load your memories.');
+    } finally {
+      setLoading(false);
     }
+  }, [friendId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+    };
+  }, [imagePreview]);
+
+  const flashback = useMemo(() => {
+    const previousYear = subYears(new Date(), 1);
+    return memories.find((memory) => isSameDay(new Date(memory.memoryDate), previousYear))
+      || memories.find((memory) => new Date(memory.memoryDate).getFullYear() < new Date().getFullYear());
+  }, [memories]);
+
+  const onImageSelect = (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Choose a photo file to add to this memory.');
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      setError('This photo is over 4 MB. Choose a smaller one and try again.');
+      return;
+    }
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setSelectedImage(file);
+    setImagePreview(URL.createObjectURL(file));
+    setError('');
   };
 
-  const handleToggleComplete = async (eventId: string, completed: boolean) => {
+  const submitMemory = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!caption.trim()) {
+      setError('Add a few words so you will remember this moment.');
+      return;
+    }
+    if (!friendId) {
+      setError('Choose the friend who was part of this memory.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
     try {
-      const response = await fetch('/api/events', {
-        method: 'PUT',
+      let imageUrl: string | null = null;
+      if (selectedImage) {
+        const formData = new FormData();
+        formData.append('file', selectedImage);
+        const uploadResponse = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (!uploadResponse.ok) throw new Error('The photo could not be uploaded. Try another file.');
+        imageUrl = (await uploadResponse.json()).url;
+      }
+
+      const response = await fetch('/api/memories', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: eventId, completed }),
+        body: JSON.stringify({
+          friendId,
+          content: caption.trim(),
+          imageUrl,
+          visibility,
+          memoryDate,
+        }),
       });
+      if (!response.ok) throw new Error('Your memory was not saved. Please try again.');
 
-      if (response.ok) {
-        // Revalidate events cache to reflect update
-        refreshEvents();
-      }
-    } catch (error) {
-      console.error('Error updating event:', error);
+      setCaption('');
+      setSelectedImage(null);
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      setImagePreview(null);
+      await loadData();
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Your memory was not saved.');
+    } finally {
+      setSaving(false);
     }
   };
-
-  const handleEditEvent = useCallback((event: Event) => {
-    setEventToEdit(event);
-    setAddEventDialogOpen(true);
-  }, []);
-
-  // Memoize upcoming birthdays calculation
-  const upcomingBirthdays = useMemo(() => {
-    const today = new Date();
-    const thirtyDaysFromNow = addDays(today, 30);
-
-    return friends
-      .filter((friend) => friend.birthday)
-      .map((friend) => {
-        const birthday = new Date(friend.birthday!);
-        const thisYearBirthday = new Date(
-          today.getFullYear(),
-          birthday.getMonth(),
-          birthday.getDate()
-        );
-
-        if (isBefore(thisYearBirthday, today)) {
-          thisYearBirthday.setFullYear(today.getFullYear() + 1);
-        }
-
-        return {
-          ...friend,
-          nextBirthday: thisYearBirthday,
-          daysUntil: differenceInDays(thisYearBirthday, today),
-        };
-      })
-      .filter((friend) => friend.nextBirthday <= thirtyDaysFromNow)
-      .sort((a, b) => a.daysUntil - b.daysUntil);
-  }, [friends]);
-
-  // Memoize friends to contact calculation
-  const friendsToContact = useMemo(() => {
-    const fourteenDaysAgo = addDays(new Date(), -14);
-
-    return friends
-      .filter(
-        (friend) =>
-          !friend.lastContact ||
-          isBefore(new Date(friend.lastContact), fourteenDaysAgo)
-      )
-      .slice(0, 5);
-  }, [friends]);
-
-  // Memoize upcoming events calculation
-  const upcomingEvents = useMemo(() => {
-    const now = new Date();
-    return events
-      .filter((event) => new Date(event.eventDate) >= now)
-      .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())
-      .slice(0, 5);
-  }, [events]);
-
-  // Memoize friends data for dialogs to prevent unnecessary re-renders
-  const friendsForAddEvent = useMemo(() =>
-    friends.map((f) => ({ id: f.id, name: f.name, email: f.email, linkedUserId: f.linkedUserId })),
-    [friends]
-  );
-
-  const friendsForFindEvents = useMemo(() =>
-    friends.map((f) => ({ id: f.id, name: f.name, notes: f.notes })),
-    [friends]
-  );
-
-  const friendsForNewNote = useMemo(() =>
-    friends.map((f) => ({ id: f.id, name: f.name })),
-    [friends]
-  );
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-[50vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A8C5A8]" />
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-[#FFFBF5] pt-14 md:pt-16 pb-20 md:pb-8">
-      <div className="px-4 max-w-2xl mx-auto">
-        <div className="py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Amika</h1>
-        <p className="text-gray-600">Nurture your friendships</p>
-      </div>
-
-      {/* Quick Actions */}
-      <section className="mb-6">
-        <div className="flex gap-3 mb-3">
-          <Button
-            onClick={() => setFindEventsDialogOpen(true)}
-            variant="outline"
-            className="flex-1 py-6 border-[#D4A5A5]/40 text-[#D4A5A5] hover:bg-[#D4A5A5]/5"
-          >
-            <Sparkles className="w-5 h-5 mr-2" />
-            Find Events
-          </Button>
-          <Button
-            onClick={() => setAddEventDialogOpen(true)}
-            className="flex-1 py-6 bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Add Event
-          </Button>
-        </div>
-        <Button
-          onClick={() => setNewNoteDialogOpen(true)}
-          variant="outline"
-          className="w-full py-5 border-gray-200 text-gray-700 hover:bg-gray-50"
-        >
-          <PenLine className="w-5 h-5 mr-2" />
-          New Note
-        </Button>
-      </section>
-
-      {/* Friend Requests & Shared Items */}
-      <section className="mb-6 space-y-4">
-        <FriendRequests onUpdate={() => {}} />
-        <SharedItemsInbox onUpdate={() => {}} />
-      </section>
-
-      {/* Upcoming Events Section */}
-      <section className="mb-8">
-        <div className="flex items-center gap-2 mb-4">
-          <Calendar className="w-5 h-5 text-[#A8C5A8]" />
-          <h2 className="text-xl font-semibold text-gray-900">Upcoming Events</h2>
+    <div className="memory-app-page">
+      <DirectionContract />
+      <header className="memory-daily-band">
+        <div className="memory-daily-band__intro">
+          <span>{format(new Date(), 'EEEE')}</span>
+          <strong>{format(new Date(), 'MMMM d, yyyy')}</strong>
+          <p>What is one small moment from today worth remembering?</p>
+          <div className="memory-friend-strip" aria-label="Friends in your circle">
+            {friends.slice(0, 5).map((friend) => (
+              <Link key={friend.id} href={`/friends/${friend.id}`} title={friend.name}>
+                <Avatar name={friend.name} src={friend.customProfileImage || friend.profileImage} size="lg" />
+              </Link>
+            ))}
+            <Link className="memory-friend-strip__add" href="/friends" aria-label="Add a friend">
+              <Users aria-hidden="true" />
+            </Link>
+          </div>
         </div>
 
-        {upcomingEvents.length > 0 ? (
-          <div className="space-y-3">
-            {upcomingEvents.map((event) => {
-              const friend = friends.find((f) => f.id === event.friendId);
-              return (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  friendName={friend?.name}
-                  onDelete={handleDeleteEvent}
-                  onToggleComplete={handleToggleComplete}
-                  onEdit={handleEditEvent}
-                />
-              );
-            })}
+        <form className="memory-composer" onSubmit={submitMemory}>
+          <div className="memory-composer__heading">
+            <div>
+              <span>Daily drop</span>
+              <h1>Today&apos;s memory</h1>
+            </div>
+            <span className="memory-composer__privacy">
+              {visibility === 'private' ? <LockKeyhole aria-hidden="true" /> : visibility === 'public' ? <Globe2 aria-hidden="true" /> : <Users aria-hidden="true" />}
+              {VISIBILITY[visibility].label}
+            </span>
           </div>
-        ) : (
-          <Card className="p-6 border border-[#A8C5A8]/30 bg-white/60 text-center">
-            <Calendar className="w-8 h-8 text-[#A8C5A8] mx-auto mb-2" />
-            <p className="text-gray-600 text-sm">No upcoming events.</p>
-            <p className="text-gray-500 text-xs mt-1">
-              Click &quot;Add Event&quot; above to schedule time with friends!
-            </p>
-          </Card>
-        )}
-      </section>
 
-      {upcomingBirthdays.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Cake className="w-5 h-5 text-[#D4A5A5]" />
-            <h2 className="text-xl font-semibold text-gray-900">
-              Upcoming Birthdays
-            </h2>
-          </div>
-          <div className="space-y-3">
-            {upcomingBirthdays.map((friend) => (
-              <Card
-                key={friend.id}
-                className="p-4 border-[#D4A5A5]/30 bg-gradient-to-r from-[#D4A5A5]/5 to-transparent"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{friend.name}</h3>
-                    <p className="text-sm text-gray-600">
-                      {format(new Date(friend.birthday!), 'MMMM d')}
-                    </p>
-                  </div>
-                  <Badge
-                    variant="secondary"
-                    className="bg-[#D4A5A5]/20 text-[#D4A5A5] border-[#D4A5A5]/30"
-                  >
-                    {friend.daysUntil === 0
-                      ? 'Today!'
-                      : friend.daysUntil === 1
-                      ? 'Tomorrow'
-                      : `${friend.daysUntil} days`}
-                  </Badge>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {friendsToContact.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Clock className="w-5 h-5 text-[#A8C5A8]" />
-            <h2 className="text-xl font-semibold text-gray-900">
-              Friends to Connect With
-            </h2>
-          </div>
-          <div className="space-y-3">
-            {friendsToContact.map((friend) => (
-              <FriendCard key={friend.id} friend={friend} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {friends.length === 0 && (
-        <Card className="p-12 text-center border-dashed">
-          <div className="max-w-sm mx-auto">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No friends added yet
-            </h3>
-            <p className="text-gray-600 mb-4">
-              Start building your circle by adding your first friend!
-            </p>
-            <a
-              href="/friends"
-              className="inline-block px-4 py-2 bg-[#A8C5A8] text-white rounded-lg hover:bg-[#A8C5A8]/90 transition-colors"
+          <div className="memory-composer__main">
+            <button
+              type="button"
+              className={`memory-photo-drop ${imagePreview ? 'has-image' : ''}`}
+              onClick={() => fileInputRef.current?.click()}
+              aria-label={imagePreview ? 'Change memory photo' : 'Add a photo to this memory'}
             >
-              Add Your First Friend
-            </a>
+              {imagePreview ? (
+                <Image src={imagePreview} alt="Selected memory preview" fill className="object-cover" unoptimized />
+              ) : (
+                <>
+                  <ImagePlus aria-hidden="true" />
+                  <strong>Add a photo</strong>
+                  <span>Optional, but lovely</span>
+                </>
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              className="sr-only"
+              type="file"
+              accept="image/*"
+              onChange={(event) => onImageSelect(event.target.files?.[0])}
+            />
+            {imagePreview && (
+              <button
+                className="memory-photo-remove"
+                type="button"
+                onClick={() => {
+                  if (imagePreview) URL.revokeObjectURL(imagePreview);
+                  setSelectedImage(null);
+                  setImagePreview(null);
+                }}
+                aria-label="Remove selected photo"
+              >
+                <X aria-hidden="true" />
+              </button>
+            )}
+
+            <div className="memory-composer__copy">
+              <label htmlFor="memory-caption">A few words about this moment</label>
+              <textarea
+                id="memory-caption"
+                value={caption}
+                onChange={(event) => setCaption(event.target.value)}
+                placeholder={`Coffee, a missed train, and ${user?.name?.split(' ')[0] || 'a friend'} making it funny…`}
+                maxLength={280}
+              />
+              <span>{caption.length}/280</span>
+            </div>
           </div>
-        </Card>
-      )}
 
-
-      {/* Timeline Section */}
-      {friends.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-[#D4A5A5]" />
-            <h2 className="text-xl font-semibold text-gray-900">Your Timeline</h2>
+          <div className="memory-composer__controls">
+            <label>
+              <Users aria-hidden="true" />
+              <span className="sr-only">Friend in this memory</span>
+              <select value={friendId} onChange={(event) => setFriendId(event.target.value)}>
+                <option value="">Tag a friend</option>
+                {friends.map((friend) => <option value={friend.id} key={friend.id}>{friend.name}</option>)}
+              </select>
+            </label>
+            <label>
+              <CalendarDays aria-hidden="true" />
+              <span className="sr-only">Memory date</span>
+              <input type="date" value={memoryDate} onChange={(event) => setMemoryDate(event.target.value)} />
+            </label>
+            <label>
+              {visibility === 'private' ? <LockKeyhole aria-hidden="true" /> : visibility === 'public' ? <Globe2 aria-hidden="true" /> : <Users aria-hidden="true" />}
+              <span className="sr-only">Who can see this memory</span>
+              <select value={visibility} onChange={(event) => setVisibility(event.target.value as Visibility)}>
+                <option value="private">Only me</option>
+                <option value="friends">Friends only</option>
+                <option value="public">Public</option>
+              </select>
+            </label>
+            <button className="memory-composer__submit" type="submit" disabled={saving || !caption.trim() || !friendId}>
+              {saving ? <LoaderCircle className="spin" aria-hidden="true" /> : <Camera aria-hidden="true" />}
+              {saving ? 'Saving…' : 'Add memory'}
+            </button>
           </div>
-          <Timeline />
-        </section>
-      )}
+          {error && <p className="memory-composer__error" role="alert">{error}</p>}
+        </form>
+      </header>
 
-      <AddEventDialog
-        open={addEventDialogOpen}
-        onOpenChange={(open) => {
-          setAddEventDialogOpen(open);
-          if (!open) setEventToEdit(null);
-        }}
-        friends={friendsForAddEvent}
-        onEventAdded={() => {
-          refreshEvents();
-        }}
-        eventToEdit={eventToEdit}
-        onEventUpdated={() => {
-          refreshEvents();
-          setEventToEdit(null);
-        }}
-        onFriendsUpdated={() => {
-          refreshFriends();
-        }}
-      />
+      <div className="memory-feed-layout">
+        <main className="memory-feed" aria-busy={loading}>
+          <div className="memory-feed__title">
+            <div>
+              <span>From your circle</span>
+              <h2>Recent memories</h2>
+            </div>
+            <Link href="/memories">See your archive</Link>
+          </div>
 
-      <FindEventsDialog
-        open={findEventsDialogOpen}
-        onOpenChange={setFindEventsDialogOpen}
-        friends={friendsForFindEvents}
-        onEventCreated={() => {
-          refreshEvents();
-        }}
-      />
+          {loading ? (
+            <div className="memory-feed__loading"><LoaderCircle className="spin" aria-hidden="true" /> Gathering your memories…</div>
+          ) : memories.length === 0 ? (
+            <div className="memory-feed__empty">
+              <Sparkles aria-hidden="true" />
+              <h3>Your first memory starts above.</h3>
+              <p>Add the tiny moment you would otherwise forget. It does not need to be a milestone.</p>
+            </div>
+          ) : (
+            <div className="memory-contact-sheet">
+              {memories.map((memory, index) => (
+                <MemoryCard key={memory.id} memory={memory} featured={index === 0} onRefresh={loadData} />
+              ))}
+            </div>
+          )}
+        </main>
 
-      <NewNoteDialog
-        open={newNoteDialogOpen}
-        onOpenChange={setNewNoteDialogOpen}
-        friends={friendsForNewNote}
-      />
+        <aside className="memory-side-rail" aria-label="Friend activity and flashbacks">
+          <section className="memory-flashback">
+            <div className="memory-side-rail__heading">
+              <div>
+                <span>Flashback</span>
+                <h2>On this day</h2>
+              </div>
+              <Sparkles aria-hidden="true" />
+            </div>
+            {flashback ? (
+              <Link href="/memories" className="memory-flashback__memory">
+                {flashback.imageUrl && (
+                  <span className="memory-flashback__image">
+                    <Image src={flashback.imageUrl} alt="" fill className="object-cover" unoptimized />
+                  </span>
+                )}
+                <strong>{format(new Date(flashback.memoryDate), 'MMMM d, yyyy')}</strong>
+                <p>{flashback.content}</p>
+                <span>Remember this one →</span>
+              </Link>
+            ) : (
+              <div className="memory-flashback__empty">
+                <CalendarDays aria-hidden="true" />
+                <p>Your past moments will return here as the years fill in.</p>
+              </div>
+            )}
+          </section>
+
+          <section className="memory-active-friends">
+            <div className="memory-side-rail__heading">
+              <div>
+                <span>Your people</span>
+                <h2>Friends</h2>
+              </div>
+              <Link href="/friends">See all</Link>
+            </div>
+            {friends.slice(0, 6).map((friend) => (
+              <Link key={friend.id} href={`/friends/${friend.id}`}>
+                <Avatar name={friend.name} src={friend.customProfileImage || friend.profileImage} />
+                <span><strong>{friend.name}</strong><small>In your circle</small></span>
+                <Send aria-hidden="true" />
+              </Link>
+            ))}
+          </section>
+        </aside>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomBytes } from 'crypto';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/db';
 import { getSessionCookieName } from '@/lib/auth';
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest) {
       } else {
         // Create new user
         // Generate a random password for Google users (they won't use it)
-        const randomPassword = require('crypto').randomBytes(32).toString('hex');
+        const randomPassword = randomBytes(32).toString('hex');
 
         user = await prisma.user.create({
           email: googleUser.email,

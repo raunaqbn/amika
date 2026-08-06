@@ -10,8 +10,8 @@ export default function Home() {
   // Show loading while checking auth
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#FFFBF5]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A8C5A8]" />
+      <div className="flex items-center justify-center h-screen bg-[#f7f7f2]" aria-label="Loading Amika">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#252525]" />
       </div>
     );
   }

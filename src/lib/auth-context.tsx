@@ -19,7 +19,6 @@ type UserStats = {
   friendsCount: number;
   memoriesCount: number;
   diaryCount: number;
-  eventsCount: number;
 };
 
 type AuthContextType = {

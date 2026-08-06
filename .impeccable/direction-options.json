@@ -1,0 +1,32 @@
+{
+  "title": "Choose Amika's visual world",
+  "question": "The memory-first product is fixed. Choose the visual language that should carry it across the feed, profiles, messages, journal, and discovery.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Group Chat Scrapbook",
+      "kicker": "RECOMMENDED DIRECTION",
+      "lineage": "shared camera rolls, group chats, and passed-around keepsakes",
+      "body": "A bright, tactile conversation made from full-bleed photos, timestamp strips, reply trails, friend stickers, and handwritten-feeling captions. The first viewport centers today's memory composer, with an active-friends rail and recent moments flowing immediately below. Adding a memory feels like dropping a photo into the group chat; replies expand in place and flashbacks surface as dated strips. The language scales naturally to profiles, DMs, journal pages, and discovery. Honest risk: it needs disciplined density so the keepsake details never obscure the posting task."
+    },
+    {
+      "id": "challenger-dawn",
+      "label": "Daybreak Archive",
+      "lineage": "a theater cyclorama moving from night through cobalt and rose into day",
+      "body": "The interface changes by time of day: private reflection begins in deep cobalt, friends-only memories gather in rose, and public discovery arrives in clean daylight. The home view is arranged in horizontal time bands with today's capture always on the horizon. It makes the daily ritual unmistakable and gives visibility a spatial language. Honest risk: the atmospheric system is beautiful but less immediately associated with friendship.",
+      "hero": "https://impeccable.style/worlds/cards/stagecraft-theater-lighting-cyclorama-dawn-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/stagecraft-theater-lighting-cyclorama-dawn.webp"
+    },
+    {
+      "id": "challenger-bench",
+      "label": "Memory Console",
+      "lineage": "a creator-hardware desk instrument with one decisive action key",
+      "body": "Amika becomes a satisfying capture instrument: bone and putty surfaces, a gunmetal frame, an amber activity readout, and one safety-orange Add Memory control. Friends, visibility, date, and media behave like tactile keys and dials while the feed reads as a precise sequence of captured moments. It is exceptionally clear and distinctive across devices. Honest risk: its purposeful utility can feel more like a tool than a close-friends space.",
+      "hero": "https://impeccable.style/worlds/cards/design-canon-creator-hardware-bench-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/design-canon-creator-hardware-bench.webp"
+    }
+  ],
+  "reroll": true,
+  "canon": true,
+  "steer": true
+}

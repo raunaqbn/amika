@@ -5,6 +5,14 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    rules: {
+      // libSQL rows and third-party AI provider payloads are runtime-shaped.
+      "@typescript-eslint/no-explicit-any": "off",
+      // Client pages intentionally initiate async loading and hydrate form state in effects.
+      "react-hooks/set-state-in-effect": "off",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

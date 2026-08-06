@@ -2,13 +2,13 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Amika - Nurture Your Friendships',
+    name: 'Amika - Daily memories with friends',
     short_name: 'Amika',
-    description: 'A beautiful app to help you stay connected with the people who matter most',
+    description: 'A memory-first social app for saving and sharing everyday moments with friends.',
     start_url: '/',
     display: 'standalone',
-    background_color: '#FFFBF5',
-    theme_color: '#A8C5A8',
+    background_color: '#F7F7F2',
+    theme_color: '#15161E',
     orientation: 'portrait-primary',
     categories: ['lifestyle', 'social'],
     icons: [

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
-import { Eye, EyeOff, Loader2, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 function SignUpForm() {
   const router = useRouter();
@@ -19,31 +19,11 @@ function SignUpForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [friendRequestUser, setFriendRequestUser] = useState<{ id: string; name: string } | null>(null);
 
   // Get friend request target from URL
   const friendRequestId = searchParams.get('friendRequest');
   // Get return URL from query params
   const returnUrl = searchParams.get('returnUrl');
-
-  // Fetch friend request user info if provided
-  useEffect(() => {
-    async function fetchFriendRequestUser() {
-      if (!friendRequestId) return;
-      try {
-        const res = await fetch(`/api/wishlist/public?userId=${friendRequestId}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.user) {
-            setFriendRequestUser({ id: friendRequestId, name: data.user.name });
-          }
-        }
-      } catch {
-        // Ignore errors - we just won't show the personalized message
-      }
-    }
-    fetchFriendRequestUser();
-  }, [friendRequestId]);
 
   const handleGoogleSignUp = () => {
     setGoogleLoading(true);
@@ -73,7 +53,7 @@ function SignUpForm() {
     const result = await signUp(email, password, name, birthday || undefined);
 
     if (result.success) {
-      // Send friend request if coming from a wishlist
+      // Send the connection request carried by an invite link.
       if (friendRequestId) {
         try {
           await fetch('/api/connections', {
@@ -96,25 +76,6 @@ function SignUpForm() {
 
   return (
     <>
-      {/* Friend request banner */}
-      {friendRequestUser && (
-        <div className="bg-[#A8C5A8]/10 border border-[#A8C5A8]/30 rounded-xl p-4 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#A8C5A8]/20 rounded-full flex items-center justify-center flex-shrink-0">
-              <UserPlus className="w-5 h-5 text-[#A8C5A8]" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-900">
-                Connect with {friendRequestUser.name}
-              </p>
-              <p className="text-xs text-gray-600">
-                A friend request will be sent when you sign up
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
         <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
@@ -281,7 +242,7 @@ export default function SignUpPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-semibold text-[#A8C5A8]">amika</h1>
-          <p className="text-gray-600 mt-2">Plan memories, events & trips with friends</p>
+          <p className="text-gray-600 mt-2">Keep everyday memories with the people you love</p>
         </div>
 
         <Suspense fallback={
