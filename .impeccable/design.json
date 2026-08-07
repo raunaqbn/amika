@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-06T03:18:16Z",
+  "generatedAt": "2026-08-07T08:37:14Z",
   "title": "Design System: Amika Memory System",
   "extensions": {
     "colorMeta": {
@@ -113,6 +113,11 @@
         "name": "pinned-panel",
         "value": "9px 10px 0 #15161e",
         "purpose": "Composer and other dominant ritual panels."
+      },
+      {
+        "name": "native-hard-print",
+        "value": "4px 4px 0 #20201F; Android elevation 5",
+        "purpose": "Folded Pocket Accordion packet and native memory-card depth; fully opaque and zero blur."
       }
     ],
     "motion": [
@@ -130,6 +135,11 @@
         "name": "daily-reveal",
         "value": "540ms cubic-bezier(0.16, 1, 0.3, 1)",
         "purpose": "One-time reveal of the daily capture band."
+      },
+      {
+        "name": "native-press",
+        "value": "translateY(2px) with light platform haptic feedback",
+        "purpose": "Thumb-scale confirmation on native actions without introducing ambient motion."
       }
     ],
     "breakpoints": [
@@ -215,18 +225,44 @@
       "description": "A small sky label connecting a moment to a real friend.",
       "html": "<a class=\"ds-friend-tag\" href=\"#\">with Maya</a>",
       "css": ".ds-friend-tag { display: inline-flex; align-items: center; min-height: 28px; padding: 5px 7px; border: 1px solid #18627a; border-radius: 5px; background: var(--amika-sky, #79dcfa); color: #0d4051; font: 800 0.64rem/1 \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; text-decoration: none; transition: transform 160ms ease, background-color 160ms ease; } .ds-friend-tag:hover { transform: translateY(-1px); background: #a7ebff; } .ds-friend-tag:focus-visible { outline: 3px solid var(--amika-periwinkle, #7b74ff); outline-offset: 3px; } .ds-friend-tag:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Native Pocket Accordion",
+      "kind": "custom",
+      "refersTo": "mobile-memory-card",
+      "description": "The native first-viewport packet that folds the complete daily capture ritual into one tactile object.",
+      "html": "<section class=\"ds-pocket\"><button class=\"ds-pocket-head\" type=\"button\" aria-expanded=\"false\"><span class=\"ds-pocket-spark\">✦</span><span><small>TODAY'S MEMORY</small><strong>What should today remember?</strong></span><b>⌄</b></button><button class=\"ds-pocket-fold\" type=\"button\">Add photo · tag a friend · keep it forever</button></section>",
+      "css": ".ds-pocket { width: min(360px, 100%); overflow: hidden; border: 1.5px solid #292826; border-radius: 20px; background: #9EA8F8; color: #20201F; box-shadow: 4px 4px 0 #20201F; font-family: Avenir, system-ui, sans-serif; } .ds-pocket-head { width: 100%; min-height: 92px; display: flex; align-items: center; gap: 12px; padding: 16px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; } .ds-pocket-head > span:nth-child(2) { flex: 1; display: grid; gap: 2px; } .ds-pocket-head small { color: #6470CF; font-size: 10px; font-weight: 800; letter-spacing: 1.4px; } .ds-pocket-head strong { font-size: 20px; line-height: 25px; } .ds-pocket-spark { width: 38px; height: 38px; display: grid; place-items: center; border: 1.5px solid #292826; border-radius: 12px; background: #FFD44D; font-size: 20px; } .ds-pocket-fold { width: 100%; min-height: 42px; padding: 0 16px; border: 0; border-top: 1.5px solid #292826; background: rgba(255,255,255,.22); color: #20201F; text-align: left; font: 500 12px/1.2 Avenir, system-ui, sans-serif; cursor: pointer; } .ds-pocket-head:hover, .ds-pocket-fold:hover { background-color: rgba(255,255,255,.3); } .ds-pocket-head:focus-visible, .ds-pocket-fold:focus-visible { outline: 3px solid #FFD44D; outline-offset: -3px; } .ds-pocket-head:active, .ds-pocket-fold:active { transform: translateY(2px); }"
+    },
+    {
+      "name": "Native Five-tab Shell",
+      "kind": "nav",
+      "refersTo": "mobile-add-tab",
+      "description": "The safe-area-aware native shell with Home, Friends, Add, Messages, and Journal as the only primary destinations.",
+      "html": "<nav class=\"ds-native-tabs\" aria-label=\"Native destinations\"><button class=\"ds-native-tab ds-native-active\" type=\"button\"><span>⌂</span><b>Home</b></button><button class=\"ds-native-tab\" type=\"button\"><span>♙</span><b>Friends</b></button><button class=\"ds-native-tab ds-native-add\" type=\"button\"><span>＋</span><b>Add</b></button><button class=\"ds-native-tab\" type=\"button\"><span>◯</span><b>Messages</b></button><button class=\"ds-native-tab\" type=\"button\"><span>♡</span><b>Journal</b></button></nav>",
+      "css": ".ds-native-tabs { width: min(390px, 100%); min-height: 82px; display: grid; grid-template-columns: repeat(5, 1fr); align-items: start; padding: 8px 4px 0; border-top: 1.5px solid #292826; background: #FFFCF6; color: #746F68; font-family: Avenir, system-ui, sans-serif; } .ds-native-tab { min-height: 58px; display: grid; place-items: center; align-content: center; gap: 4px; border: 0; background: transparent; color: inherit; cursor: pointer; } .ds-native-tab span { font-size: 22px; line-height: 1; } .ds-native-tab b { font-size: 10px; } .ds-native-active { color: #20201F; } .ds-native-add span { width: 47px; height: 47px; display: grid; place-items: center; margin-top: -28px; border: 1.5px solid #292826; border-radius: 14px; background: #FFD44D; color: #20201F; font-size: 26px; } .ds-native-tab:hover { color: #20201F; } .ds-native-tab:focus-visible { outline: 3px solid #9EA8F8; outline-offset: -2px; } .ds-native-tab:active { transform: translateY(2px); }"
+    },
+    {
+      "name": "Native Full-screen Memory Viewer",
+      "kind": "custom",
+      "refersTo": "mobile-memory-card",
+      "description": "The safe-area-aware detail view that reveals the complete picture, context, reactions, replies, and keyboard-safe reply field.",
+      "html": "<article class=\"ds-native-viewer\"><header><button type=\"button\" aria-label=\"Close memory\">×</button><span><small>A MEMORY WITH</small><strong>Maya</strong></span><b>R</b></header><div class=\"ds-native-photo\"><span>FULL PICTURE · CONTAIN</span></div><section><small>FRIDAY, AUGUST 7 · FRIENDS</small><h3>The ordinary walk that became the best part of today.</h3><p>♡ 12 hearts&nbsp;&nbsp;&nbsp; ◯ 3 replies</p></section><footer><input aria-label=\"Reply\" placeholder=\"Add a little something…\"><button type=\"button\">↑</button></footer></article>",
+      "css": ".ds-native-viewer { width: min(390px, 100%); overflow: hidden; border: 1.5px solid #292826; background: #F7F2E8; color: #20201F; font-family: Avenir, system-ui, sans-serif; } .ds-native-viewer header { min-height: 68px; display: flex; align-items: center; gap: 12px; padding: 12px 15px; border-bottom: 1.5px solid #292826; } .ds-native-viewer header button { width: 40px; height: 40px; border: 1.5px solid #292826; border-radius: 13px; background: #FFFCF6; font-size: 22px; } .ds-native-viewer header span { flex: 1; display: grid; } .ds-native-viewer header small, .ds-native-viewer section small { color: #6470CF; font-size: 9px; font-weight: 800; letter-spacing: 1.2px; } .ds-native-viewer header > b { width: 39px; height: 39px; display: grid; place-items: center; border: 1.5px solid #292826; border-radius: 50%; background: #FFD44D; } .ds-native-photo { height: 260px; display: grid; place-items: center; background: #20201F; color: #FFFCF6; font-size: 10px; letter-spacing: 1px; } .ds-native-viewer section { padding: 20px; } .ds-native-viewer h3 { margin: 12px 0; font-size: 20px; line-height: 1.35; } .ds-native-viewer section p { padding-block: 10px; border-block: 1.5px solid #292826; font-size: 12px; font-weight: 800; } .ds-native-viewer footer { display: flex; gap: 9px; padding: 10px; border-top: 1.5px solid #292826; } .ds-native-viewer input { min-width: 0; flex: 1; height: 45px; padding: 0 14px; border: 1.5px solid #292826; border-radius: 14px; background: #FFFCF6; } .ds-native-viewer footer button { width: 45px; border: 1.5px solid #292826; border-radius: 14px; background: #FFD44D; font-size: 20px; } .ds-native-viewer button:hover { filter: brightness(.97); } .ds-native-viewer button:focus-visible, .ds-native-viewer input:focus-visible { outline: 3px solid #9EA8F8; outline-offset: 2px; } .ds-native-viewer button:active { transform: translateY(2px); }"
     }
   ],
   "narrative": {
     "northStar": "Daily Contact Sheet",
-    "overview": "Amika should feel like opening a contact sheet assembled by a close group chat: immediate, candid, colorful, and visibly handled. The interface uses strong ink outlines, paper-toned space, and offset print-like shadows so daily moments feel collected rather than optimized. The personality is energetic without becoming noisy; large editorial headings establish place, while compact social details keep the feed intimate and useful.\n\nThe broader direction is a Group Chat Scrapbook. Periwinkle creates a recognizable social world, citrus marks the next warm action, and coral or sky distinguish major collections without introducing a corporate dashboard palette. Images, names, dates, replies, and clear privacy cues stay closer to the eye than metrics.",
+    "overview": "Amika should feel like opening a contact sheet assembled by a close group chat: immediate, candid, colorful, and visibly handled. The interface uses strong ink outlines, paper-toned space, and offset print-like shadows so daily moments feel collected rather than optimized. The personality is energetic without becoming noisy; large editorial headings establish place, while compact social details keep the feed intimate and useful.\n\nThe broader direction is a Group Chat Scrapbook. Periwinkle creates a recognizable social world, citrus marks the next warm action, and coral or sky distinguish major collections without introducing a corporate dashboard palette. Images, names, dates, replies, and clear privacy cues stay closer to the eye than metrics.\n\nThe native iOS and Android expression is Pocket Accordion, the grounded structure selected as candidate 6 with seed `2e7d7b8a`. It keeps the Daily Contact Sheet identity while adapting the first viewport into a folded periwinkle packet above one chronological, tactile feed and a five-tab shell. The packet unfolds the whole capture story in place: capture today, choose a friend and privacy, then save the moment into the friendship stream. This is a daily-memory product for real friendships—not a generic social feed, logistics tool, or planning dashboard.",
     "keyCharacteristics": [
       "Tactile paper surfaces with dark structural outlines",
       "Saturated color fields used as chapter markers, not decoration dust",
       "Tight, heavy typography with oversized section statements",
       "Offset shadows that evoke stacked prints and pinned notes",
       "Dense social context balanced by generous page-level breathing room",
-      "Responsive navigation that becomes an installed-app-style bottom bar"
+      "Responsive navigation that becomes an installed-app-style bottom bar",
+      "A folded daily-memory packet that expands into the complete native capture ritual",
+      "Safe-area-aware native screens with one clear vertical reading path"
     ],
     "rules": [
       {
@@ -271,7 +307,9 @@
       "Do use large, short headings to name a place, then return to compact social typography.",
       "Do keep privacy, friend, and date context visible at the moment a memory is captured or read.",
       "Do pair hard shadows with visible borders and clear press states.",
-      "Do collapse complex grids into a single readable column on mobile and preserve 44px touch targets."
+      "Do collapse complex grids into a single readable column on mobile and preserve 44px touch targets.",
+      "Do keep the folded daily packet above the native feed and make its friend and privacy choices explicit before saving.",
+      "Do protect headers, full-screen memory media, reply controls, and the five-tab bar with device safe-area insets."
     ],
     "donts": [
       "Don't turn the palette into confetti; every accent field should communicate chapter, state, person, or action.",
@@ -279,7 +317,9 @@
       "Don't fill a screen with equally weighted tiles; the daily ritual and meaningful memories need hierarchy.",
       "Don't use pills for ordinary buttons, cards, or inputs; reserve them for filters, privacy, and counts.",
       "Don't let follower metrics, performance language, or planning-oriented controls outrank people and moments.",
-      "Don't hide focus, press, disabled, empty, or privacy states to preserve a static composition."
+      "Don't hide focus, press, disabled, empty, or privacy states to preserve a static composition.",
+      "Don't introduce trips, itineraries, events, calendars, destinations, or other planning surfaces into web or native navigation.",
+      "Don't substitute a generic floating social dock for the shipped Home, Friends, Add, Messages, and Journal shell."
     ]
   }
 }

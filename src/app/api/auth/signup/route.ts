@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({
+      sessionToken: session.token,
       user: {
         id: user.id,
         email: user.email,

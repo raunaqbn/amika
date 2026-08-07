@@ -751,13 +751,48 @@ body:has(.app-rail) > main {
 
 .memory-post__image {
   position: relative;
+  width: 100%;
+  display: block;
   aspect-ratio: 5 / 3;
+  padding: 0;
   overflow: hidden;
+  border: 0;
   background: #e7e7e1;
   border-bottom: 1.5px solid var(--amika-ink);
+  color: var(--amika-ink);
+  font: inherit;
+  text-align: left;
+  cursor: zoom-in;
 }
 
 .memory-post--featured .memory-post__image { aspect-ratio: 16 / 7.5; }
+
+.memory-post__image img { transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1); }
+.memory-post__image:hover img { transform: scale(1.015); }
+.memory-post__image:focus-visible { outline: 4px solid var(--amika-citrus); outline-offset: -6px; }
+
+.memory-post__expand {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid white;
+  border-radius: 8px;
+  background: rgba(21, 22, 30, 0.82);
+  color: white;
+  box-shadow: 2px 3px 0 rgba(21, 22, 30, 0.78);
+  opacity: 0;
+  transform: translateY(-3px);
+  transition: opacity 160ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.memory-post__expand svg { width: 18px; height: 18px; }
+.memory-post__image:hover .memory-post__expand,
+.memory-post__image:focus-visible .memory-post__expand { opacity: 1; transform: translateY(0); }
 
 .memory-post__image time {
   position: absolute;
@@ -773,6 +808,64 @@ body:has(.app-rail) > main {
   font-weight: 850;
   box-shadow: 2px 3px 0 var(--amika-ink);
 }
+
+[data-slot="dialog-overlay"].memory-image-viewer__overlay { z-index: 100; background: rgb(21 22 30 / 96%); }
+
+[data-slot="dialog-content"].memory-image-viewer {
+  z-index: 101;
+  width: min(96vw, 1440px);
+  max-width: none;
+  height: min(92dvh, 1000px);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid white;
+  border-radius: 12px;
+  background: var(--amika-ink);
+  box-shadow: 8px 10px 0 var(--amika-violet);
+}
+
+.memory-image-viewer__stage { position: relative; min-height: 0; background: var(--amika-ink); }
+
+.memory-image-viewer__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid white;
+  border-radius: 8px;
+  background: var(--amika-ink);
+  color: white;
+  box-shadow: 3px 4px 0 var(--amika-violet);
+  cursor: pointer;
+}
+
+.memory-image-viewer__close:hover { background: var(--amika-violet-deep); }
+.memory-image-viewer__close:active { transform: translateY(3px); box-shadow: 1px 1px 0 var(--amika-violet); }
+.memory-image-viewer__close:focus-visible { outline: 3px solid var(--amika-citrus); outline-offset: 3px; }
+.memory-image-viewer__close svg { width: 22px; height: 22px; }
+
+.memory-image-viewer__meta {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.35fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+  padding: 13px 18px 15px;
+  border-top: 2px solid white;
+  background: var(--amika-paper);
+  color: var(--amika-ink);
+}
+
+.memory-image-viewer__meta > div { display: grid; gap: 2px; }
+.memory-image-viewer__meta span { color: var(--amika-muted); font-size: 0.75rem; font-weight: 800; }
+.memory-image-viewer__meta strong { font-size: 0.86rem; }
+.memory-image-viewer__meta p { max-width: 72ch; margin: 0; font-size: 0.86rem; line-height: 1.45; }
 
 .memory-post__text-only {
   min-height: 230px;
@@ -937,6 +1030,10 @@ body:has(.app-rail) > main {
   .memory-post--featured { box-shadow: 5px 6px 0 var(--amika-sky); }
   .memory-post__image,
   .memory-post--featured .memory-post__image { aspect-ratio: 4 / 3; }
+  .memory-post__expand { opacity: 1; transform: none; }
+  [data-slot="dialog-content"].memory-image-viewer { width: 100vw; height: 100dvh; border: 0; border-radius: 0; box-shadow: none; }
+  .memory-image-viewer__meta { grid-template-columns: 1fr; gap: 7px; padding: 11px 14px calc(12px + env(safe-area-inset-bottom)); border-top-width: 1.5px; }
+  .memory-image-viewer__close { top: max(12px, env(safe-area-inset-top)); right: 12px; }
   .memory-post__text-only,
   .memory-post--featured .memory-post__text-only { min-height: 230px; }
   .memory-side-rail { display: flex; margin-top: 42px; }

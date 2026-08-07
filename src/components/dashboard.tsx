@@ -11,6 +11,7 @@ import {
   ImagePlus,
   LoaderCircle,
   LockKeyhole,
+  Maximize2,
   MessageCircle,
   MoreHorizontal,
   Send,
@@ -21,6 +22,13 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow, isSameDay, subYears } from 'date-fns';
 import { useAuth } from '@/lib/auth-context';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 type Visibility = 'private' | 'friends' | 'public';
 
@@ -95,6 +103,53 @@ function Avatar({ name, src, size = 'md' }: { name: string; src?: string | null;
   );
 }
 
+function MemoryImageViewer({ memory, open, onOpenChange }: { memory: FeedMemory; open: boolean; onOpenChange: (open: boolean) => void }) {
+  if (!memory.imageUrl) return null;
+
+  const fullDate = format(new Date(memory.memoryDate), 'MMMM d, yyyy');
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="memory-image-viewer"
+        overlayClassName="memory-image-viewer__overlay"
+        preventAutoFocus={false}
+        showCloseButton={false}
+      >
+        <DialogTitle className="sr-only">Memory photo from {fullDate}</DialogTitle>
+        <DialogDescription className="sr-only">
+          Full-size photo shared by {memory.author.name}. Press Escape or use the close button to return to the memory.
+        </DialogDescription>
+
+        <div className="memory-image-viewer__stage">
+          <Image
+            src={memory.imageUrl}
+            alt={`Memory shared by ${memory.author.name} on ${fullDate}`}
+            fill
+            sizes="100vw"
+            className="object-contain"
+            unoptimized
+          />
+        </div>
+
+        <div className="memory-image-viewer__meta">
+          <div>
+            <span>{fullDate}</span>
+            <strong>{memory.author.name}</strong>
+          </div>
+          {memory.content && <p>{memory.content}</p>}
+        </div>
+
+        <DialogClose asChild>
+          <button className="memory-image-viewer__close" type="button" aria-label="Close full-size memory photo">
+            <X aria-hidden="true" />
+          </button>
+        </DialogClose>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory; featured?: boolean; onRefresh: () => void }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -103,6 +158,7 @@ export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory
   const [reacting, setReacting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [imageOpen, setImageOpen] = useState(false);
   const visibility = VISIBILITY[memory.visibility] || VISIBILITY.private;
   const VisibilityIcon = visibility.icon;
 
@@ -183,7 +239,12 @@ export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory
       </header>
 
       {memory.imageUrl ? (
-        <div className="memory-post__image">
+        <button
+          className="memory-post__image"
+          type="button"
+          onClick={() => setImageOpen(true)}
+          aria-label={`Expand memory photo shared by ${memory.author.name}`}
+        >
           <Image
             src={memory.imageUrl}
             alt={`Memory shared by ${memory.author.name}`}
@@ -192,8 +253,9 @@ export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory
             className="object-cover"
             unoptimized
           />
+          <span className="memory-post__expand" aria-hidden="true"><Maximize2 /></span>
           <time dateTime={memory.memoryDate}>{format(new Date(memory.memoryDate), 'MMM d')}</time>
-        </div>
+        </button>
       ) : (
         <div className="memory-post__text-only">
           <Sparkles aria-hidden="true" />
@@ -259,6 +321,8 @@ export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory
           </form>
         </div>
       )}
+
+      <MemoryImageViewer memory={memory} open={imageOpen} onOpenChange={setImageOpen} />
     </article>
   );
 }

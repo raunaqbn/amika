@@ -50,15 +50,19 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  overlayClassName,
+  preventAutoFocus = true,
   onOpenAutoFocus,
   onPointerDownOutside,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  overlayClassName?: string
+  preventAutoFocus?: boolean
 }) {
   return (
     <DialogPortal data-slot="dialog-portal">
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
@@ -66,8 +70,7 @@ function DialogContent({
           className
         )}
         onOpenAutoFocus={(e) => {
-          // Prevent auto-focus to allow natural form interaction
-          e.preventDefault();
+          if (preventAutoFocus) e.preventDefault();
           onOpenAutoFocus?.(e);
         }}
         onPointerDownOutside={(e) => {

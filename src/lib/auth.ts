@@ -1,11 +1,16 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { prisma, type User } from './db';
 
 const SESSION_COOKIE_NAME = 'amika_session';
 
 export async function getSession(): Promise<{ user: User } | null> {
   const cookieStore = await cookies();
-  const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  const headerStore = await headers();
+  const authorization = headerStore.get('authorization');
+  const bearerToken = authorization?.startsWith('Bearer ')
+    ? authorization.slice('Bearer '.length).trim()
+    : null;
+  const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value || bearerToken;
 
   if (!sessionToken) {
     return null;
