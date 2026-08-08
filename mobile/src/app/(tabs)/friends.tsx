@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Check, ChevronRight, Clock3, Search, UserPlus, X } from 'lucide-react-native';
 import { Screen } from '@/components/screen';
-import { Avatar, EmptyState, ErrorState, PaperCard } from '@/components/ui';
+import { Avatar, EmptyState, ErrorState, PaperCard, Spinner } from '@/components/ui';
 import { useAuth } from '@/context/auth';
 import { api, apiCached, getCachedApiData, invalidateApiCache } from '@/lib/api';
 import { border, colors, shadow, type } from '@/lib/theme';
@@ -197,13 +197,13 @@ export default function FriendsScreen() {
 
     {trimmedQuery.length >= 2 ? <View style={styles.section}>
       <Text style={styles.sectionLabel}>People on Amika</Text>
-      {searching && !searchResults.length ? <View style={styles.searchingRow}><ActivityIndicator color={colors.ink} /><Text style={styles.searchingText}>Searching Amika…</Text></View> : null}
+      {searching && !searchResults.length ? <View style={styles.searchingRow}><Spinner color={colors.ink} /><Text style={styles.searchingText}>Searching Amika…</Text></View> : null}
       {searchError ? <View style={styles.inlineError}><Text style={styles.inlineErrorText}>{searchError}</Text></View> : null}
       {!searching && !searchError && !searchResults.length ? <View style={styles.noResults}>
         <Text style={styles.noResultsTitle}>No Amika account found</Text>
         <Text style={styles.noResultsBody}>Check the spelling or save “{trimmedQuery}” as a private friend for your own memories.</Text>
         <Pressable accessibilityRole="button" onPress={() => void addPrivateFriend()} disabled={addingPrivate} style={({ pressed }) => [styles.privateButton, pressed && styles.pressed]}>
-          {addingPrivate ? <ActivityIndicator size="small" color={colors.ink} /> : <><UserPlus size={18} color={colors.ink} /><Text style={styles.privateButtonText}>Save as private friend</Text></>}
+          {addingPrivate ? <Spinner size="small" color={colors.ink} /> : <><UserPlus size={18} color={colors.ink} /><Text style={styles.privateButtonText}>Save as private friend</Text></>}
         </Pressable>
       </View> : null}
       {searchResults.length ? <View style={styles.discoveryPanel}>
@@ -215,7 +215,7 @@ export default function FriendsScreen() {
       </View> : null}
     </View> : null}
 
-    {loading ? <ActivityIndicator color={colors.ink} style={styles.loader} />
+    {loading ? <Spinner color={colors.ink} style={styles.loader} />
       : error ? <ErrorState message={error} onRetry={load} />
         : <View style={styles.section}>
           <Text style={styles.sectionLabel}>{trimmedQuery ? 'In your circle' : 'Your circle'}</Text>
@@ -258,7 +258,7 @@ function ConnectionButton({ state, loading, name, onPress }: { state: Connection
     onPress={onPress}
     style={({ pressed }) => [styles.connectionButton, state === 'received' && styles.acceptButton, disabled && styles.connectionButtonDisabled, pressed && styles.pressed]}
   >
-    {loading ? <ActivityIndicator size="small" color={colors.ink} /> : <><Icon size={16} color={colors.ink} /><Text style={styles.connectionButtonText}>{label}</Text></>}
+    {loading ? <Spinner size="small" color={colors.ink} /> : <><Icon size={16} color={colors.ink} /><Text style={styles.connectionButtonText}>{label}</Text></>}
   </Pressable>;
 }
 

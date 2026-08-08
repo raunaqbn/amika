@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type PressableProps, type TextInputProps, type ViewStyle } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View, type PressableProps, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { Image as ImageIcon, RotateCcw } from 'lucide-react-native';
 import { border, colors, shadow, type } from '@/lib/theme';
@@ -8,9 +8,39 @@ import { imageSource } from '@/lib/api';
 export function Button({ label, tone = 'ink', loading, style, ...props }: PressableProps & { label: string; tone?: 'ink' | 'paper' | 'citrus' | 'quiet'; loading?: boolean; style?: ViewStyle }) {
   return (
     <Pressable accessibilityRole="button" disabled={loading || props.disabled} {...props} style={({ pressed }) => [styles.button, styles[`button_${tone}`], pressed && styles.pressed, props.disabled && styles.disabled, style]}>
-      {loading ? <ActivityIndicator color={tone === 'paper' ? colors.ink : colors.white} /> : <Text style={[styles.buttonText, tone === 'paper' || tone === 'citrus' || tone === 'quiet' ? styles.buttonTextDark : null]}>{label}</Text>}
+      {loading ? <Spinner color={tone === 'paper' || tone === 'citrus' || tone === 'quiet' ? colors.ink : colors.white} /> : <Text style={[styles.buttonText, tone === 'paper' || tone === 'citrus' || tone === 'quiet' ? styles.buttonTextDark : null]}>{label}</Text>}
     </Pressable>
   );
+}
+
+export function Spinner({ size = 20, color = colors.ink, style }: { size?: 'small' | 'large' | number; color?: string; style?: StyleProp<ViewStyle> }) {
+  const progress = React.useRef(new Animated.Value(0)).current;
+  const pixels = size === 'large' ? 32 : size === 'small' ? 18 : size;
+
+  React.useEffect(() => {
+    const animation = Animated.loop(Animated.timing(progress, {
+      toValue: 1,
+      duration: 750,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }));
+    animation.start();
+    return () => animation.stop();
+  }, [progress]);
+
+  return <Animated.View
+    accessibilityRole="progressbar"
+    accessibilityLabel="Loading"
+    style={[{
+      width: pixels,
+      height: pixels,
+      borderRadius: pixels / 2,
+      borderWidth: Math.max(2, pixels / 9),
+      borderColor: 'rgba(90, 86, 79, .2)',
+      borderTopColor: color,
+      transform: [{ rotate: progress.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
+    }, style]}
+  />;
 }
 
 export function Field({ label, ...props }: TextInputProps & { label: string }) {

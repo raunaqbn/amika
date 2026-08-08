@@ -1,5 +1,12 @@
 import { useEffect } from 'react';
-import * as Notifications from 'expo-notifications';
+import { setBadgeCountAsync } from 'expo-notifications/build/setBadgeCountAsync';
+import {
+  addNotificationReceivedListener,
+  addNotificationResponseReceivedListener,
+  getLastNotificationResponseAsync,
+} from 'expo-notifications/build/NotificationsEmitter';
+import { addPushTokenListener } from 'expo-notifications/build/TokenEmitter';
+import type { NotificationResponse } from 'expo-notifications/build/Notifications.types';
 import { useRouter, type Href } from 'expo-router';
 import { registerPushNotifications } from '@/lib/push-notifications';
 import { refreshNotificationCount } from '@/lib/notification-count';
@@ -12,13 +19,13 @@ export function PushNotificationRegistration() {
   const { total } = useNotificationCount();
 
   useEffect(() => {
-    void Notifications.setBadgeCountAsync(total).catch(() => {});
+    void setBadgeCountAsync(total).catch(() => {});
   }, [total]);
 
   useEffect(() => {
     void registerPushNotifications().catch(() => {});
 
-    const handleResponse = (response: Notifications.NotificationResponse | null) => {
+    const handleResponse = (response: NotificationResponse | null) => {
       if (!response || response.notification.request.identifier === lastHandledResponseId) return;
       lastHandledResponseId = response.notification.request.identifier;
       const data = response.notification.request.content.data || {};
@@ -37,14 +44,14 @@ export function PushNotificationRegistration() {
       void refreshNotificationCount().catch(() => {});
     };
 
-    const received = Notifications.addNotificationReceivedListener(() => {
+    const received = addNotificationReceivedListener(() => {
       void refreshNotificationCount().catch(() => {});
     });
-    const pushTokenChanged = Notifications.addPushTokenListener(() => {
+    const pushTokenChanged = addPushTokenListener(() => {
       void registerPushNotifications().catch(() => {});
     });
-    const responded = Notifications.addNotificationResponseReceivedListener(handleResponse);
-    void Notifications.getLastNotificationResponseAsync().then(handleResponse).catch(() => {});
+    const responded = addNotificationResponseReceivedListener(handleResponse);
+    void getLastNotificationResponseAsync().then(handleResponse).catch(() => {});
     return () => {
       received.remove();
       pushTokenChanged.remove();

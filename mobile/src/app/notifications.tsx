@@ -1,11 +1,11 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Check, ChevronLeft, ChevronRight, MessageCircle, UserPlus, X } from 'lucide-react-native';
 import { Screen } from '@/components/screen';
-import { Avatar, Button, EmptyState, ErrorState } from '@/components/ui';
+import { Avatar, Button, EmptyState, ErrorState, Spinner } from '@/components/ui';
 import { useAuth } from '@/context/auth';
 import { api, imageSource, invalidateApiCache } from '@/lib/api';
 import { invalidateMemoryFeed } from '@/lib/memory-feed';
@@ -107,7 +107,7 @@ export default function NotificationsScreen() {
     right={backButton}
     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={colors.ink} />}
   >
-    {loading ? <ActivityIndicator color={colors.ink} style={styles.loader} />
+    {loading ? <Spinner color={colors.ink} style={styles.loader} />
       : error ? <ErrorState message={error} onRetry={load} />
         : !count ? <EmptyState title="Nothing new right now" body="Messages, memories you’re tagged in, and friend requests will gather here." />
           : <>
@@ -159,7 +159,7 @@ export default function NotificationsScreen() {
                     <View style={[styles.iconTile, { backgroundColor: colors.sage }]}><UserPlus size={18} color={colors.ink} /></View>
                     <Avatar name={person.name} uri={person.profileImage} size={42} color={colors.sage} />
                     <View style={styles.rowCopy}><Text style={styles.rowTitle}>{person.name}</Text><Text numberOfLines={1} style={styles.rowBody}>Wants to connect on Amika</Text></View>
-                    <Pressable accessibilityRole="button" accessibilityLabel={`Accept ${person.name}'s friend request`} disabled={actionId === request.id} onPress={() => void updateRequest(request, 'accepted')} style={({ pressed }) => [styles.acceptButton, pressed && styles.pressed]}>{actionId === request.id ? <ActivityIndicator size="small" color={colors.ink} /> : <Check size={19} color={colors.ink} strokeWidth={2.5} />}</Pressable>
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Accept ${person.name}'s friend request`} disabled={actionId === request.id} onPress={() => void updateRequest(request, 'accepted')} style={({ pressed }) => [styles.acceptButton, pressed && styles.pressed]}>{actionId === request.id ? <Spinner size="small" color={colors.ink} /> : <Check size={19} color={colors.ink} strokeWidth={2.5} />}</Pressable>
                     <Pressable accessibilityRole="button" accessibilityLabel={`Dismiss ${person.name}'s friend request`} disabled={actionId === request.id} onPress={() => void updateRequest(request, 'rejected')} style={({ pressed }) => [styles.smallDismiss, pressed && styles.pressed]}><X size={18} color={colors.muted} /></Pressable>
                   </View>;
                 })}

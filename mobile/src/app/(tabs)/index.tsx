@@ -1,10 +1,10 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Platform, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Screen } from '@/components/screen';
 import { MemoryComposer } from '@/components/memory-composer';
 import { MemoryCard } from '@/components/memory-card';
-import { DividerLabel, EmptyState, ErrorState } from '@/components/ui';
+import { DividerLabel, EmptyState, ErrorState, Spinner } from '@/components/ui';
 import {
   getMemoryFeedSnapshot,
   invalidateMemoryFeed,
@@ -94,13 +94,13 @@ export default function HomeScreen() {
       ListHeaderComponent={<View style={styles.listHeader}><MemoryComposer onSaved={memorySaved} /><DividerLabel>Recently kept</DividerLabel></View>}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
       ListEmptyComponent={loading
-        ? <ActivityIndicator color={colors.ink} style={styles.loader} />
+        ? <Spinner color={colors.ink} style={styles.loader} />
         : error
           ? <ErrorState message={error} onRetry={() => load()} />
           : <EmptyState title="Your pocket is ready" body="The first memory can be tiny: a joke, a walk, the song someone sent you." actionLabel="Keep today" onAction={() => router.push('/add')} />}
       ListFooterComponent={memories.length
         ? loadingMore
-          ? <ActivityIndicator color={colors.ink} style={styles.footerLoader} />
+          ? <Spinner color={colors.ink} style={styles.footerLoader} />
           : !hasMore
             ? <Text style={styles.end}>That’s the whole circle for now.</Text>
             : null

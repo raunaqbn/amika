@@ -1,5 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
-import { File, UploadType } from 'expo-file-system';
+import { File } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { readPersistentCache, removePersistentCache, writePersistentCache } from './cache-storage';
 
@@ -141,36 +141,22 @@ export async function apiCached<T>(path: string, options: { force?: boolean; max
 export async function uploadImage(uri: string) {
   const file = new File(uri);
   if (!file.exists) throw new Error('The selected photo is no longer available. Please choose it again.');
-
-  const token = await getToken();
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  if (token) headers.Authorization = `Bearer ${token}`;
   const extension = file.extension.toLowerCase();
   const mimeType = file.type || (extension === '.png' ? 'image/png' : 'image/jpeg');
-  const response = await file.upload(`${API_URL}/api/upload`, {
-    httpMethod: 'POST',
-    uploadType: UploadType.MULTIPART,
-    fieldName: 'file',
-    mimeType,
-    headers,
-    sessionType: 'foreground',
-  });
-  const data = JSON.parse(response.body || '{}') as { url?: string; error?: string };
-  if (response.status < 200 || response.status >= 300 || !data.url) {
-    throw new Error(data.error || 'The photo could not be uploaded. Please try again.');
-  }
-  return { url: data.url };
+  if (file.size > 2 * 1024 * 1024) throw new Error('The prepared photo is still too large. Please choose a different photo.');
+  const base64 = await file.base64();
+  return { url: `data:${mimeType};base64,${base64}` };
 }
 
 export async function prepareImageForUpload(uri: string, width: number, height: number) {
   const maxDimension = Math.max(width, height);
   const context = ImageManipulator.manipulate(uri);
-  if (maxDimension > 1280) {
-    if (width >= height) context.resize({ width: 1280, height: null });
-    else context.resize({ width: null, height: 1280 });
+  if (maxDimension > 1024) {
+    if (width >= height) context.resize({ width: 1024, height: null });
+    else context.resize({ width: null, height: 1024 });
   }
   const rendered = await context.renderAsync();
-  const result = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.68 });
+  const result = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.55 });
   return result.uri;
 }
 

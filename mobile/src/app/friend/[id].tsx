@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BookOpen, Cake, Camera, ChevronLeft, Heart, MessageCircle, Sparkles } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MemoryCard } from '@/components/memory-card';
-import { Avatar, Button, EmptyState, ErrorState } from '@/components/ui';
+import { Avatar, Button, EmptyState, ErrorState, Spinner } from '@/components/ui';
 import { apiCached, getCachedApiData } from '@/lib/api';
 import { getMemoryFeedSnapshot, updateCachedMemory } from '@/lib/memory-feed';
 import { border, colors, shadow, type } from '@/lib/theme';
@@ -62,7 +62,7 @@ export default function FriendProfileScreen() {
     setMemories((current) => current.map((memory) => memory.id === memoryId ? { ...memory, reactedByMe, reactionCount } : memory));
   }, []);
 
-  if (loading) return <SafeAreaView style={styles.state}><ActivityIndicator color={colors.ink} size="large" /><Text style={styles.stateText}>Opening this friendship…</Text></SafeAreaView>;
+  if (loading) return <SafeAreaView style={styles.state}><Spinner color={colors.ink} size="large" /><Text style={styles.stateText}>Opening this friendship…</Text></SafeAreaView>;
   if (!friend) return <SafeAreaView style={styles.state}><ErrorState message={error || 'This friend is no longer in your circle.'} onRetry={() => router.back()} /></SafeAreaView>;
 
   const image = friend.customProfileImage || friend.profileImage;
