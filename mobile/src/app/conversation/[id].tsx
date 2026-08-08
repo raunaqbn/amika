@@ -1,18 +1,40 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, Send } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/auth';
 import { Avatar, EmptyState } from '@/components/ui';
-import { api } from '@/lib/api';
+import { api, apiCached, getCachedApiData, invalidateApiCache, setCachedApiData } from '@/lib/api';
 import { border, colors, type } from '@/lib/theme';
 import type { Message } from '@/types';
 
 export default function ConversationScreen() {
-  const router = useRouter(); const { user } = useAuth(); const { id, name, image } = useLocalSearchParams<{ id: string; name?: string; image?: string }>(); const [messages, setMessages] = useState<Message[]>([]); const [draft, setDraft] = useState(''); const [sending, setSending] = useState(false);
-  const load = useCallback(() => api<Message[]>(`/api/messages?with=${encodeURIComponent(id)}`).then(setMessages).catch(() => setMessages([])), [id]); useEffect(() => { load(); }, [load]);
-  async function send() { if (!draft.trim()) return; setSending(true); try { await api('/api/messages', { method: 'POST', body: JSON.stringify({ recipientId: id, content: draft }) }); setDraft(''); await load(); } catch (e) { Alert.alert('Message not sent', e instanceof Error ? e.message : 'Try again.'); } finally { setSending(false); } }
+  const router = useRouter();
+  const { user } = useAuth();
+  const { id, name, image } = useLocalSearchParams<{ id: string; name?: string; image?: string }>();
+  const conversationPath = useMemo(() => `/api/messages?with=${encodeURIComponent(id)}`, [id]);
+  const [messages, setMessages] = useState<Message[]>(() => getCachedApiData<Message[]>(conversationPath) || []);
+  const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+  const load = useCallback(() => apiCached<Message[]>(conversationPath).then(setMessages).catch(() => {}), [conversationPath]);
+  useEffect(() => { void load(); }, [load]);
+
+  async function send() {
+    const content = draft.trim();
+    if (!content) return;
+    setSending(true);
+    try {
+      const message = await api<Message>('/api/messages', { method: 'POST', body: JSON.stringify({ recipientId: id, content }) });
+      setDraft('');
+      setMessages((current) => setCachedApiData(conversationPath, [...current, message]));
+      invalidateApiCache('/api/messages');
+    } catch (sendError) {
+      Alert.alert('Message not sent', sendError instanceof Error ? sendError.message : 'Try again.');
+    } finally {
+      setSending(false);
+    }
+  }
   return <SafeAreaView style={styles.safe}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><View style={styles.header}><Pressable onPress={() => router.back()} style={styles.back}><ChevronLeft size={24} color={colors.ink} /></Pressable><Avatar name={name || 'F'} uri={image} size={39} color={colors.rose} /><View><Text style={styles.name}>{name || 'Friend'}</Text><Text style={styles.subtitle}>Private thread</Text></View></View><FlatList data={messages} keyExtractor={(item) => item.id} contentContainerStyle={styles.list} ListEmptyComponent={<EmptyState title="Start with something small" body="Send the thought that made you think of them." />} renderItem={({ item }) => { const mine = item.senderId === user?.id; return <View style={[styles.bubble, mine ? styles.mine : styles.theirs]}><Text style={styles.message}>{item.content}</Text><Text style={styles.time}>{new Date(item.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Text></View>; }} /><View style={styles.composer}><TextInput value={draft} onChangeText={setDraft} placeholder="Message your friend…" placeholderTextColor={colors.muted} style={styles.input} multiline /><Pressable disabled={sending} onPress={send} style={styles.send}><Send size={19} color={colors.ink} /></Pressable></View></KeyboardAvoidingView></SafeAreaView>;
 }
 

@@ -12,10 +12,10 @@ import { Button, Field } from './ui';
 
 const FRIENDS_PATH = '/api/friends';
 
-export function MemoryComposer({ initiallyOpen = false, compact = false, onSaved }: { initiallyOpen?: boolean; compact?: boolean; onSaved?: () => void }) {
+export function MemoryComposer({ initiallyOpen = false, compact = false, initialFriendId, onSaved }: { initiallyOpen?: boolean; compact?: boolean; initialFriendId?: string; onSaved?: () => void }) {
   const [open, setOpen] = useState(initiallyOpen);
   const [friends, setFriends] = useState<Friend[]>(() => getCachedApiData<Friend[]>(FRIENDS_PATH) || []);
-  const [friendId, setFriendId] = useState('');
+  const [friendId, setFriendId] = useState(initialFriendId || '');
   const [content, setContent] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [visibility, setVisibility] = useState<'private' | 'friends'>('friends');
@@ -24,9 +24,9 @@ export function MemoryComposer({ initiallyOpen = false, compact = false, onSaved
   useFocusEffect(useCallback(() => {
     apiCached<Friend[]>(FRIENDS_PATH).then((items) => {
       setFriends(items);
-      setFriendId((current) => items.some((friend) => friend.id === current) ? current : (items[0]?.id || ''));
+      setFriendId((current) => items.find((friend) => friend.id === initialFriendId)?.id || (items.some((friend) => friend.id === current) ? current : (items[0]?.id || '')));
     }).catch(() => {});
-  }, []));
+  }, [initialFriendId]));
 
   async function pick(source: 'camera' | 'library') {
     const permission = source === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();

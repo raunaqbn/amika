@@ -1,16 +1,30 @@
 import { api, getTokenSnapshot } from './api';
+import { readPersistentCache, removePersistentCache, writePersistentCache } from './cache-storage';
 import type { Memory } from '@/types';
 
 type MemoryPage = { items: Memory[]; nextCursor: string | null };
 type FeedSnapshot = MemoryPage & { updatedAt: number };
 
 const PAGE_SIZE = 12;
-const FRESH_FOR_MS = 30_000;
+const FRESH_FOR_MS = 5 * 60_000;
+const MEMORY_CACHE_KEY = 'memory-feed-v1';
 
 let ownerToken: string | null | undefined;
 let snapshot: FeedSnapshot = { items: [], nextCursor: null, updatedAt: 0 };
 let firstPageRequest: Promise<FeedSnapshot> | null = null;
 let nextPageRequest: Promise<FeedSnapshot> | null = null;
+let hydratedForToken: string | null | undefined;
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleFeedWrite() {
+  const token = ownerToken;
+  if (!token) return;
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    void writePersistentCache(token, MEMORY_CACHE_KEY, snapshot);
+  }, 120);
+}
 
 function resetForCurrentUser() {
   const currentToken = getTokenSnapshot();
@@ -19,7 +33,24 @@ function resetForCurrentUser() {
     snapshot = { items: [], nextCursor: null, updatedAt: 0 };
     firstPageRequest = null;
     nextPageRequest = null;
+    hydratedForToken = undefined;
+    if (persistTimer) {
+      clearTimeout(persistTimer);
+      persistTimer = null;
+    }
   }
+}
+
+export async function hydrateMemoryFeed() {
+  resetForCurrentUser();
+  const token = ownerToken;
+  if (!token || hydratedForToken === token) return snapshot;
+  const stored = await readPersistentCache<FeedSnapshot>(token, MEMORY_CACHE_KEY);
+  if (stored && Array.isArray(stored.items) && typeof stored.updatedAt === 'number') {
+    snapshot = stored;
+  }
+  hydratedForToken = token;
+  return snapshot;
 }
 
 export function getMemoryFeedSnapshot() {
@@ -29,6 +60,7 @@ export function getMemoryFeedSnapshot() {
 
 export async function loadMemoryFeed(force = false) {
   resetForCurrentUser();
+  await hydrateMemoryFeed();
   if (!force && snapshot.items.length && Date.now() - snapshot.updatedAt < FRESH_FOR_MS) {
     return snapshot;
   }
@@ -37,6 +69,7 @@ export async function loadMemoryFeed(force = false) {
   firstPageRequest = api<MemoryPage>(`/api/memories?scope=feed&limit=${PAGE_SIZE}`)
     .then((page) => {
       snapshot = { ...page, updatedAt: Date.now() };
+      scheduleFeedWrite();
       return snapshot;
     })
     .finally(() => { firstPageRequest = null; });
@@ -58,6 +91,7 @@ export async function loadMoreMemories() {
         nextCursor: page.nextCursor,
         updatedAt: snapshot.updatedAt,
       };
+      scheduleFeedWrite();
       return snapshot;
     })
     .finally(() => { nextPageRequest = null; });
@@ -70,10 +104,24 @@ export function updateCachedMemory(memoryId: string, update: Partial<Memory>) {
     ...snapshot,
     items: snapshot.items.map((memory) => memory.id === memoryId ? { ...memory, ...update } : memory),
   };
+  scheduleFeedWrite();
   return snapshot;
 }
 
 export function invalidateMemoryFeed() {
   resetForCurrentUser();
   snapshot = { ...snapshot, updatedAt: 0 };
+  scheduleFeedWrite();
+}
+
+export async function clearMemoryFeedCache() {
+  resetForCurrentUser();
+  const token = ownerToken;
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+  snapshot = { items: [], nextCursor: null, updatedAt: 0 };
+  hydratedForToken = undefined;
+  await removePersistentCache(token, [MEMORY_CACHE_KEY]);
 }

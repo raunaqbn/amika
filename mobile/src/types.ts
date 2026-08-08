@@ -16,6 +16,10 @@ export type Friend = {
   memoriesCount?: number;
   notesCount?: number;
   howWeMet?: string | null;
+  birthday?: string | null;
+  notes?: string | null;
+  interests?: string | null;
+  lastContact?: string | null;
 };
 
 export type Memory = {

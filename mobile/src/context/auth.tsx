@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api, getToken, setToken } from '@/lib/api';
+import { api, getToken, hydrateApiCache, setToken } from '@/lib/api';
+import { clearMemoryFeedCache, hydrateMemoryFeed } from '@/lib/memory-feed';
 import type { User } from '@/types';
 
 type AuthContextValue = {
@@ -24,12 +25,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
+    await Promise.all([hydrateApiCache(), hydrateMemoryFeed()]);
     try {
       const result = await api<{ user: User | null }>('/api/auth/session');
       setUser(result.user);
-      if (!result.user) await setToken(null);
+      if (!result.user) {
+        await clearMemoryFeedCache();
+        await setToken(null);
+      }
     } catch {
       setUser(null);
+      await clearMemoryFeedCache();
       await setToken(null);
     } finally {
       setLoading(false);
@@ -56,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     try { await api('/api/auth/signout', { method: 'POST' }); } finally {
+      await clearMemoryFeedCache();
       await setToken(null);
       setUser(null);
     }

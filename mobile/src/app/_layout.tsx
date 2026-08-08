@@ -14,6 +14,7 @@ function Navigation() {
     <Stack.Protected guard={!!user}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="memory/[id]" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="friend/[id]" />
       <Stack.Screen name="conversation/[id]" />
       <Stack.Screen name="profile" />
     </Stack.Protected>
