@@ -2,7 +2,8 @@ import { after, NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
 import { sendPushNotification } from '@/lib/push-notifications';
-import { compactImageUrl, mediaImageUrl } from '@/lib/mobile-images';
+import { compactImageUrl, isMediaImageUrl, mediaImageUrl } from '@/lib/mobile-images';
+import { persistImage } from '@/lib/media-storage';
 
 function compactMemory(request: NextRequest, memory: any) {
   const { hasImage, ...memoryWithoutFlags } = memory;
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
         userId,
         friendId: primaryFriendId,
         content: content.trim(),
-        imageUrl: imageUrl || null,
+        imageUrl: await persistImage(imageUrl || null, { ownerId: userId, kind: 'memory' }),
         visibility,
         memoryDate: memoryDate ? new Date(memoryDate) : new Date(),
         sharedWithFriend: sharedWithFriend ?? visibility !== 'private',
@@ -147,7 +148,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(memory);
+    return NextResponse.json({
+      ...memory,
+      imageUrl: memory.imageUrl ? mediaImageUrl(request, 'memory', memory.id) : null,
+    });
   } catch (error) {
     console.error('Error creating memory:', error);
     return NextResponse.json({ error: 'Failed to create memory' }, { status: 500 });
@@ -169,11 +173,15 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update the memory
+    const storedImage = isMediaImageUrl(request, 'memory', id, imageUrl)
+      ? undefined
+      : await persistImage(imageUrl, { ownerId: userId, kind: 'memory' });
+
     const updatedMemory = await prisma.memory.update({
       where: { id, userId },
       data: {
         content,
-        imageUrl,
+        imageUrl: storedImage,
         visibility,
         memoryDate: memoryDate ? new Date(memoryDate) : undefined,
         sharedWithFriend: sharedWithFriend ?? (visibility ? visibility !== 'private' : undefined),
@@ -221,7 +229,10 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(updatedMemory);
+    return NextResponse.json({
+      ...updatedMemory,
+      imageUrl: updatedMemory.imageUrl ? mediaImageUrl(request, 'memory', updatedMemory.id) : null,
+    });
   } catch (error) {
     console.error('Error updating memory:', error);
     return NextResponse.json({ error: 'Failed to update memory' }, { status: 500 });

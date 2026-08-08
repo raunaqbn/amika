@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
+import { compactImageUrl, mediaImageUrl } from '@/lib/mobile-images';
+import { persistImage } from '@/lib/media-storage';
 
 // Get diary notes about an Amika friend
 export async function GET(
@@ -26,7 +28,10 @@ export async function GET(
       amikaFriendUserId: amikaFriendId,
     });
 
-    return NextResponse.json(notes);
+    return NextResponse.json(notes.map((note) => ({
+      ...note,
+      imageUrl: compactImageUrl(request, 'diary', note.id, note.imageUrl),
+    })));
   } catch (error) {
     console.error('Error fetching notes:', error);
     return NextResponse.json({ error: 'Failed to fetch notes' }, { status: 500 });
@@ -58,12 +63,15 @@ export async function POST(
         amikaFriendUserId: amikaFriendId,
         title: title || null,
         content,
-        imageUrl: imageUrl || null,
+        imageUrl: await persistImage(imageUrl || null, { ownerId: userId, kind: 'diary' }),
         sharedWithAmikaFriend: sharedWithAmikaFriend || false,
       },
     });
 
-    return NextResponse.json(note);
+    return NextResponse.json({
+      ...note,
+      imageUrl: note.imageUrl ? mediaImageUrl(request, 'diary', note.id) : null,
+    });
   } catch (error) {
     console.error('Error creating note:', error);
     const message = error instanceof Error ? error.message : 'Failed to create note';

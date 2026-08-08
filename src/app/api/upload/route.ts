@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserId } from '@/lib/auth';
+import { persistImageBytes } from '@/lib/media-storage';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// POST /api/upload - Upload an image (converts to base64 for Vercel compatibility)
+// POST /api/upload - Store an image in the project's private Vercel Blob store.
 export async function POST(request: NextRequest) {
   try {
     const userId = await getUserId();
@@ -41,15 +42,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert image to base64 data URL for storage
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const base64 = buffer.toString('base64');
-    const mimeType = file.type;
-    const dataUrl = `data:${mimeType};base64,${base64}`;
+    const reference = await persistImageBytes(Buffer.from(bytes), file.type, {
+      ownerId: userId,
+      kind: 'upload',
+    });
 
     return NextResponse.json(
-      { url: dataUrl },
+      { url: reference },
       { status: 201 }
     );
   } catch (error) {

@@ -2222,7 +2222,7 @@ export const prisma = {
 
 export async function getAuthorizedImage(
   viewerUserId: string,
-  type: 'memory' | 'user' | 'friend',
+  type: 'memory' | 'user' | 'friend' | 'diary',
   id: string,
 ): Promise<string | null> {
   await ensureTablesExist();
@@ -2252,6 +2252,24 @@ export async function getAuthorizedImage(
       args: [id, viewerUserId, viewerUserId, viewerUserId],
     });
     return result.rows.length ? (result.rows[0].profileImage as string | null) : null;
+  }
+
+  if (type === 'diary') {
+    const result = await client.execute({
+      sql: `SELECT dn.imageUrl
+            FROM diary_notes dn
+            WHERE dn.id = ? AND (
+              dn.userId = ? OR EXISTS (
+                SELECT 1 FROM shared_items si
+                WHERE si.itemType = 'note'
+                  AND si.itemId = dn.id
+                  AND si.sharedWithUserId = ?
+                  AND si.status != 'rejected'
+              )
+            )`,
+      args: [id, viewerUserId, viewerUserId],
+    });
+    return result.rows.length ? (result.rows[0].imageUrl as string | null) : null;
   }
 
   const result = await client.execute({

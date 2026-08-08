@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
+import { compactImageUrl, mediaImageUrl } from '@/lib/mobile-images';
+import { persistImage } from '@/lib/media-storage';
 
 // Get memories with an Amika friend
 export async function GET(
@@ -26,7 +28,10 @@ export async function GET(
       amikaFriendUserId: amikaFriendId,
     });
 
-    return NextResponse.json(memories);
+    return NextResponse.json(memories.map((memory) => ({
+      ...memory,
+      imageUrl: compactImageUrl(request, 'memory', memory.id, memory.imageUrl),
+    })));
   } catch (error) {
     console.error('Error fetching memories:', error);
     return NextResponse.json({ error: 'Failed to fetch memories' }, { status: 500 });
@@ -57,12 +62,15 @@ export async function POST(
         userId,
         amikaFriendUserId: amikaFriendId,
         content,
-        imageUrl: imageUrl || null,
+        imageUrl: await persistImage(imageUrl || null, { ownerId: userId, kind: 'memory' }),
         sharedWithAmikaFriend: sharedWithAmikaFriend || false,
       },
     });
 
-    return NextResponse.json(memory);
+    return NextResponse.json({
+      ...memory,
+      imageUrl: memory.imageUrl ? mediaImageUrl(request, 'memory', memory.id) : null,
+    });
   } catch (error) {
     console.error('Error creating memory:', error);
     const message = error instanceof Error ? error.message : 'Failed to create memory';

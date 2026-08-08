@@ -41,9 +41,12 @@ export async function GET(request: Request) {
       } : sharedItem.sharedWith,
       item: sharedItem.item ? {
         ...sharedItem.item,
-        imageUrl: sharedItem.itemType === 'memory'
-          ? compactImageUrl(request, 'memory', sharedItem.item.id, sharedItem.item.imageUrl)
-          : sharedItem.item.imageUrl,
+        imageUrl: compactImageUrl(
+          request,
+          sharedItem.itemType === 'memory' ? 'memory' : 'diary',
+          sharedItem.item.id,
+          sharedItem.item.imageUrl,
+        ),
       } : sharedItem.item,
     })));
   } catch (error) {

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFriendContextCounts, prisma } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
-import { compactImageUrl, mediaImageUrl } from '@/lib/mobile-images';
+import { compactImageUrl, isMediaImageUrl, mediaImageUrl } from '@/lib/mobile-images';
+import { persistImage } from '@/lib/media-storage';
 
 // Helper function to parse date strings from HTML date inputs
 function parseLocalDate(dateString: string | null | undefined): Date | null {
@@ -177,7 +178,12 @@ export async function PUT(request: NextRequest) {
           where: { id, userId },
           data: updateData,
         });
-        return NextResponse.json(friend);
+        const compactProfile = compactImageUrl(request, 'friend', friend.id, friend.customProfileImage || friend.profileImage);
+        return NextResponse.json({
+          ...friend,
+          profileImage: compactProfile,
+          customProfileImage: friend.customProfileImage ? compactProfile : null,
+        });
       }
     }
 
@@ -191,12 +197,25 @@ export async function PUT(request: NextRequest) {
         ...(notes !== undefined && { notes: notes || null }),
         ...(interests !== undefined && { interests: interests || null }),
         ...(lastContact !== undefined && { lastContact: parseLocalDate(lastContact) }),
-        ...(profileImage !== undefined && { profileImage }),
-        ...(customProfileImage !== undefined && { customProfileImage }),
+        ...(profileImage !== undefined && {
+          profileImage: isMediaImageUrl(request, 'friend', id, profileImage)
+            ? undefined
+            : await persistImage(profileImage, { ownerId: userId, kind: 'friend' }),
+        }),
+        ...(customProfileImage !== undefined && {
+          customProfileImage: isMediaImageUrl(request, 'friend', id, customProfileImage)
+            ? undefined
+            : await persistImage(customProfileImage, { ownerId: userId, kind: 'friend' }),
+        }),
       } as any,
     });
 
-    return NextResponse.json(friend);
+    const compactProfile = compactImageUrl(request, 'friend', friend.id, friend.customProfileImage || friend.profileImage);
+    return NextResponse.json({
+      ...friend,
+      profileImage: compactProfile,
+      customProfileImage: friend.customProfileImage ? compactProfile : null,
+    });
   } catch (error) {
     console.error('Error updating friend:', error);
     return NextResponse.json({ error: 'Failed to update friend' }, { status: 500 });

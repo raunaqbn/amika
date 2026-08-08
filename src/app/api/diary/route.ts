@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db';
 import { generateText } from 'ai';
 import { getModel } from '@/lib/ai';
 import { getUserId } from '@/lib/auth';
+import { compactImageUrl, isMediaImageUrl, mediaImageUrl } from '@/lib/mobile-images';
+import { persistImage } from '@/lib/media-storage';
 
 async function generateAnalysis(content: string): Promise<string | null> {
   try {
@@ -45,7 +47,10 @@ export async function GET(request: NextRequest) {
       ? Math.min(Math.floor(requestedLimit), 50)
       : undefined;
     const notes = await prisma.diaryNote.findMany({ userId, limit });
-    return NextResponse.json(notes);
+    return NextResponse.json(notes.map((note) => ({
+      ...note,
+      imageUrl: compactImageUrl(request, 'diary', note.id, note.imageUrl),
+    })));
   } catch (error) {
     console.error('Error fetching diary notes:', error);
     return NextResponse.json({ error: 'Failed to fetch diary notes' }, { status: 500 });
@@ -76,7 +81,7 @@ export async function POST(request: NextRequest) {
         title: title?.trim() || null,
         content,
         analysis,
-        imageUrl: imageUrl || null,
+        imageUrl: await persistImage(imageUrl || null, { ownerId: userId, kind: 'diary' }),
         friendIds: Array.isArray(friendIds)
           ? (friendIds.filter((id: string) => typeof id === 'string') as string[])
           : [],
@@ -115,7 +120,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(note);
+    return NextResponse.json({
+      ...note,
+      imageUrl: note.imageUrl ? mediaImageUrl(request, 'diary', note.id) : null,
+    });
   } catch (error) {
     console.error('Error creating diary note:', error);
     return NextResponse.json({ error: 'Failed to create diary note' }, { status: 500 });
@@ -151,13 +159,17 @@ export async function PUT(request: NextRequest) {
       analysis = await generateAnalysis(content);
     }
 
+    const storedImage = isMediaImageUrl(request, 'diary', id, imageUrl)
+      ? undefined
+      : await persistImage(imageUrl === undefined ? undefined : imageUrl || null, { ownerId: userId, kind: 'diary' });
+
     const note = await prisma.diaryNote.update({
       where: { id, userId },
       data: {
         title: title === undefined ? undefined : title?.trim() || null,
         content,
         analysis,
-        imageUrl: imageUrl === undefined ? undefined : imageUrl || null,
+        imageUrl: storedImage,
         friendIds: Array.isArray(friendIds)
           ? (friendIds.filter((fid: string) => typeof fid === 'string') as string[])
           : undefined,
@@ -195,7 +207,10 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(note);
+    return NextResponse.json({
+      ...note,
+      imageUrl: note.imageUrl ? mediaImageUrl(request, 'diary', note.id) : null,
+    });
   } catch (error) {
     console.error('Error updating diary note:', error);
     return NextResponse.json({ error: 'Failed to update diary note' }, { status: 500 });

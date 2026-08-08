@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/db';
 import { getSessionCookieName } from '@/lib/auth';
+import { compactImageUrl } from '@/lib/mobile-images';
 
 // This endpoint creates the default user and migrates existing data
 export async function POST(request: NextRequest) {
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
         email: user.email,
         name: user.name,
         birthday: user.birthday,
-        profileImage: user.profileImage,
+        profileImage: compactImageUrl(request, 'user', user.id, user.profileImage),
         createdAt: user.createdAt,
       },
       migrated: migrateData ?? false,

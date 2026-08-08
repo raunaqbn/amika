@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
+import { compactImageUrl } from '@/lib/mobile-images';
 
 // Get Amika friend profile
 export async function GET(
@@ -32,7 +33,7 @@ export async function GET(
       id: friend.id,
       name: friend.name,
       email: friend.email,
-      profileImage: friend.profileImage,
+      profileImage: compactImageUrl(request, 'user', friend.id, friend.profileImage),
       birthday: friend.birthday,
     });
   } catch (error) {

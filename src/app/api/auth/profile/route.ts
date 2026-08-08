@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { compactImageUrl } from '@/lib/mobile-images';
+import { compactImageUrl, isMediaImageUrl } from '@/lib/mobile-images';
+import { persistImage } from '@/lib/media-storage';
 
 export async function PUT(request: NextRequest) {
   try {
@@ -38,7 +39,11 @@ export async function PUT(request: NextRequest) {
     const updatedUser = await prisma.user.update(session.user.id, {
       ...(name !== undefined && { name }),
       ...(birthdayDate !== undefined && { birthday: birthdayDate }),
-      ...(profileImage !== undefined && { profileImage }),
+      ...(profileImage !== undefined && {
+        profileImage: isMediaImageUrl(request, 'user', session.user.id, profileImage)
+          ? undefined
+          : await persistImage(profileImage, { ownerId: session.user.id, kind: 'profile' }),
+      }),
       ...(phone !== undefined && { phone }),
       ...(location !== undefined && { location }),
       ...(interestsJson !== undefined && { interests: interestsJson }),
