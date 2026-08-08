@@ -3,7 +3,7 @@
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Camera, Eye, EyeOff, Globe2, Heart, LoaderCircle, LockKeyhole, MessageCircle, Users } from 'lucide-react';
+import { Camera, Eye, EyeOff, Globe2, Heart, LoaderCircle, LockKeyhole, MessageCircle, UserRound, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 
 export function LandingPage() {
@@ -55,7 +55,7 @@ export function LandingPage() {
               <span><span>Jules</span><span>Sam</span></span>
             </div>
             <div className="landing-daily-drop__actions">
-              <span><Users aria-hidden="true" /> Friends only</span>
+              <span><UserRound aria-hidden="true" /> Shared with Jules</span>
               <button type="button" tabIndex={-1}><Camera aria-hidden="true" /> Add memory</button>
             </div>
           </section>
@@ -68,7 +68,7 @@ export function LandingPage() {
 
         <footer>
           <span><LockKeyhole aria-hidden="true" /> Private when you want it</span>
-          <span><Users aria-hidden="true" /> Close-friends by default</span>
+          <span><Users aria-hidden="true" /> Only people you choose</span>
           <span><Globe2 aria-hidden="true" /> Public only by choice</span>
         </footer>
       </main>

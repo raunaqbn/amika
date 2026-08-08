@@ -58,7 +58,7 @@ export default function MemoriesPage() {
           <div className="archive-filters" aria-label="Filter memories">
             {(['all', 'private', 'friends', 'public'] as Filter[]).map((item) => (
               <button key={item} type="button" className={filter === item ? 'is-active' : ''} onClick={() => setFilter(item)}>
-                {item === 'all' ? 'All memories' : item === 'friends' ? 'Friends only' : item[0].toUpperCase() + item.slice(1)}
+                {item === 'all' ? 'All memories' : item === 'friends' ? 'Shared memories' : item[0].toUpperCase() + item.slice(1)}
               </button>
             ))}
           </div>

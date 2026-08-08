@@ -17,6 +17,8 @@ import {
   Send,
   Sparkles,
   Trash2,
+  UserRound,
+  UserPlus,
   Users,
   X,
 } from 'lucide-react';
@@ -54,6 +56,7 @@ export type FeedMemory = {
   isOwn: boolean;
   author: { id: string; name: string; profileImage: string | null };
   friend: { id: string; name: string; profileImage: string | null } | null;
+  audienceCount: number;
 };
 
 type Comment = {
@@ -67,7 +70,7 @@ const HOME_FEED_LIMIT = 8;
 
 const VISIBILITY: Record<Visibility, { label: string; icon: typeof LockKeyhole }> = {
   private: { label: 'Only me', icon: LockKeyhole },
-  friends: { label: 'Friends only', icon: Users },
+  friends: { label: 'Selected friends only', icon: UserRound },
   public: { label: 'Public', icon: Globe2 },
 };
 
@@ -162,7 +165,13 @@ export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory
   const [deleting, setDeleting] = useState(false);
   const [imageOpen, setImageOpen] = useState(false);
   const visibility = VISIBILITY[memory.visibility] || VISIBILITY.private;
-  const VisibilityIcon = visibility.icon;
+  const hasMultipleRecipients = memory.visibility === 'friends' && memory.audienceCount > 1;
+  const VisibilityIcon = hasMultipleRecipients ? Users : visibility.icon;
+  const visibilityLabel = hasMultipleRecipients
+    ? `Shared with ${memory.audienceCount} friends`
+    : memory.visibility === 'friends' && memory.friend
+      ? `Shared with ${memory.friend.name}`
+      : visibility.label;
 
   const toggleComments = async () => {
     const next = !commentsOpen;
@@ -222,7 +231,7 @@ export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory
             <span>
               {formatDistanceToNow(new Date(memory.createdAt), { addSuffix: true })}
               <span aria-hidden="true"> · </span>
-              <VisibilityIcon size={12} aria-hidden="true" /> {visibility.label}
+              <VisibilityIcon size={12} aria-hidden="true" /> {visibilityLabel}
             </span>
           </div>
         </Link>
@@ -342,6 +351,8 @@ export function Dashboard() {
   const [error, setError] = useState('');
   const [caption, setCaption] = useState('');
   const [friendId, setFriendId] = useState('');
+  const [additionalFriendIds, setAdditionalFriendIds] = useState<string[]>([]);
+  const [audienceExpanded, setAudienceExpanded] = useState(false);
   const [visibility, setVisibility] = useState<Visibility>('friends');
   const [memoryDate, setMemoryDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -399,6 +410,29 @@ export function Dashboard() {
     return memories.find((memory) => isSameDay(new Date(memory.memoryDate), previousYear))
       || memories.find((memory) => new Date(memory.memoryDate).getFullYear() < new Date().getFullYear());
   }, [memories]);
+  const selectedFriend = useMemo(
+    () => friends.find((friend) => friend.id === friendId),
+    [friendId, friends],
+  );
+  const connectedFriends = useMemo(
+    () => friends.filter((friend) => Boolean(friend.linkedUserId)),
+    [friends],
+  );
+  const directFriendIds = useMemo(
+    () => [...new Set([friendId, ...additionalFriendIds])].filter((id) => connectedFriends.some((friend) => friend.id === id)),
+    [additionalFriendIds, connectedFriends, friendId],
+  );
+  const audienceLabel = visibility === 'friends' && directFriendIds.length > 1
+    ? `Shared with ${directFriendIds.length} friends`
+    : visibility === 'friends' && selectedFriend
+      ? `Shared with ${selectedFriend.name}`
+      : VISIBILITY[visibility].label;
+
+  useEffect(() => {
+    if (friendId && visibility === 'friends' && selectedFriend && !selectedFriend.linkedUserId) {
+      setVisibility('private');
+    }
+  }, [friendId, selectedFriend, visibility]);
 
   const onImageSelect = (file?: File) => {
     if (!file) return;
@@ -444,15 +478,21 @@ export function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           friendId,
+          friendIds: visibility === 'friends' ? directFriendIds : [friendId],
           content: caption.trim(),
           imageUrl,
           visibility,
           memoryDate,
         }),
       });
-      if (!response.ok) throw new Error('Your memory was not saved. Please try again.');
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || 'Your memory was not saved. Please try again.');
+      }
 
       setCaption('');
+      setAdditionalFriendIds([]);
+      setAudienceExpanded(false);
       setSelectedImage(null);
       if (imagePreview) URL.revokeObjectURL(imagePreview);
       setImagePreview(null);
@@ -491,8 +531,8 @@ export function Dashboard() {
               <h1>Today&apos;s memory</h1>
             </div>
             <span className="memory-composer__privacy">
-              {visibility === 'private' ? <LockKeyhole aria-hidden="true" /> : visibility === 'public' ? <Globe2 aria-hidden="true" /> : <Users aria-hidden="true" />}
-              {VISIBILITY[visibility].label}
+              {visibility === 'private' ? <LockKeyhole aria-hidden="true" /> : visibility === 'public' ? <Globe2 aria-hidden="true" /> : <UserRound aria-hidden="true" />}
+              {audienceLabel}
             </span>
           </div>
 
@@ -552,7 +592,18 @@ export function Dashboard() {
             <label>
               <Users aria-hidden="true" />
               <span className="sr-only">Friend in this memory</span>
-              <select value={friendId} onChange={(event) => setFriendId(event.target.value)}>
+              <select
+                value={friendId}
+                onChange={(event) => {
+                  const nextFriendId = event.target.value;
+                  setFriendId(nextFriendId);
+                  setAdditionalFriendIds([]);
+                  setAudienceExpanded(false);
+                  if (visibility === 'friends' && !friends.find((friend) => friend.id === nextFriendId)?.linkedUserId) {
+                    setVisibility('private');
+                  }
+                }}
+              >
                 <option value="">Tag a friend</option>
                 {friends.map((friend) => <option value={friend.id} key={friend.id}>{friend.name}</option>)}
               </select>
@@ -563,11 +614,13 @@ export function Dashboard() {
               <input type="date" value={memoryDate} onChange={(event) => setMemoryDate(event.target.value)} />
             </label>
             <label>
-              {visibility === 'private' ? <LockKeyhole aria-hidden="true" /> : visibility === 'public' ? <Globe2 aria-hidden="true" /> : <Users aria-hidden="true" />}
+              {visibility === 'private' ? <LockKeyhole aria-hidden="true" /> : visibility === 'public' ? <Globe2 aria-hidden="true" /> : <UserRound aria-hidden="true" />}
               <span className="sr-only">Who can see this memory</span>
               <select value={visibility} onChange={(event) => setVisibility(event.target.value as Visibility)}>
                 <option value="private">Only me</option>
-                <option value="friends">Friends only</option>
+                <option value="friends" disabled={!selectedFriend?.linkedUserId}>
+                  {directFriendIds.length > 1 ? `${directFriendIds.length} selected friends` : 'Tagged Amika friend only'}
+                </option>
                 <option value="public">Public</option>
               </select>
             </label>
@@ -576,6 +629,48 @@ export function Dashboard() {
               {saving ? 'Saving…' : 'Add memory'}
             </button>
           </div>
+          {visibility === 'friends' && selectedFriend?.linkedUserId && connectedFriends.length > 1 && (
+            <div className="memory-composer__audience-tools">
+              <button
+                type="button"
+                className="memory-composer__audience-toggle"
+                onClick={() => setAudienceExpanded((current) => !current)}
+                aria-expanded={audienceExpanded}
+                aria-controls="memory-extra-audience"
+              >
+                {directFriendIds.length > 1 ? <Users aria-hidden="true" /> : <UserPlus aria-hidden="true" />}
+                {directFriendIds.length > 1 ? `Sharing with ${directFriendIds.length} friends` : 'Share with more friends'}
+              </button>
+              {audienceExpanded && (
+                <fieldset id="memory-extra-audience" className="memory-composer__audience-picker">
+                  <legend>Who else can see this memory?</legend>
+                  <p>Your tagged friend stays selected. You can share with up to 10 people.</p>
+                  <div>
+                    {connectedFriends.map((friend) => {
+                      const isPrimary = friend.id === friendId;
+                      const isSelected = isPrimary || additionalFriendIds.includes(friend.id);
+                      const atLimit = !isSelected && directFriendIds.length >= 10;
+                      return (
+                        <label key={friend.id} className={isSelected ? 'is-selected' : ''}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={isPrimary || atLimit}
+                            onChange={() => setAdditionalFriendIds((current) => current.includes(friend.id)
+                              ? current.filter((id) => id !== friend.id)
+                              : [...current, friend.id])}
+                          />
+                          <Avatar name={friend.name} src={friend.customProfileImage || friend.profileImage} size="sm" />
+                          <span>{friend.name}</span>
+                          {isPrimary && <small>Tagged</small>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              )}
+            </div>
+          )}
           {error && <p className="memory-composer__error" role="alert">{error}</p>}
         </form>
       </header>

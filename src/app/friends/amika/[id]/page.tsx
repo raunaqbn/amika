@@ -73,7 +73,7 @@ export default function AmikaFriendProfilePage() {
             <div className="friend-profile-grid">{memories.map((memory, index) => <MemoryCard key={memory.id} memory={memory} featured={index === 0} onRefresh={loadProfile} />)}</div>
           )}
         </section>
-        <aside className="friend-profile-amika-note"><Users aria-hidden="true" /><strong>Connected on Amika</strong><p>You can message each other and share friends-only memories directly.</p></aside>
+        <aside className="friend-profile-amika-note"><Users aria-hidden="true" /><strong>Connected on Amika</strong><p>You can message each other and share memories directly with one another.</p></aside>
       </main>
     </div>
   );

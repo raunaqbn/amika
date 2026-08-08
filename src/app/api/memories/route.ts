@@ -5,6 +5,33 @@ import { sendPushNotification } from '@/lib/push-notifications';
 import { compactImageUrl, isMediaImageUrl, mediaImageUrl } from '@/lib/mobile-images';
 import { persistImage } from '@/lib/media-storage';
 
+type MemoryVisibility = 'private' | 'friends' | 'public';
+const MAX_DIRECT_AUDIENCE = 10;
+
+function isMemoryVisibility(value: unknown): value is MemoryVisibility {
+  return value === 'private' || value === 'friends' || value === 'public';
+}
+
+function normalizeFriendIds(friendId: unknown, friendIds: unknown): string[] | null {
+  if (friendId !== undefined && friendId !== null && typeof friendId !== 'string') return null;
+  if (friendIds !== undefined && !Array.isArray(friendIds)) return null;
+  const values = [
+    ...(typeof friendId === 'string' && friendId ? [friendId] : []),
+    ...(Array.isArray(friendIds) ? friendIds : []),
+  ];
+  if (values.some((value) => typeof value !== 'string' || !value)) return null;
+  return [...new Set(values as string[])];
+}
+
+async function findConnectedAudienceFriends(userId: string, friendIds: string[]) {
+  if (!friendIds.length) return null;
+  const friends = await prisma.friend.findMany({ userId });
+  const audience = friendIds.map((friendId) => friends.find((item: { id: string }) => item.id === friendId));
+  if (audience.some((friend) => !friend?.linkedUserId)) return null;
+  const connected = await Promise.all(audience.map((friend) => prisma.userConnection.areConnected(userId, friend!.linkedUserId!)));
+  return connected.every(Boolean) ? audience as Array<NonNullable<(typeof audience)[number]>> : null;
+}
+
 function compactMemory(request: NextRequest, memory: any) {
   const { hasImage, ...memoryWithoutFlags } = memory;
   const { hasProfileImage: authorHasImage, ...author } = memory.author || {};
@@ -80,10 +107,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { friendId, friendIds, content, imageUrl, visibility = 'friends', memoryDate, sharedWithFriend } = body;
-
-    // Support both single friendId and multiple friendIds (use first one as primary)
-    const primaryFriendId = friendId || (Array.isArray(friendIds) && friendIds[0]) || null;
+    const { friendId, friendIds, content, imageUrl, visibility = 'friends', memoryDate } = body;
+    const requestedFriendIds = normalizeFriendIds(friendId, friendIds);
+    if (!requestedFriendIds) {
+      return NextResponse.json({ error: 'Choose a valid friend audience.' }, { status: 400 });
+    }
+    if (requestedFriendIds.length > MAX_DIRECT_AUDIENCE) {
+      return NextResponse.json({ error: `Share with up to ${MAX_DIRECT_AUDIENCE} friends at a time.` }, { status: 400 });
+    }
+    const primaryFriendId = requestedFriendIds[0] ?? null;
 
     if (!content?.trim()) {
       return NextResponse.json(
@@ -91,6 +123,22 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    if (!isMemoryVisibility(visibility)) {
+      return NextResponse.json({ error: 'Choose a valid audience.' }, { status: 400 });
+    }
+
+    const directAudience = visibility === 'friends'
+      ? await findConnectedAudienceFriends(userId, requestedFriendIds)
+      : null;
+    if (visibility === 'friends' && !directAudience) {
+      return NextResponse.json(
+        { error: 'Choose one or more Amika friends to share this memory with, or select Only me.' },
+        { status: 400 },
+      );
+    }
+
+    const shareWithTaggedFriend = visibility !== 'private';
 
     const memory = await prisma.memory.create({
       data: {
@@ -100,16 +148,15 @@ export async function POST(request: NextRequest) {
         imageUrl: await persistImage(imageUrl || null, { ownerId: userId, kind: 'memory' }),
         visibility,
         memoryDate: memoryDate ? new Date(memoryDate) : new Date(),
-        sharedWithFriend: sharedWithFriend ?? visibility !== 'private',
+        sharedWithFriend: shareWithTaggedFriend,
       },
     });
 
-    // If sharing is enabled, auto-create SharedItem for Amika friends
-    if ((sharedWithFriend ?? visibility !== 'private')) {
+    // If sharing is enabled, create one recipient record per selected Amika friend.
+    if (shareWithTaggedFriend) {
       try {
-        // Get all friends to check which ones have linkedUserId (are Amika users)
         const friends = await prisma.friend.findMany({ userId });
-        const allFriendIds = (Array.isArray(friendIds) ? friendIds : [primaryFriendId]).filter((id): id is string => typeof id === 'string' && id.length > 0);
+        const allFriendIds = requestedFriendIds;
 
         for (const fId of allFriendIds) {
           const friend = friends.find((f: { id: string }) => f.id === fId);
@@ -150,6 +197,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ...memory,
+      audienceCount: visibility === 'friends' ? requestedFriendIds.length : 0,
       imageUrl: memory.imageUrl ? mediaImageUrl(request, 'memory', memory.id) : null,
     });
   } catch (error) {
@@ -166,11 +214,45 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, content, imageUrl, friendId, friendIds, visibility, memoryDate, sharedWithFriend } = body;
+    const { id, content, imageUrl, friendId, friendIds, visibility, memoryDate } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Memory ID required' }, { status: 400 });
     }
+
+    if (visibility !== undefined && !isMemoryVisibility(visibility)) {
+      return NextResponse.json({ error: 'Choose a valid audience.' }, { status: 400 });
+    }
+
+    const existingMemory = (await prisma.memory.findMany({ userId })).find((memory) => memory.id === id);
+    if (!existingMemory) {
+      return NextResponse.json({ error: 'Memory not found.' }, { status: 404 });
+    }
+
+    const hasFriendSelection = friendId !== undefined || friendIds !== undefined;
+    const requestedFriendIds = hasFriendSelection ? normalizeFriendIds(friendId, friendIds) : null;
+    if (hasFriendSelection && !requestedFriendIds) {
+      return NextResponse.json({ error: 'Choose a valid friend audience.' }, { status: 400 });
+    }
+    if ((requestedFriendIds?.length || 0) > MAX_DIRECT_AUDIENCE) {
+      return NextResponse.json({ error: `Share with up to ${MAX_DIRECT_AUDIENCE} friends at a time.` }, { status: 400 });
+    }
+    const requestedFriendId = hasFriendSelection ? requestedFriendIds?.[0] ?? null : undefined;
+    const effectiveVisibility = visibility ?? existingMemory.visibility;
+    const effectiveAudienceFriendIds = effectiveVisibility === 'friends'
+      ? requestedFriendIds ?? [existingMemory.friendId].filter((candidate): candidate is string => Boolean(candidate))
+      : [];
+    const audienceFriends = effectiveVisibility === 'friends'
+      ? await findConnectedAudienceFriends(userId, effectiveAudienceFriendIds)
+      : [];
+    if (effectiveVisibility === 'friends' && !audienceFriends) {
+      return NextResponse.json(
+        { error: 'Choose one or more Amika friends to share this memory with, or select Only me.' },
+        { status: 400 },
+      );
+    }
+
+    const shareWithTaggedFriend = visibility === undefined ? undefined : visibility !== 'private';
 
     // Update the memory
     const storedImage = isMediaImageUrl(request, 'memory', id, imageUrl)
@@ -180,19 +262,31 @@ export async function PUT(request: NextRequest) {
     const updatedMemory = await prisma.memory.update({
       where: { id, userId },
       data: {
+        friendId: hasFriendSelection ? requestedFriendId ?? null : undefined,
         content,
         imageUrl: storedImage,
         visibility,
         memoryDate: memoryDate ? new Date(memoryDate) : undefined,
-        sharedWithFriend: sharedWithFriend ?? (visibility ? visibility !== 'private' : undefined),
+        sharedWithFriend: shareWithTaggedFriend,
       },
     });
 
+    const shouldSyncAudience = visibility !== undefined || hasFriendSelection;
+    if (effectiveVisibility !== 'public' && shouldSyncAudience) {
+      await prisma.sharedItem.restrictMemoryAudience({
+        sharedByUserId: userId,
+        itemId: id,
+        sharedWithUserIds: audienceFriends?.map((friend) => friend.linkedUserId!) ?? [],
+      });
+    }
+
     // Handle sharing with Amika friends if sharing is enabled
-    if (sharedWithFriend || visibility === 'friends' || visibility === 'public') {
+    if ((visibility === 'friends' || visibility === 'public') || (effectiveVisibility === 'friends' && hasFriendSelection)) {
       try {
         const friends = await prisma.friend.findMany({ userId });
-        const allFriendIds = friendIds || (friendId ? [friendId] : [updatedMemory.friendId].filter(Boolean));
+        const allFriendIds = effectiveVisibility === 'friends'
+          ? effectiveAudienceFriendIds
+          : requestedFriendIds ?? [updatedMemory.friendId].filter((candidate): candidate is string => Boolean(candidate));
 
         for (const fId of allFriendIds) {
           const friend = friends.find((f: { id: string }) => f.id === fId);
@@ -219,8 +313,9 @@ export async function PUT(request: NextRequest) {
                 }
               });
             } catch (shareError) {
-              // Ignore duplicate share errors
-              console.error('Error sharing memory:', shareError);
+              if (!(shareError instanceof Error && shareError.message === 'Item already shared with this user')) {
+                console.error('Error sharing memory:', shareError);
+              }
             }
           }
         }
@@ -231,6 +326,9 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({
       ...updatedMemory,
+      audienceCount: effectiveVisibility === 'friends'
+        ? (shouldSyncAudience ? effectiveAudienceFriendIds.length : existingMemory.audienceCount)
+        : 0,
       imageUrl: updatedMemory.imageUrl ? mediaImageUrl(request, 'memory', updatedMemory.id) : null,
     });
   } catch (error) {

@@ -52,6 +52,7 @@ type Memory = {
   visibility: 'private' | 'friends' | 'public';
   memoryDate: Date;
   sharedWithFriend: boolean; // Whether to share with linked Amika friend
+  audienceCount: number;
   createdAt: Date;
 };
 
@@ -70,6 +71,61 @@ type MemoryComment = {
   content: string;
   createdAt: Date;
 };
+
+const MEMORY_VISIBILITY_SQL = `COALESCE(m.visibility, CASE WHEN m.sharedWithFriend = 1 THEN 'friends' ELSE 'private' END)`;
+const SHARED_MEMORY_CAN_VIEW_SQL = `EXISTS (
+  SELECT 1
+  FROM shared_items si
+  JOIN user_connections uc
+    ON uc.status = 'accepted'
+   AND (
+     (uc.requesterId = m.userId AND uc.addresseeId = si.sharedWithUserId)
+     OR (uc.addresseeId = m.userId AND uc.requesterId = si.sharedWithUserId)
+   )
+  WHERE si.itemType = 'memory'
+    AND si.itemId = m.id
+    AND si.sharedByUserId = m.userId
+    AND si.sharedWithUserId = ?
+    AND si.status != 'rejected'
+)`;
+const LEGACY_TAGGED_FRIEND_CAN_VIEW_SQL = `EXISTS (
+  SELECT 1
+  FROM friends audience
+  JOIN user_connections uc
+    ON uc.status = 'accepted'
+   AND (
+     (uc.requesterId = m.userId AND uc.addresseeId = audience.linkedUserId)
+     OR (uc.addresseeId = m.userId AND uc.requesterId = audience.linkedUserId)
+   )
+  WHERE audience.id = m.friendId
+    AND audience.userId = m.userId
+    AND audience.linkedUserId = ?
+)`;
+const DIRECT_AUDIENCE_CAN_VIEW_SQL = `
+  ${MEMORY_VISIBILITY_SQL} = 'friends'
+  AND (${SHARED_MEMORY_CAN_VIEW_SQL} OR ${LEGACY_TAGGED_FRIEND_CAN_VIEW_SQL})`;
+const MEMORY_AUDIENCE_COUNT_SQL = `CASE
+  WHEN ${MEMORY_VISIBILITY_SQL} != 'friends' THEN 0
+  WHEN (SELECT COUNT(DISTINCT si.sharedWithUserId)
+        FROM shared_items si
+        WHERE si.itemType = 'memory'
+          AND si.itemId = m.id
+          AND si.sharedByUserId = m.userId
+          AND si.status != 'rejected') > 0
+    THEN (SELECT COUNT(DISTINCT si.sharedWithUserId)
+          FROM shared_items si
+          WHERE si.itemType = 'memory'
+            AND si.itemId = m.id
+            AND si.sharedByUserId = m.userId
+            AND si.status != 'rejected')
+  WHEN m.friendId IS NOT NULL THEN 1
+  ELSE 0
+END`;
+const MEMORY_VIEWER_CAN_ACCESS_SQL = `(
+  m.userId = ?
+  OR ${MEMORY_VISIBILITY_SQL} = 'public'
+  OR (${DIRECT_AUDIENCE_CAN_VIEW_SQL})
+)`;
 
 type DiaryNote = {
   id: string;
@@ -903,10 +959,10 @@ export const prisma = {
       }));
 
       if (args?.include?.memories) {
-        let memorySql = 'SELECT * FROM memories';
+        let memorySql = `SELECT m.*, ${MEMORY_AUDIENCE_COUNT_SQL} AS audienceCount FROM memories m`;
         let memoryArgs: any[] = [];
         if (args?.userId) {
-          memorySql += ' WHERE userId = ?';
+          memorySql += ' WHERE m.userId = ?';
           memoryArgs = [args.userId];
         }
         memorySql += ' ORDER BY createdAt DESC';
@@ -921,6 +977,7 @@ export const prisma = {
           visibility: (row.visibility as Memory['visibility']) || (Boolean(row.sharedWithFriend) ? 'friends' : 'private'),
           memoryDate: new Date((row.memoryDate as string) || (row.createdAt as string)),
           sharedWithFriend: Boolean(row.sharedWithFriend),
+          audienceCount: Number(row.audienceCount || 0),
           createdAt: new Date(row.createdAt as string),
         }));
 
@@ -1070,10 +1127,10 @@ export const prisma = {
       await ensureTablesExist();
       const client = getClient();
 
-      let sql = 'SELECT * FROM memories';
+      let sql = `SELECT m.*, ${MEMORY_AUDIENCE_COUNT_SQL} AS audienceCount FROM memories m`;
       let sqlArgs: any[] = [];
       if (args?.userId) {
-        sql += ' WHERE userId = ?';
+        sql += ' WHERE m.userId = ?';
         sqlArgs = [args.userId];
       }
       sql += ' ORDER BY createdAt DESC';
@@ -1108,6 +1165,7 @@ export const prisma = {
         visibility: (row.visibility as Memory['visibility']) || (Boolean(row.sharedWithFriend) ? 'friends' : 'private'),
         memoryDate: new Date((row.memoryDate as string) || (row.createdAt as string)),
         sharedWithFriend: Boolean(row.sharedWithFriend),
+        audienceCount: Number(row.audienceCount || 0),
         createdAt: new Date(row.createdAt as string),
         friend: row.friendId ? friendMap.get(row.friendId as string) || null : null,
       }));
@@ -1121,7 +1179,7 @@ export const prisma = {
       await ensureTablesExist();
       const client = getClient();
 
-      const visibilitySql = `COALESCE(m.visibility, CASE WHEN m.sharedWithFriend = 1 THEN 'friends' ELSE 'private' END)`;
+      const visibilitySql = MEMORY_VISIBILITY_SQL;
       const dateSql = 'COALESCE(m.memoryDate, m.createdAt)';
       const cursorSql = cursor
         ? ` AND (${dateSql} < ? OR (${dateSql} = ? AND m.id < ?))`
@@ -1134,6 +1192,7 @@ export const prisma = {
                            (u.profileImage IS NOT NULL AND u.profileImage != '') AS authorHasImage,
                            f.name AS friendName,
                            (f.profileImage IS NOT NULL AND f.profileImage != '') AS friendHasImage,
+                           ${MEMORY_AUDIENCE_COUNT_SQL} AS audienceCount,
                            (SELECT COUNT(*) FROM memory_reactions mr WHERE mr.memoryId = m.id) AS reactionCount,
                            (SELECT COUNT(*) FROM memory_comments mc WHERE mc.memoryId = m.id) AS commentCount,
                            EXISTS(SELECT 1 FROM memory_reactions mine WHERE mine.memoryId = m.id AND mine.userId = ?) AS reactedByMe`;
@@ -1151,19 +1210,20 @@ export const prisma = {
            LEFT JOIN friends f ON f.id = m.friendId
            WHERE m.userId = ?
               OR (
-                ${visibilitySql} IN ('friends', 'public')
+                ${visibilitySql} = 'public'
                 AND m.userId IN (
                   SELECT CASE WHEN requesterId = ? THEN addresseeId ELSE requesterId END
                   FROM user_connections
                   WHERE status = 'accepted' AND (requesterId = ? OR addresseeId = ?)
                 )
               )
+              OR (${DIRECT_AUDIENCE_CAN_VIEW_SQL})
              ${cursorSql}
            ORDER BY ${dateSql} DESC, m.id DESC${limitSql}`;
 
       const args: Array<string | number> = scope === 'public'
         ? [userId]
-        : [userId, userId, userId, userId, userId];
+        : [userId, userId, userId, userId, userId, userId, userId];
       if (cursor) args.push(cursor.date, cursor.date, cursor.id);
       if (limit) args.push(limit);
       const result = await client.execute({ sql, args });
@@ -1178,6 +1238,7 @@ export const prisma = {
         visibility: (row.visibility as Memory['visibility']) || (Boolean(row.sharedWithFriend) ? 'friends' : 'private'),
         memoryDate: new Date((row.memoryDate as string) || (row.createdAt as string)),
         sharedWithFriend: Boolean(row.sharedWithFriend),
+        audienceCount: Number(row.audienceCount || 0),
         createdAt: new Date(row.createdAt as string),
         author: {
           id: row.userId as string,
@@ -1203,7 +1264,10 @@ export const prisma = {
       const client = getClient();
 
       const memoriesResult = await client.execute({
-        sql: 'SELECT * FROM memories WHERE userId = ? AND friendId = ? ORDER BY createdAt DESC',
+        sql: `SELECT m.*, ${MEMORY_AUDIENCE_COUNT_SQL} AS audienceCount
+              FROM memories m
+              WHERE m.userId = ? AND m.friendId = ?
+              ORDER BY m.createdAt DESC`,
         args: [args.userId, args.friendId],
       });
 
@@ -1216,6 +1280,7 @@ export const prisma = {
         visibility: (row.visibility as Memory['visibility']) || (Boolean(row.sharedWithFriend) ? 'friends' : 'private'),
         memoryDate: new Date((row.memoryDate as string) || (row.createdAt as string)),
         sharedWithFriend: Boolean(row.sharedWithFriend),
+        audienceCount: Number(row.audienceCount || 0),
         createdAt: new Date(row.createdAt as string),
       }));
     },
@@ -1263,6 +1328,7 @@ export const prisma = {
         visibility: data.visibility ?? (data.sharedWithFriend ? 'friends' : 'private'),
         memoryDate: data.memoryDate ?? new Date(),
         sharedWithFriend: data.sharedWithFriend ?? (data.visibility === 'friends' || data.visibility === 'public'),
+        audienceCount: data.visibility === 'friends' && data.friendId ? 1 : 0,
         createdAt: new Date(),
       };
 
@@ -1331,7 +1397,7 @@ export const prisma = {
 
       return { success: true };
     },
-    update: async ({ where, data }: { where: { id: string; userId?: string }; data: { content?: string; imageUrl?: string | null; visibility?: Memory['visibility']; memoryDate?: Date; sharedWithFriend?: boolean } }) => {
+    update: async ({ where, data }: { where: { id: string; userId?: string }; data: { friendId?: string | null; content?: string; imageUrl?: string | null; visibility?: Memory['visibility']; memoryDate?: Date; sharedWithFriend?: boolean } }) => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -1352,18 +1418,19 @@ export const prisma = {
       const updated: Memory = {
         id: existing.id as string,
         userId: existing.userId as string,
-        friendId: existing.friendId as string | null,
+        friendId: data.friendId !== undefined ? data.friendId : existing.friendId as string | null,
         content: data.content !== undefined ? data.content : existing.content as string,
         imageUrl: data.imageUrl !== undefined ? data.imageUrl : existing.imageUrl as string | null,
         visibility: data.visibility ?? ((existing.visibility as Memory['visibility']) || (Boolean(existing.sharedWithFriend) ? 'friends' : 'private')),
         memoryDate: data.memoryDate ?? new Date((existing.memoryDate as string) || (existing.createdAt as string)),
         sharedWithFriend: data.sharedWithFriend !== undefined ? data.sharedWithFriend : Boolean(existing.sharedWithFriend),
+        audienceCount: Number(existing.audienceCount || (existing.friendId ? 1 : 0)),
         createdAt: new Date(existing.createdAt as string),
       };
 
       await client.execute({
-        sql: 'UPDATE memories SET content = ?, imageUrl = ?, visibility = ?, memoryDate = ?, sharedWithFriend = ? WHERE id = ?',
-        args: [updated.content, updated.imageUrl, updated.visibility, updated.memoryDate.toISOString(), updated.sharedWithFriend ? 1 : 0, where.id],
+        sql: 'UPDATE memories SET friendId = ?, content = ?, imageUrl = ?, visibility = ?, memoryDate = ?, sharedWithFriend = ? WHERE id = ?',
+        args: [updated.friendId, updated.content, updated.imageUrl, updated.visibility, updated.memoryDate.toISOString(), updated.sharedWithFriend ? 1 : 0, where.id],
       });
 
       return updated;
@@ -1386,6 +1453,11 @@ export const prisma = {
       }
 
       await client.execute({
+        sql: "DELETE FROM shared_items WHERE itemType = 'memory' AND itemId = ?",
+        args: [where.id],
+      });
+
+      await client.execute({
         sql: 'DELETE FROM memories WHERE id = ?',
         args: [where.id],
       });
@@ -1398,7 +1470,7 @@ export const prisma = {
       await ensureTablesExist();
       const client = getClient();
       const visible = await client.execute({
-        sql: "SELECT m.id FROM memories m WHERE m.id = ? AND (m.userId = ? OR m.visibility = 'public' OR (m.visibility = 'friends' AND EXISTS (SELECT 1 FROM user_connections uc WHERE uc.status = 'accepted' AND ((uc.requesterId = m.userId AND uc.addresseeId = ?) OR (uc.addresseeId = m.userId AND uc.requesterId = ?)))))",
+        sql: `SELECT m.id FROM memories m WHERE m.id = ? AND ${MEMORY_VIEWER_CAN_ACCESS_SQL}`,
         args: [memoryId, userId, userId, userId],
       });
       if (visible.rows.length === 0) throw new Error('Memory not found');
@@ -1426,7 +1498,7 @@ export const prisma = {
       await ensureTablesExist();
       const client = getClient();
       const visible = await client.execute({
-        sql: "SELECT m.id FROM memories m WHERE m.id = ? AND (m.userId = ? OR m.visibility = 'public' OR (m.visibility = 'friends' AND EXISTS (SELECT 1 FROM user_connections uc WHERE uc.status = 'accepted' AND ((uc.requesterId = m.userId AND uc.addresseeId = ?) OR (uc.addresseeId = m.userId AND uc.requesterId = ?)))))",
+        sql: `SELECT m.id FROM memories m WHERE m.id = ? AND ${MEMORY_VIEWER_CAN_ACCESS_SQL}`,
         args: [memoryId, userId, userId, userId],
       });
       if (visible.rows.length === 0) throw new Error('Memory not found');
@@ -1447,7 +1519,7 @@ export const prisma = {
       await ensureTablesExist();
       const client = getClient();
       const visible = await client.execute({
-        sql: "SELECT m.id FROM memories m WHERE m.id = ? AND (m.userId = ? OR m.visibility = 'public' OR (m.visibility = 'friends' AND EXISTS (SELECT 1 FROM user_connections uc WHERE uc.status = 'accepted' AND ((uc.requesterId = m.userId AND uc.addresseeId = ?) OR (uc.addresseeId = m.userId AND uc.requesterId = ?)))))",
+        sql: `SELECT m.id FROM memories m WHERE m.id = ? AND ${MEMORY_VIEWER_CAN_ACCESS_SQL}`,
         args: [memoryId, userId, userId, userId],
       });
       if (visible.rows.length === 0) throw new Error('Memory not found');
@@ -1830,6 +1902,26 @@ export const prisma = {
   },
 
   sharedItem: {
+    restrictMemoryAudience: async ({ sharedByUserId, itemId, sharedWithUserIds }: {
+      sharedByUserId: string;
+      itemId: string;
+      sharedWithUserIds: string[];
+    }) => {
+      await ensureTablesExist();
+      const uniqueRecipientIds = [...new Set(sharedWithUserIds)];
+      const recipientClause = uniqueRecipientIds.length
+        ? ` AND sharedWithUserId NOT IN (${uniqueRecipientIds.map(() => '?').join(', ')})`
+        : '';
+      const result = await getClient().execute({
+        sql: `DELETE FROM shared_items
+              WHERE sharedByUserId = ?
+                AND itemType = 'memory'
+                AND itemId = ?
+                ${recipientClause}`,
+        args: [sharedByUserId, itemId, ...uniqueRecipientIds],
+      });
+      return { count: result.rowsAffected };
+    },
     create: async (data: { sharedByUserId: string; sharedWithUserId: string; itemType: 'memory' | 'note'; itemId: string; message?: string }): Promise<SharedItem> => {
       await ensureTablesExist();
       if (!(await prisma.userConnection.areConnected(data.sharedByUserId, data.sharedWithUserId))) throw new Error('You can only share with connected friends');
@@ -2275,19 +2367,7 @@ export async function getAuthorizedImage(
   const result = await client.execute({
     sql: `SELECT m.imageUrl
           FROM memories m
-          WHERE m.id = ? AND (
-            m.userId = ?
-            OR COALESCE(m.visibility, CASE WHEN m.sharedWithFriend = 1 THEN 'friends' ELSE 'private' END) = 'public'
-            OR (
-              COALESCE(m.visibility, CASE WHEN m.sharedWithFriend = 1 THEN 'friends' ELSE 'private' END) = 'friends'
-              AND EXISTS (
-                SELECT 1 FROM user_connections uc
-                WHERE uc.status = 'accepted'
-                  AND ((uc.requesterId = ? AND uc.addresseeId = m.userId)
-                    OR (uc.addresseeId = ? AND uc.requesterId = m.userId))
-              )
-            )
-          )`,
+          WHERE m.id = ? AND ${MEMORY_VIEWER_CAN_ACCESS_SQL}`,
     args: [id, viewerUserId, viewerUserId, viewerUserId],
   });
   return result.rows.length ? (result.rows[0].imageUrl as string | null) : null;

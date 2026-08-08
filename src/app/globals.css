@@ -607,6 +607,77 @@ body:has(.app-rail) > main {
   font-weight: 700;
 }
 
+.memory-composer__audience-tools {
+  margin-top: 11px;
+}
+
+.memory-composer__audience-toggle {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  border: 1.5px solid var(--amika-ink);
+  border-radius: 8px;
+  background: var(--amika-white);
+  color: var(--amika-ink);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.memory-composer__audience-toggle:hover { background: #f0efff; }
+.memory-composer__audience-toggle:focus-visible { outline: 3px solid var(--amika-citrus); outline-offset: 2px; }
+.memory-composer__audience-toggle svg { width: 16px; height: 16px; color: var(--amika-violet-deep); }
+
+.memory-composer__audience-picker {
+  margin: 10px 0 0;
+  padding: 12px;
+  border: 1.5px solid var(--amika-ink);
+  border-radius: 10px;
+  background: #f0efff;
+}
+
+.memory-composer__audience-picker legend {
+  padding: 0 5px;
+  color: var(--amika-ink);
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+.memory-composer__audience-picker > p {
+  margin: 0 0 9px;
+  color: var(--amika-muted);
+  font-size: 0.68rem;
+}
+
+.memory-composer__audience-picker > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.memory-composer__audience-picker label {
+  min-width: 0;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px 5px 6px;
+  border: 1.5px solid var(--amika-ink);
+  border-radius: 999px;
+  background: var(--amika-white);
+  cursor: pointer;
+}
+
+.memory-composer__audience-picker label.is-selected { background: var(--amika-citrus); }
+.memory-composer__audience-picker label:has(input:focus-visible) { outline: 3px solid var(--amika-violet-deep); outline-offset: 2px; }
+.memory-composer__audience-picker label:has(input:disabled) { cursor: default; }
+.memory-composer__audience-picker input { width: 1px; height: 1px; position: absolute; opacity: 0; }
+.memory-composer__audience-picker span { min-width: 0; max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.7rem; font-weight: 750; }
+.memory-composer__audience-picker small { color: var(--amika-violet-deep); font-size: 0.58rem; font-weight: 850; text-transform: uppercase; }
+
 .memory-composer__submit {
   min-height: 44px;
   display: flex;

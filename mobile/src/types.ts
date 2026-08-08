@@ -49,6 +49,7 @@ export type Memory = {
   createdAt: string;
   author?: { id: string; name: string; profileImage?: string | null };
   friend?: { id: string; name: string; profileImage?: string | null } | null;
+  audienceCount?: number;
   reactionCount?: number;
   commentCount?: number;
   reactedByMe?: boolean;

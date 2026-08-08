@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --test src/lib/media-storage.test.ts",
+    "test": "node --experimental-strip-types --test src/lib/*.test.ts",
     "test:media-migration": "node scripts/test-media-migration.mjs",
     "media:migrate:dry-run": "node scripts/migrate-images-to-vercel-blob.mjs --dry-run",
     "media:migrate:verify": "node scripts/migrate-images-to-vercel-blob.mjs --verify",
