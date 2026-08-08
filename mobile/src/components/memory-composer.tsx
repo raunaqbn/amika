@@ -40,8 +40,8 @@ export function MemoryComposer({ initiallyOpen = false, compact = false, initial
     const permission = source === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) return Alert.alert('Photo permission needed', 'Allow Amika to use photos so you can keep this memory.');
     const result = source === 'camera'
-      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: .72, allowsEditing: true, aspect: [4, 3] })
-      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: .72, allowsEditing: true, aspect: [4, 3] });
+      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: .72 })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: .72 });
     if (!result.canceled) setImageUri(result.assets[0].uri);
   }
 

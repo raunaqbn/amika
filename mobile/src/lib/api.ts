@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import { File, UploadType } from 'expo-file-system';
 import { readPersistentCache, removePersistentCache, writePersistentCache } from './cache-storage';
 
 const TOKEN_KEY = 'amika_session_token';
@@ -136,9 +137,25 @@ export async function apiCached<T>(path: string, options: { force?: boolean; max
 }
 
 export async function uploadImage(uri: string) {
-  const extension = uri.split('.').pop()?.toLowerCase() || 'jpg';
-  const mime = extension === 'png' ? 'image/png' : 'image/jpeg';
-  const form = new FormData();
-  form.append('file', { uri, name: `memory.${extension}`, type: mime } as unknown as Blob);
-  return api<{ url: string }>('/api/upload', { method: 'POST', body: form });
+  const file = new File(uri);
+  if (!file.exists) throw new Error('The selected photo is no longer available. Please choose it again.');
+
+  const token = await getToken();
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const extension = file.extension.toLowerCase();
+  const mimeType = file.type || (extension === '.png' ? 'image/png' : 'image/jpeg');
+  const response = await file.upload(`${API_URL}/api/upload`, {
+    httpMethod: 'POST',
+    uploadType: UploadType.MULTIPART,
+    fieldName: 'file',
+    mimeType,
+    headers,
+    sessionType: 'foreground',
+  });
+  const data = JSON.parse(response.body || '{}') as { url?: string; error?: string };
+  if (response.status < 200 || response.status >= 300 || !data.url) {
+    throw new Error(data.error || 'The photo could not be uploaded. Please try again.');
+  }
+  return { url: data.url };
 }
