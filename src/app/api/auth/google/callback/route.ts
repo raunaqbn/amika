@@ -3,10 +3,12 @@ import { randomBytes } from 'crypto';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/db';
 import { getSessionCookieName } from '@/lib/auth';
+import { MOBILE_GOOGLE_REDIRECT_URI, verifyGoogleOAuthState, type GoogleOAuthState } from '@/lib/google-oauth';
 
 type GoogleUserInfo = {
   id: string;
   email: string;
+  verified_email?: boolean;
   name: string;
   picture?: string;
 };
@@ -48,33 +50,39 @@ async function getGoogleUserInfo(accessToken: string): Promise<GoogleUserInfo> {
   return response.json();
 }
 
+function failureRedirect(request: NextRequest, state: GoogleOAuthState | null, error: string) {
+  if (state?.platform === 'mobile') {
+    const destination = new URL(MOBILE_GOOGLE_REDIRECT_URI);
+    destination.searchParams.set('error', error);
+    return NextResponse.redirect(destination);
+  }
+  return NextResponse.redirect(new URL(`/signin?error=${encodeURIComponent(error)}`, request.nextUrl.origin));
+}
+
 export async function GET(request: NextRequest) {
+  let oauthState: GoogleOAuthState | null = null;
   try {
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get('code');
-    const state = searchParams.get('state');
+    const rawState = searchParams.get('state');
     const error = searchParams.get('error');
+    const state = verifyGoogleOAuthState(rawState);
+    oauthState = state;
 
     if (error) {
-      return NextResponse.redirect(new URL('/signin?error=google_auth_failed', request.nextUrl.origin));
+      return failureRedirect(request, state, 'google_auth_failed');
+    }
+
+    if (!state) {
+      return NextResponse.redirect(new URL('/signin?error=invalid_oauth_state', request.nextUrl.origin));
     }
 
     if (!code) {
-      return NextResponse.redirect(new URL('/signin?error=no_code', request.nextUrl.origin));
+      return failureRedirect(request, state, 'no_code');
     }
 
-    // Parse state for invite code and returnUrl
-    let inviteCode: string | null = null;
-    let returnUrl: string | null = null;
-    if (state) {
-      try {
-        const parsed = JSON.parse(state);
-        inviteCode = parsed.inviteCode || null;
-        returnUrl = parsed.returnUrl || null;
-      } catch {
-        // Invalid state, ignore
-      }
-    }
+    const inviteCode = state.inviteCode || null;
+    const returnUrl = state.returnUrl || null;
 
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin}/api/auth/google/callback`;
 
@@ -83,6 +91,9 @@ export async function GET(request: NextRequest) {
 
     // Get user info from Google
     const googleUser = await getGoogleUserInfo(tokens.access_token);
+    if (!googleUser.email || googleUser.verified_email === false) {
+      throw new Error('Google account email is not verified');
+    }
 
     // Check if user exists by Google ID
     let user = await prisma.user.findByGoogleId(googleUser.id);
@@ -115,7 +126,23 @@ export async function GET(request: NextRequest) {
     // Create session
     const session = await prisma.session.create(user.id);
 
-    // Set cookie
+    // If there's an invite code, accept it
+    if (inviteCode) {
+      try {
+        await prisma.friendInvite.accept(inviteCode, user.id);
+      } catch (e) {
+        // Invite might be invalid or expired, continue anyway
+        console.error('Failed to accept invite:', e);
+      }
+    }
+
+    if (state.platform === 'mobile') {
+      const handoff = await prisma.oauthHandoff.create({ userId: user.id, sessionToken: session.token });
+      const destination = new URL(MOBILE_GOOGLE_REDIRECT_URI);
+      destination.searchParams.set('code', handoff.code);
+      return NextResponse.redirect(destination);
+    }
+
     const cookieStore = await cookies();
     cookieStore.set(getSessionCookieName(), session.token, {
       httpOnly: true,
@@ -125,14 +152,7 @@ export async function GET(request: NextRequest) {
       expires: session.expiresAt,
     });
 
-    // If there's an invite code, accept it
     if (inviteCode) {
-      try {
-        await prisma.friendInvite.accept(inviteCode, user.id);
-      } catch (e) {
-        // Invite might be invalid or expired, continue anyway
-        console.error('Failed to accept invite:', e);
-      }
       return NextResponse.redirect(new URL('/friends?invited=true', request.nextUrl.origin));
     }
 
@@ -141,6 +161,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(redirectTo, request.nextUrl.origin));
   } catch (error) {
     console.error('Google OAuth error:', error);
-    return NextResponse.redirect(new URL('/signin?error=google_auth_failed', request.nextUrl.origin));
+    return failureRedirect(request, oauthState, 'google_auth_failed');
   }
 }

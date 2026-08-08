@@ -4,6 +4,7 @@ import { getUserId } from '@/lib/auth';
 import { sendPushNotification } from '@/lib/push-notifications';
 import { compactImageUrl, isMediaImageUrl, mediaImageUrl } from '@/lib/mobile-images';
 import { persistImage } from '@/lib/media-storage';
+import { sendTaggedMemoryEmail } from '@/lib/email';
 
 type MemoryVisibility = 'private' | 'friends' | 'public';
 const MAX_DIRECT_AUDIENCE = 10;
@@ -30,6 +31,71 @@ async function findConnectedAudienceFriends(userId: string, friendIds: string[])
   if (audience.some((friend) => !friend?.linkedUserId)) return null;
   const connected = await Promise.all(audience.map((friend) => prisma.userConnection.areConnected(userId, friend!.linkedUserId!)));
   return connected.every(Boolean) ? audience as Array<NonNullable<(typeof audience)[number]>> : null;
+}
+
+async function shareMemoryWithAudience({
+  userId,
+  friendIds,
+  memoryId,
+  content,
+}: {
+  userId: string;
+  friendIds: string[];
+  memoryId: string;
+  content: string;
+}) {
+  if (!friendIds.length) return;
+  const friends = await prisma.friend.findMany({ userId });
+  const recipients = friendIds
+    .map((friendId) => friends.find((friend: { id: string }) => friend.id === friendId))
+    .filter((friend): friend is NonNullable<typeof friend> => Boolean(friend?.linkedUserId));
+
+  const shareResults = await Promise.allSettled(recipients.map(async (friend) => ({
+    recipientUserId: friend.linkedUserId!,
+    sharedItem: await prisma.sharedItem.create({
+      sharedByUserId: userId,
+      sharedWithUserId: friend.linkedUserId!,
+      itemType: 'memory',
+      itemId: memoryId,
+      message: undefined,
+    }),
+  })));
+  const newShares = shareResults.flatMap((result) => {
+    if (result.status === 'fulfilled') return [result.value];
+    if (!(result.reason instanceof Error && result.reason.message === 'Item already shared with this user')) {
+      console.error('Error sharing memory with recipient:', result.reason);
+    }
+    return [];
+  });
+
+  if (!newShares.length) return;
+  after(async () => {
+    const author = await prisma.user.findById(userId);
+    await Promise.allSettled(newShares.map(async ({ recipientUserId, sharedItem }) => {
+      const recipient = await prisma.user.findById(recipientUserId);
+      const authorName = author?.name || 'A friend';
+      const tasks: Promise<unknown>[] = [sendPushNotification(
+        recipientUserId,
+        `${authorName} added a memory with you`,
+        content,
+        { type: 'memory_tagged', sharedItemId: sharedItem.id, memoryId },
+      )];
+      if (recipient?.email) {
+        tasks.push(sendTaggedMemoryEmail({
+          recipientEmail: recipient.email,
+          recipientName: recipient.name,
+          authorName,
+          memoryId,
+          memoryText: content,
+          idempotencyKey: `memory-tag-${memoryId}-${recipientUserId}`,
+        }));
+      }
+      const results = await Promise.allSettled(tasks);
+      results.forEach((result) => {
+        if (result.status === 'rejected') console.error('Tagged-memory notification failed:', result.reason);
+      });
+    }));
+  });
 }
 
 function compactMemory(request: NextRequest, memory: any) {
@@ -152,47 +218,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // If sharing is enabled, create one recipient record per selected Amika friend.
     if (shareWithTaggedFriend) {
-      try {
-        const friends = await prisma.friend.findMany({ userId });
-        const allFriendIds = requestedFriendIds;
-
-        for (const fId of allFriendIds) {
-          const friend = friends.find((f: { id: string }) => f.id === fId);
-          if (friend && friend.linkedUserId) {
-            try {
-              // Create a SharedItem so the Amika friend gets a notification
-              const sharedItem = await prisma.sharedItem.create({
-                sharedByUserId: userId,
-                sharedWithUserId: friend.linkedUserId,
-                itemType: 'memory',
-                itemId: memory.id,
-                message: undefined,
-              });
-              after(async () => {
-                try {
-                  const author = await prisma.user.findById(userId);
-                  await sendPushNotification(
-                    friend.linkedUserId!,
-                    `${author?.name || 'A friend'} added a memory with you`,
-                    memory.content,
-                    { type: 'memory_tagged', sharedItemId: sharedItem.id, memoryId: memory.id },
-                  );
-                } catch (pushError) {
-                  console.error('Error sending tagged-memory push notification:', pushError);
-                }
-              });
-            } catch (shareError) {
-              // Ignore duplicate share errors
-              console.error('Error auto-sharing memory:', shareError);
-            }
-          }
-        }
-      } catch (shareError) {
-        // Log the error but don't fail the memory creation
-        console.error('Error auto-sharing memory:', shareError);
-      }
+      await shareMemoryWithAudience({ userId, friendIds: requestedFriendIds, memoryId: memory.id, content: memory.content })
+        .catch((shareError) => console.error('Error auto-sharing memory:', shareError));
     }
 
     return NextResponse.json({
@@ -280,48 +308,13 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    // Handle sharing with Amika friends if sharing is enabled
+    // Handle sharing with Amika friends if sharing is enabled.
     if ((visibility === 'friends' || visibility === 'public') || (effectiveVisibility === 'friends' && hasFriendSelection)) {
-      try {
-        const friends = await prisma.friend.findMany({ userId });
-        const allFriendIds = effectiveVisibility === 'friends'
-          ? effectiveAudienceFriendIds
-          : requestedFriendIds ?? [updatedMemory.friendId].filter((candidate): candidate is string => Boolean(candidate));
-
-        for (const fId of allFriendIds) {
-          const friend = friends.find((f: { id: string }) => f.id === fId);
-          if (friend && friend.linkedUserId) {
-            try {
-              const sharedItem = await prisma.sharedItem.create({
-                sharedByUserId: userId,
-                sharedWithUserId: friend.linkedUserId,
-                itemType: 'memory',
-                itemId: id,
-                message: undefined,
-              });
-              after(async () => {
-                try {
-                  const author = await prisma.user.findById(userId);
-                  await sendPushNotification(
-                    friend.linkedUserId!,
-                    `${author?.name || 'A friend'} added a memory with you`,
-                    updatedMemory.content,
-                    { type: 'memory_tagged', sharedItemId: sharedItem.id, memoryId: id },
-                  );
-                } catch (pushError) {
-                  console.error('Error sending tagged-memory push notification:', pushError);
-                }
-              });
-            } catch (shareError) {
-              if (!(shareError instanceof Error && shareError.message === 'Item already shared with this user')) {
-                console.error('Error sharing memory:', shareError);
-              }
-            }
-          }
-        }
-      } catch (shareError) {
-        console.error('Error auto-sharing memory:', shareError);
-      }
+      const allFriendIds = effectiveVisibility === 'friends'
+        ? effectiveAudienceFriendIds
+        : requestedFriendIds ?? [updatedMemory.friendId].filter((candidate): candidate is string => Boolean(candidate));
+      await shareMemoryWithAudience({ userId, friendIds: allFriendIds, memoryId: id, content: updatedMemory.content })
+        .catch((shareError) => console.error('Error auto-sharing memory:', shareError));
     }
 
     return NextResponse.json({

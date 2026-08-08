@@ -218,6 +218,7 @@ export type FriendInvite = {
 let clientInstance: Client | null = null;
 let tablesInitialized = false;
 let tablesInitializationPromise: Promise<void> | null = null;
+let oauthHandoffTablePromise: Promise<void> | null = null;
 
 const PERFORMANCE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_memories_feed ON memories(visibility, createdAt)',
@@ -631,6 +632,27 @@ async function ensureTablesExist() {
   await tablesInitializationPromise;
 }
 
+async function ensureOAuthHandoffTable() {
+  await ensureTablesExist();
+  if (!oauthHandoffTablePromise) {
+    oauthHandoffTablePromise = getClient().batch([
+      `CREATE TABLE IF NOT EXISTS oauth_handoffs (
+        codeHash TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        sessionToken TEXT NOT NULL,
+        expiresAt TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )`,
+      'CREATE INDEX IF NOT EXISTS idx_oauth_handoffs_expires ON oauth_handoffs(expiresAt)',
+    ], 'write').then(() => undefined).catch((error) => {
+      oauthHandoffTablePromise = null;
+      throw error;
+    });
+  }
+  await oauthHandoffTablePromise;
+}
+
 export const prisma = {
   // User operations
   user: {
@@ -961,6 +983,35 @@ export const prisma = {
         sql: 'DELETE FROM sessions WHERE userId = ?',
         args: [userId],
       });
+    },
+  },
+
+  oauthHandoff: {
+    create: async ({ userId, sessionToken }: { userId: string; sessionToken: string }) => {
+      await ensureOAuthHandoffTable();
+      const code = crypto.randomBytes(32).toString('base64url');
+      const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+      const createdAt = new Date();
+      const expiresAt = new Date(createdAt.getTime() + 5 * 60 * 1000);
+      const client = getClient();
+      await client.batch([
+        { sql: 'DELETE FROM oauth_handoffs WHERE expiresAt <= ?', args: [createdAt.toISOString()] },
+        { sql: 'INSERT INTO oauth_handoffs (codeHash, userId, sessionToken, expiresAt, createdAt) VALUES (?, ?, ?, ?, ?)', args: [codeHash, userId, sessionToken, expiresAt.toISOString(), createdAt.toISOString()] },
+      ], 'write');
+      return { code, expiresAt };
+    },
+    consume: async (code: string) => {
+      await ensureOAuthHandoffTable();
+      const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+      const result = await getClient().execute({
+        sql: 'DELETE FROM oauth_handoffs WHERE codeHash = ? AND expiresAt > ? RETURNING userId, sessionToken',
+        args: [codeHash, new Date().toISOString()],
+      });
+      if (!result.rows.length) return null;
+      return {
+        userId: result.rows[0].userId as string,
+        sessionToken: result.rows[0].sessionToken as string,
+      };
     },
   },
 

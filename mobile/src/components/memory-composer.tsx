@@ -94,6 +94,10 @@ export function MemoryComposer({ initiallyOpen = false, compact = false, initial
   const selected = selectedFriends[0];
   const allSelectedAreConnected = selectedFriends.length === friendIds.length && friendIds.length > 0 && selectedFriends.every((friend) => friend.linkedUserId);
   const audienceLabel = friendIds.length > 1 ? `Shared with ${friendIds.length} friends` : selected ? `Shared with ${selected.name}` : 'Choose an Amika friend';
+  function toggleMultipleSharing() {
+    if (shareWithMore) setFriendIds((ids) => ids.slice(0, 1));
+    setShareWithMore(!shareWithMore);
+  }
   return <View style={[styles.packet, compact && { marginHorizontal: 0 }]}>
     <PhotoEditor
       visible={Boolean(editingPhoto)}
@@ -138,7 +142,7 @@ export function MemoryComposer({ initiallyOpen = false, compact = false, initial
         }}
         helper={friends.length ? (shareWithMore ? 'Choose up to 10 Amika friends. Everyone selected will be able to see this memory.' : 'Choose one friend by default, or add more people below.') : 'No friends yet—you can still save this memory privately.'}
       />
-      {friends.filter((friend) => friend.linkedUserId).length > 1 ? <Pressable accessibilityRole="button" accessibilityState={{ expanded: shareWithMore }} onPress={() => { setShareWithMore((current) => { if (current) setFriendIds((ids) => ids.slice(0, 1)); return !current; }); }} style={styles.shareMore}>{shareWithMore ? <UserRound size={17} color={colors.ink} /> : <UserPlus size={17} color={colors.ink} />}<Text style={styles.shareMoreText}>{shareWithMore ? 'Use one friend' : 'Share with more friends'}</Text></Pressable> : null}
+      {friends.filter((friend) => friend.linkedUserId).length > 1 ? <Pressable accessibilityRole="button" accessibilityState={{ expanded: shareWithMore }} onPress={toggleMultipleSharing} style={styles.shareMore}>{shareWithMore ? <UserRound size={17} color={colors.ink} /> : <UserPlus size={17} color={colors.ink} />}<Text style={styles.shareMoreText}>{shareWithMore ? 'Use one friend' : 'Share with more friends'}</Text></Pressable> : null}
       <Text style={styles.label}>Who can see it</Text><View accessibilityRole="radiogroup" style={styles.privacyRow}><Pressable accessibilityRole="radio" accessibilityState={{ checked: visibility === 'friends', disabled: !allSelectedAreConnected, selected: visibility === 'friends' }} disabled={!allSelectedAreConnected} onPress={() => setVisibility('friends')} style={[styles.privacy, visibility === 'friends' && styles.privacyActive, !allSelectedAreConnected && styles.privacyDisabled]}>{friendIds.length > 1 ? <Users size={17} color={colors.ink} /> : <UserRound size={17} color={colors.ink} />}<View><Text style={styles.privacyTitle}>{friendIds.length > 1 ? 'Selected friends' : 'Tagged friend'}</Text><Text style={styles.privacyBody}>{audienceLabel}</Text></View></Pressable><Pressable accessibilityRole="radio" accessibilityState={{ checked: visibility === 'private', selected: visibility === 'private' }} onPress={() => setVisibility('private')} style={[styles.privacy, visibility === 'private' && styles.privacyActive]}><Lock size={17} color={colors.ink} /><View><Text style={styles.privacyTitle}>Only me</Text><Text style={styles.privacyBody}>Private keepsake</Text></View></Pressable></View>
       <Button label="Save today’s memory" tone="ink" loading={saving} disabled={preparingPhoto} onPress={save} />
     </View> : <Pressable onPress={() => setOpen(true)} style={styles.fold}><Text style={styles.foldText}>Add photo · tag a friend · keep it forever</Text></Pressable>}
