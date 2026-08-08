@@ -19,6 +19,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { InterestSelector } from '@/components/interest-selector';
+import { ProfileStories } from '@/components/profile-stories';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -164,6 +165,8 @@ export default function ProfilePage() {
   return (
     <div className="profile-page max-w-2xl mx-auto px-4 pt-14 md:pt-16 pb-8">
       <h1 className="text-2xl font-semibold text-gray-800 mb-6">Profile</h1>
+
+      <ProfileStories ownerId={user.id} ownerName={user.name} ownerImage={user.profileImage} canPost />
 
       {/* Profile Picture */}
       <div className="profile-photo-card bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">

@@ -73,6 +73,16 @@ type MemoryComment = {
   createdAt: Date;
 };
 
+type Story = {
+  id: string;
+  userId: string;
+  content: string | null;
+  imageUrl: string;
+  visibility: 'public' | 'friends';
+  createdAt: Date;
+  expiresAt: Date;
+};
+
 const MEMORY_VISIBILITY_SQL = `COALESCE(m.visibility, CASE WHEN m.sharedWithFriend = 1 THEN 'friends' ELSE 'private' END)`;
 const SHARED_MEMORY_CAN_VIEW_SQL = `EXISTS (
   SELECT 1
@@ -126,6 +136,19 @@ const MEMORY_VIEWER_CAN_ACCESS_SQL = `(
   m.userId = ?
   OR ${MEMORY_VISIBILITY_SQL} = 'public'
   OR (${DIRECT_AUDIENCE_CAN_VIEW_SQL})
+)`;
+const STORY_VIEWER_CAN_ACCESS_SQL = `(
+  s.expiresAt > ?
+  AND (
+    s.userId = ?
+    OR s.visibility = 'public'
+    OR EXISTS (
+      SELECT 1 FROM user_connections uc
+      WHERE uc.status = 'accepted'
+        AND ((uc.requesterId = ? AND uc.addresseeId = s.userId)
+          OR (uc.addresseeId = ? AND uc.requesterId = s.userId))
+    )
+  )
 )`;
 
 type DiaryNote = {
@@ -235,6 +258,8 @@ const PERFORMANCE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_group_messages_conversation ON group_messages(conversationId, createdAt)',
   'CREATE INDEX IF NOT EXISTS idx_group_messages_sender ON group_messages(senderId, createdAt)',
   'CREATE INDEX IF NOT EXISTS idx_memory_comments_memory ON memory_comments(memoryId, createdAt)',
+  'CREATE INDEX IF NOT EXISTS idx_stories_user_expires ON stories(userId, expiresAt)',
+  'CREATE INDEX IF NOT EXISTS idx_story_comments_story ON story_comments(storyId, createdAt)',
   'CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(userId)',
 ] as const;
 
@@ -297,6 +322,9 @@ async function getSchemaStatus(client: Client) {
         (SELECT sharedWithAmikaFriend FROM memories LIMIT 0) AS memoryAmikaSharingReady,
         (SELECT id FROM memory_reactions LIMIT 0) AS reactionsReady,
         (SELECT id FROM memory_comments LIMIT 0) AS commentsReady,
+        (SELECT id FROM stories LIMIT 0) AS storiesReady,
+        (SELECT id FROM story_reactions LIMIT 0) AS storyReactionsReady,
+        (SELECT id FROM story_comments LIMIT 0) AS storyCommentsReady,
         (SELECT readAt FROM direct_messages LIMIT 0) AS messagesReady,
         (SELECT id FROM group_conversations LIMIT 0) AS groupConversationsReady,
         (SELECT lastReadAt FROM group_conversation_members LIMIT 0) AS groupMembersReady,
@@ -325,6 +353,8 @@ async function getSchemaStatus(client: Client) {
             'idx_group_messages_conversation',
             'idx_group_messages_sender',
             'idx_memory_comments_memory',
+            'idx_stories_user_expires',
+            'idx_story_comments_story',
             'idx_push_tokens_user'
           )) AS performanceIndexCount
     `);
@@ -442,6 +472,44 @@ async function initializeTables() {
         content TEXT NOT NULL,
         createdAt TEXT NOT NULL,
         FOREIGN KEY (memoryId) REFERENCES memories(id) ON DELETE CASCADE,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS stories (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        content TEXT,
+        imageUrl TEXT NOT NULL,
+        visibility TEXT NOT NULL DEFAULT 'public',
+        createdAt TEXT NOT NULL,
+        expiresAt TEXT NOT NULL,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS story_reactions (
+        id TEXT PRIMARY KEY,
+        storyId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        emoji TEXT NOT NULL DEFAULT 'heart',
+        createdAt TEXT NOT NULL,
+        UNIQUE(storyId, userId, emoji),
+        FOREIGN KEY (storyId) REFERENCES stories(id) ON DELETE CASCADE,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS story_comments (
+        id TEXT PRIMARY KEY,
+        storyId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        content TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (storyId) REFERENCES stories(id) ON DELETE CASCADE,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
@@ -1655,6 +1723,136 @@ export const prisma = {
     },
   },
 
+  story: {
+    findActive: async ({ ownerId, viewerId }: { ownerId: string; viewerId: string }) => {
+      await ensureTablesExist();
+      const client = getClient();
+      const result = await client.execute({
+        sql: `SELECT s.id, s.userId, s.content, s.visibility, s.createdAt, s.expiresAt,
+                     (s.imageUrl IS NOT NULL AND s.imageUrl != '') AS hasImage,
+                     u.name AS authorName, u.profileImage AS authorProfileImage,
+                     (SELECT COUNT(*) FROM story_reactions sr WHERE sr.storyId = s.id) AS reactionCount,
+                     (SELECT COUNT(*) FROM story_comments sc WHERE sc.storyId = s.id) AS commentCount,
+                     EXISTS(SELECT 1 FROM story_reactions mine WHERE mine.storyId = s.id AND mine.userId = ? AND mine.emoji = 'heart') AS reactedByMe
+              FROM stories s
+              JOIN users u ON u.id = s.userId
+              WHERE s.userId = ?
+                AND s.expiresAt > ?
+                AND (
+                  s.userId = ?
+                  OR s.visibility = 'public'
+                  OR EXISTS (
+                    SELECT 1 FROM user_connections uc
+                    WHERE uc.status = 'accepted'
+                      AND ((uc.requesterId = ? AND uc.addresseeId = s.userId)
+                        OR (uc.addresseeId = ? AND uc.requesterId = s.userId))
+                  )
+                )
+              ORDER BY s.createdAt ASC`,
+        args: [viewerId, ownerId, new Date().toISOString(), viewerId, viewerId, viewerId],
+      });
+      return result.rows.map((row: any) => ({
+        id: row.id as string,
+        userId: row.userId as string,
+        content: row.content as string | null,
+        imageUrl: null,
+        hasImage: Boolean(row.hasImage),
+        visibility: row.visibility as Story['visibility'],
+        createdAt: new Date(row.createdAt as string),
+        expiresAt: new Date(row.expiresAt as string),
+        author: { id: row.userId as string, name: row.authorName as string, profileImage: row.authorProfileImage as string | null },
+        reactionCount: Number(row.reactionCount || 0),
+        commentCount: Number(row.commentCount || 0),
+        reactedByMe: Boolean(row.reactedByMe),
+        isOwn: row.userId === viewerId,
+      }));
+    },
+    create: async ({ data }: { data: { userId: string; content?: string | null; imageUrl: string; visibility?: Story['visibility'] } }) => {
+      await ensureTablesExist();
+      const story: Story = {
+        id: randomUUID(),
+        userId: data.userId,
+        content: data.content?.trim() || null,
+        imageUrl: data.imageUrl,
+        visibility: data.visibility ?? 'public',
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      };
+      await getClient().execute({
+        sql: 'INSERT INTO stories (id, userId, content, imageUrl, visibility, createdAt, expiresAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        args: [story.id, story.userId, story.content, story.imageUrl, story.visibility, story.createdAt.toISOString(), story.expiresAt.toISOString()],
+      });
+      return story;
+    },
+    delete: async ({ id, userId }: { id: string; userId: string }) => {
+      await ensureTablesExist();
+      const result = await getClient().execute({ sql: 'DELETE FROM stories WHERE id = ? AND userId = ?', args: [id, userId] });
+      if (!result.rowsAffected) throw new Error('Story not found');
+      return { success: true };
+    },
+  },
+
+  storyReaction: {
+    toggle: async ({ storyId, userId }: { storyId: string; userId: string }) => {
+      await ensureTablesExist();
+      const client = getClient();
+      const story = await client.execute({
+        sql: `SELECT s.id FROM stories s WHERE s.id = ? AND ${STORY_VIEWER_CAN_ACCESS_SQL}`,
+        args: [storyId, new Date().toISOString(), userId, userId, userId],
+      });
+      if (!story.rows.length) throw new Error('Story not found');
+      const existing = await client.execute({ sql: "SELECT id FROM story_reactions WHERE storyId = ? AND userId = ? AND emoji = 'heart'", args: [storyId, userId] });
+      if (existing.rows.length) {
+        await client.execute({ sql: 'DELETE FROM story_reactions WHERE id = ?', args: [existing.rows[0].id as string] });
+        return { active: false };
+      }
+      await client.execute({
+        sql: 'INSERT INTO story_reactions (id, storyId, userId, emoji, createdAt) VALUES (?, ?, ?, ?, ?)',
+        args: [randomUUID(), storyId, userId, 'heart', new Date().toISOString()],
+      });
+      return { active: true };
+    },
+  },
+
+  storyComment: {
+    findMany: async ({ storyId, userId }: { storyId: string; userId: string }) => {
+      await ensureTablesExist();
+      const client = getClient();
+      const visible = await client.execute({
+        sql: `SELECT s.id FROM stories s WHERE s.id = ? AND ${STORY_VIEWER_CAN_ACCESS_SQL}`,
+        args: [storyId, new Date().toISOString(), userId, userId, userId],
+      });
+      if (!visible.rows.length) throw new Error('Story not found');
+      const result = await client.execute({
+        sql: `SELECT sc.*, u.name AS authorName, u.profileImage AS authorProfileImage
+              FROM story_comments sc JOIN users u ON u.id = sc.userId
+              JOIN stories s ON s.id = sc.storyId
+              WHERE sc.storyId = ? AND s.expiresAt > ? ORDER BY sc.createdAt ASC`,
+        args: [storyId, new Date().toISOString()],
+      });
+      return result.rows.map((row: any) => ({
+        id: row.id as string, storyId: row.storyId as string, userId: row.userId as string,
+        content: row.content as string, createdAt: new Date(row.createdAt as string),
+        author: { id: row.userId as string, name: row.authorName as string, profileImage: row.authorProfileImage as string | null },
+      }));
+    },
+    create: async ({ storyId, userId, content }: { storyId: string; userId: string; content: string }) => {
+      await ensureTablesExist();
+      const client = getClient();
+      const story = await client.execute({
+        sql: `SELECT s.id FROM stories s WHERE s.id = ? AND ${STORY_VIEWER_CAN_ACCESS_SQL}`,
+        args: [storyId, new Date().toISOString(), userId, userId, userId],
+      });
+      if (!story.rows.length) throw new Error('Story not found');
+      const comment = { id: randomUUID(), storyId, userId, content, createdAt: new Date() };
+      await client.execute({
+        sql: 'INSERT INTO story_comments (id, storyId, userId, content, createdAt) VALUES (?, ?, ?, ?, ?)',
+        args: [comment.id, storyId, userId, content, comment.createdAt.toISOString()],
+      });
+      return comment;
+    },
+  },
+
   directMessage: {
     listThreads: async (userId: string) => {
       await ensureTablesExist();
@@ -2624,7 +2822,7 @@ export const prisma = {
 
 export async function getAuthorizedImage(
   viewerUserId: string,
-  type: 'memory' | 'user' | 'friend' | 'diary',
+  type: 'memory' | 'user' | 'friend' | 'diary' | 'story',
   id: string,
 ): Promise<string | null> {
   await ensureTablesExist();
@@ -2670,6 +2868,14 @@ export async function getAuthorizedImage(
               )
             )`,
       args: [id, viewerUserId, viewerUserId],
+    });
+    return result.rows.length ? (result.rows[0].imageUrl as string | null) : null;
+  }
+
+  if (type === 'story') {
+    const result = await client.execute({
+      sql: `SELECT s.imageUrl FROM stories s WHERE s.id = ? AND ${STORY_VIEWER_CAN_ACCESS_SQL}`,
+      args: [id, new Date().toISOString(), viewerUserId, viewerUserId, viewerUserId],
     });
     return result.rows.length ? (result.rows[0].imageUrl as string | null) : null;
   }

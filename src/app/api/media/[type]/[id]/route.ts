@@ -16,11 +16,11 @@ export async function GET(
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { type, id } = await context.params;
-  if (!['memory', 'user', 'friend', 'diary'].includes(type)) {
+  if (!['memory', 'user', 'friend', 'diary', 'story'].includes(type)) {
     return NextResponse.json({ error: 'Unknown image type' }, { status: 404 });
   }
 
-  const value = await getAuthorizedImage(userId, type as 'memory' | 'user' | 'friend' | 'diary', id);
+  const value = await getAuthorizedImage(userId, type as 'memory' | 'user' | 'friend' | 'diary' | 'story', id);
   if (!value) return NextResponse.json({ error: 'Image not found' }, { status: 404 });
 
   const pathname = blobPathname(value);

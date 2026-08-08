@@ -4,7 +4,7 @@ export function wantsCompactImages(request: Request) {
 
 export function mediaImageUrl(
   request: Request,
-  type: 'memory' | 'user' | 'friend' | 'diary',
+  type: 'memory' | 'user' | 'friend' | 'diary' | 'story',
   id: string,
 ) {
   return `${new URL(request.url).origin}/api/media/${type}/${encodeURIComponent(id)}`;
@@ -12,7 +12,7 @@ export function mediaImageUrl(
 
 export function compactImageUrl(
   request: Request,
-  type: 'memory' | 'user' | 'friend' | 'diary',
+  type: 'memory' | 'user' | 'friend' | 'diary' | 'story',
   id: string,
   value: string | null | undefined,
 ) {
@@ -22,7 +22,7 @@ export function compactImageUrl(
 
 export function isMediaImageUrl(
   request: Request,
-  type: 'memory' | 'user' | 'friend' | 'diary',
+  type: 'memory' | 'user' | 'friend' | 'diary' | 'story',
   id: string,
   value: unknown,
 ) {

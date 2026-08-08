@@ -9,6 +9,7 @@ import { FriendAvatar } from '@/components/friend-avatar';
 import { FeedMemory, MemoryCard } from '@/components/dashboard';
 import { useAuth } from '@/lib/auth-context';
 import { getInterestLabel, parseInterests } from '@/lib/interests';
+import { ProfileStories } from '@/components/profile-stories';
 
 type Friend = {
   id: string;
@@ -73,6 +74,7 @@ export default function FriendProfilePage() {
       </header>
 
       <main className="friend-profile-content">
+        {friend.linkedUserId && <ProfileStories ownerId={friend.linkedUserId} ownerName={friend.name} ownerImage={friend.profileImage} />}
         <aside className="friend-profile-details">
           <section><span><Heart aria-hidden="true" /> Friendship</span><p>{friend.howWeMet || 'Add how you met so this friendship has a beginning.'}</p></section>
           {friend.birthday && <section><span><Cake aria-hidden="true" /> Birthday</span><p>{format(new Date(friend.birthday), 'MMMM d')}</p></section>}

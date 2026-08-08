@@ -26,6 +26,9 @@ model User {
   memories            Memory[]
   memoryReactions     MemoryReaction[]
   memoryComments      MemoryComment[]
+  stories             Story[]
+  storyReactions      StoryReaction[]
+  storyComments       StoryComment[]
   diaryNotes          DiaryNote[]
   chatTranscripts     ChatTranscript[]
   connectionsSent     UserConnection[] @relation("ConnectionRequester")
@@ -111,6 +114,45 @@ model MemoryComment {
   createdAt DateTime @default(now())
 
   @@index([memoryId, createdAt])
+}
+
+model Story {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content    String?
+  imageUrl   String
+  visibility String   @default("public")
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+  reactions  StoryReaction[]
+  comments   StoryComment[]
+
+  @@index([userId, expiresAt])
+}
+
+model StoryReaction {
+  id        String   @id @default(cuid())
+  storyId   String
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String   @default("heart")
+  createdAt DateTime @default(now())
+
+  @@unique([storyId, userId, emoji])
+}
+
+model StoryComment {
+  id        String   @id @default(cuid())
+  storyId   String
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([storyId, createdAt])
 }
 
 model DirectMessage {

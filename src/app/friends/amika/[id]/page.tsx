@@ -7,6 +7,7 @@ import { ArrowLeft, Camera, MessageCircle, Sparkles, Users } from 'lucide-react'
 import { FeedMemory, MemoryCard } from '@/components/dashboard';
 import { FriendAvatar } from '@/components/friend-avatar';
 import { useAuth } from '@/lib/auth-context';
+import { ProfileStories } from '@/components/profile-stories';
 
 type Profile = { id: string; name: string; email: string; profileImage: string | null; birthday: string | null };
 
@@ -63,6 +64,7 @@ export default function AmikaFriendProfilePage() {
       </header>
 
       <main className="friend-profile-content friend-profile-content--wide">
+        <ProfileStories ownerId={profile.id} ownerName={profile.name} ownerImage={profile.profileImage} />
         <section className="friend-profile-memories">
           <div className="friend-profile-memories__heading"><div><span>Shared history</span><h2>Memories with {profile.name}</h2></div><strong>{memories.length}</strong></div>
           {memories.length === 0 ? (
