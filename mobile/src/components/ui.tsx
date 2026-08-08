@@ -1,5 +1,6 @@
 import React from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View, type PressableProps, type TextInputProps, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type PressableProps, type TextInputProps, type ViewStyle } from 'react-native';
+import { Image } from 'expo-image';
 import { Image as ImageIcon, RotateCcw } from 'lucide-react-native';
 import { border, colors, shadow, type } from '@/lib/theme';
 
@@ -16,7 +17,7 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
 }
 
 export function Avatar({ name, uri, size = 42, color = colors.periwinkle }: { name: string; uri?: string | null; size?: number; color?: string }) {
-  return <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: color }]}>{uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Text style={[styles.avatarText, { fontSize: size * .38 }]}>{name.trim().charAt(0).toUpperCase()}</Text>}</View>;
+  return <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: color }]}>{uri ? <Image source={uri} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={80} /> : <Text style={[styles.avatarText, { fontSize: size * .38 }]}>{name.trim().charAt(0).toUpperCase()}</Text>}</View>;
 }
 
 export function PaperCard({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {

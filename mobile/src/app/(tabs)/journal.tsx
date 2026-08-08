@@ -4,15 +4,18 @@ import { useFocusEffect } from 'expo-router';
 import { BookHeart } from 'lucide-react-native';
 import { Screen } from '@/components/screen';
 import { Button, EmptyState, ErrorState, Field, PaperCard } from '@/components/ui';
-import { api } from '@/lib/api';
+import { api, apiCached, getCachedApiData, invalidateApiCache } from '@/lib/api';
 import { border, colors, type } from '@/lib/theme';
 import type { JournalNote } from '@/types';
 
+const JOURNAL_PATH = '/api/diary';
+
 export default function JournalScreen() {
-  const [notes, setNotes] = useState<JournalNote[]>([]); const [title, setTitle] = useState(''); const [content, setContent] = useState(''); const [open, setOpen] = useState(false); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [error, setError] = useState('');
-  const load = useCallback(async () => { setLoading(true); setError(''); try { setNotes(await api<JournalNote[]>('/api/diary')); } catch (e) { setError(e instanceof Error ? e.message : 'Could not load your journal.'); } finally { setLoading(false); } }, []);
+  const cachedNotes = getCachedApiData<JournalNote[]>(JOURNAL_PATH);
+  const [notes, setNotes] = useState<JournalNote[]>(cachedNotes || []); const [title, setTitle] = useState(''); const [content, setContent] = useState(''); const [open, setOpen] = useState(false); const [loading, setLoading] = useState(!cachedNotes); const [saving, setSaving] = useState(false); const [error, setError] = useState('');
+  const load = useCallback(async (force = false) => { if (!getCachedApiData(JOURNAL_PATH)) setLoading(true); setError(''); try { setNotes(await apiCached<JournalNote[]>(JOURNAL_PATH, { force })); } catch (e) { setError(e instanceof Error ? e.message : 'Could not load your journal.'); } finally { setLoading(false); } }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
-  async function save() { if (!content.trim()) return Alert.alert('Write one honest line', 'Your journal entry needs a little something to hold.'); setSaving(true); try { await api('/api/diary', { method: 'POST', body: JSON.stringify({ title, content }) }); setTitle(''); setContent(''); setOpen(false); await load(); } catch (e) { Alert.alert('Entry not saved', e instanceof Error ? e.message : 'Try again.'); } finally { setSaving(false); } }
+  async function save() { if (!content.trim()) return Alert.alert('Write one honest line', 'Your journal entry needs a little something to hold.'); setSaving(true); try { await api('/api/diary', { method: 'POST', body: JSON.stringify({ title, content }) }); invalidateApiCache(JOURNAL_PATH); setTitle(''); setContent(''); setOpen(false); await load(true); } catch (e) { Alert.alert('Entry not saved', e instanceof Error ? e.message : 'Try again.'); } finally { setSaving(false); } }
   return <Screen title="Journal" eyebrow="Private by default"><View style={styles.prompt}><View style={styles.promptIcon}><BookHeart size={23} color={colors.ink} /></View><View style={{ flex: 1 }}><Text style={styles.promptKicker}>A note for you</Text><Text style={styles.promptText}>What did today show you about the people you love?</Text></View></View><Button label={open ? 'Close entry' : 'Write today’s note'} tone="citrus" onPress={() => setOpen(!open)} />{open ? <PaperCard style={{ gap: 14 }}><Field label="Title (optional)" value={title} onChangeText={setTitle} placeholder="A small realization" /><Field label="Your note" value={content} onChangeText={setContent} multiline placeholder="Today I noticed…" /><Button label="Keep it private" loading={saving} onPress={save} /></PaperCard> : null}
     {loading ? <ActivityIndicator color={colors.ink} style={{ marginVertical: 40 }} /> : error ? <ErrorState message={error} onRetry={load} /> : notes.length ? notes.map((note, index) => <PaperCard key={note.id} style={{ backgroundColor: [colors.white, '#E4E7FF', '#FFF2C9'][index % 3] }}><Text style={styles.date}>{new Date(note.createdAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</Text><Text style={styles.title}>{note.title || 'Untitled note'}</Text><Text style={styles.content}>{note.content}</Text>{note.analysis ? <View style={styles.reflection}><Text style={styles.reflectionLabel}>Gentle reflection</Text><Text numberOfLines={4} style={styles.reflectionText}>{note.analysis}</Text></View> : null}</PaperCard>) : <EmptyState title="A blank page, in a good way" body="Journal notes are for the feelings around a memory—the part that only needs to belong to you." />}
   </Screen>;

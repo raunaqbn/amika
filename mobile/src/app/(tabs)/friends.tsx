@@ -4,15 +4,18 @@ import { useFocusEffect } from 'expo-router';
 import { Search, UserPlus } from 'lucide-react-native';
 import { Screen } from '@/components/screen';
 import { Avatar, EmptyState, ErrorState, PaperCard } from '@/components/ui';
-import { api } from '@/lib/api';
+import { api, apiCached, getCachedApiData, invalidateApiCache } from '@/lib/api';
 import { border, colors, type } from '@/lib/theme';
 import type { Friend } from '@/types';
 
+const FRIENDS_PATH = '/api/friends';
+
 export default function FriendsScreen() {
-  const [friends, setFriends] = useState<Friend[]>([]); const [query, setQuery] = useState(''); const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [adding, setAdding] = useState(false);
-  const load = useCallback(async () => { setLoading(true); setError(''); try { setFriends(await api<Friend[]>('/api/friends')); } catch (e) { setError(e instanceof Error ? e.message : 'Could not load friends.'); } finally { setLoading(false); } }, []);
+  const cachedFriends = getCachedApiData<Friend[]>(FRIENDS_PATH);
+  const [friends, setFriends] = useState<Friend[]>(cachedFriends || []); const [query, setQuery] = useState(''); const [loading, setLoading] = useState(!cachedFriends); const [error, setError] = useState(''); const [adding, setAdding] = useState(false);
+  const load = useCallback(async (force = false) => { if (!getCachedApiData(FRIENDS_PATH)) setLoading(true); setError(''); try { setFriends(await apiCached<Friend[]>(FRIENDS_PATH, { force })); } catch (e) { setError(e instanceof Error ? e.message : 'Could not load friends.'); } finally { setLoading(false); } }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
-  async function addFriend() { const name = query.trim(); if (!name) return Alert.alert('Type their name first', 'Use the search box for a name, then tap Add.'); setAdding(true); try { await api('/api/friends', { method: 'POST', body: JSON.stringify({ name }) }); setQuery(''); await load(); } catch (e) { Alert.alert('Friend not added', e instanceof Error ? e.message : 'Try again.'); } finally { setAdding(false); } }
+  async function addFriend() { const name = query.trim(); if (!name) return Alert.alert('Type their name first', 'Use the search box for a name, then tap Add.'); setAdding(true); try { await api('/api/friends', { method: 'POST', body: JSON.stringify({ name }) }); invalidateApiCache(FRIENDS_PATH); setQuery(''); await load(true); } catch (e) { Alert.alert('Friend not added', e instanceof Error ? e.message : 'Try again.'); } finally { setAdding(false); } }
   const visible = friends.filter((f) => f.name.toLowerCase().includes(query.toLowerCase()));
   const peopleLabel = friends.length === 1 ? '1 person in your circle' : `${friends.length} people in your circle`;
   return <Screen title="Friends" eyebrow={peopleLabel}><View style={styles.search}><Search size={19} color={colors.muted} /><TextInput style={styles.searchInput} value={query} onChangeText={setQuery} placeholder="Find or add someone" placeholderTextColor={colors.muted} /><Pressable accessibilityLabel="Add friend" onPress={addFriend} disabled={adding}><UserPlus size={21} color={colors.ink} /></Pressable></View>

@@ -1,5 +1,6 @@
-import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { memo, useCallback, useMemo, useRef } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Heart, MessageCircle, Users } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -15,21 +16,42 @@ function niceDate(value: string) {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export function MemoryCard({ memory, onChanged }: { memory: Memory; onChanged?: () => void }) {
+type MemoryCardProps = {
+  memory: Memory;
+  onReaction?: (memoryId: string, reactedByMe: boolean, reactionCount: number) => void;
+};
+
+export const MemoryCard = memo(function MemoryCard({ memory, onReaction }: MemoryCardProps) {
   const router = useRouter();
+  const reacting = useRef(false);
   const actor = memory.author?.name || 'You';
   const person = memory.friend?.name;
-  async function react() {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await api(`/api/memories/${memory.id}/reactions`, { method: 'POST', body: JSON.stringify({ emoji: 'heart' }) });
-    onChanged?.();
-  }
-  return <PaperCard style={styles.card}><Pressable accessibilityRole="button" accessibilityLabel={`Open memory by ${actor}`} onPress={() => router.push({ pathname: '/memory/[id]', params: { id: memory.id, data: JSON.stringify(memory) } })}>
+  const serializedMemory = useMemo(() => JSON.stringify(memory), [memory]);
+  const openMemory = useCallback(() => {
+    router.push({ pathname: '/memory/[id]', params: { id: memory.id, data: serializedMemory } });
+  }, [memory.id, router, serializedMemory]);
+  const react = useCallback(async () => {
+    if (reacting.current) return;
+    reacting.current = true;
+    const wasReacted = Boolean(memory.reactedByMe);
+    const previousCount = memory.reactionCount || 0;
+    const nextCount = Math.max(0, previousCount + (wasReacted ? -1 : 1));
+    onReaction?.(memory.id, !wasReacted, nextCount);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await api(`/api/memories/${memory.id}/reactions`, { method: 'POST', body: JSON.stringify({ emoji: 'heart' }) });
+    } catch {
+      onReaction?.(memory.id, wasReacted, previousCount);
+    } finally {
+      reacting.current = false;
+    }
+  }, [memory.id, memory.reactedByMe, memory.reactionCount, onReaction]);
+  return <PaperCard style={styles.card}><Pressable accessibilityRole="button" accessibilityLabel={`Open memory by ${actor}`} onPress={openMemory}>
     <View style={styles.meta}><Avatar name={actor} uri={memory.author?.profileImage} size={38} /><View style={{ flex: 1 }}><Text style={styles.actor}>{actor}{person ? <Text style={styles.with}> with {person}</Text> : null}</Text><Text style={styles.date}>{niceDate(memory.memoryDate)}</Text></View><View style={styles.visibility}><Users size={13} color={colors.ink} /><Text style={styles.visibilityText}>{memory.visibility}</Text></View></View>
-    {memory.imageUrl ? <Image source={{ uri: memory.imageUrl }} style={styles.image} resizeMode="cover" /> : <View style={styles.textOnly}><Text style={styles.bigQuote}>“</Text><Text style={styles.textOnlyCopy}>{memory.content}</Text></View>}
+    {memory.imageUrl ? <Image source={memory.imageUrl} style={styles.image} contentFit="cover" cachePolicy="memory-disk" recyclingKey={memory.id} transition={90} enforceEarlyResizing /> : <View style={styles.textOnly}><Text style={styles.bigQuote}>“</Text><Text style={styles.textOnlyCopy}>{memory.content}</Text></View>}
     {memory.imageUrl ? <Text style={styles.content}>{memory.content}</Text> : null}
-  </Pressable><View style={styles.actions}><Pressable accessibilityLabel={memory.reactedByMe ? 'Remove heart' : 'Heart memory'} onPress={react} style={styles.action}><Heart size={19} color={memory.reactedByMe ? colors.danger : colors.ink} fill={memory.reactedByMe ? colors.danger : 'transparent'} /><Text style={styles.actionText}>{memory.reactionCount || 0}</Text></Pressable><Pressable accessibilityLabel="Open comments" onPress={() => router.push({ pathname: '/memory/[id]', params: { id: memory.id, data: JSON.stringify(memory) } })} style={styles.action}><MessageCircle size={19} color={colors.ink} /><Text style={styles.actionText}>{memory.commentCount || 0}</Text></Pressable><Text style={styles.tapHint}>Tap to open</Text></View></PaperCard>;
-}
+  </Pressable><View style={styles.actions}><Pressable accessibilityLabel={memory.reactedByMe ? 'Remove heart' : 'Heart memory'} onPress={react} style={styles.action}><Heart size={19} color={memory.reactedByMe ? colors.danger : colors.ink} fill={memory.reactedByMe ? colors.danger : 'transparent'} /><Text style={styles.actionText}>{memory.reactionCount || 0}</Text></Pressable><Pressable accessibilityLabel="Open comments" onPress={openMemory} style={styles.action}><MessageCircle size={19} color={colors.ink} /><Text style={styles.actionText}>{memory.commentCount || 0}</Text></Pressable><Text style={styles.tapHint}>Tap to open</Text></View></PaperCard>;
+});
 
 const styles = StyleSheet.create({
   card: { padding: 0, overflow: 'hidden' }, meta: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14 }, actor: { fontFamily: type.heavy, color: colors.ink, fontSize: 14 }, with: { fontFamily: type.regular }, date: { fontFamily: type.regular, color: colors.muted, fontSize: 12, marginTop: 1 },

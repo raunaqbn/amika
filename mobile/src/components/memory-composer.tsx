@@ -1,17 +1,20 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect } from 'expo-router';
 import { Camera, ChevronDown, ChevronUp, ImagePlus, Lock, Sparkles, Users } from 'lucide-react-native';
-import { api, uploadImage } from '@/lib/api';
+import { api, apiCached, getCachedApiData, uploadImage } from '@/lib/api';
 import { border, colors, shadow, type } from '@/lib/theme';
 import type { Friend } from '@/types';
 import { Button, Field } from './ui';
 
+const FRIENDS_PATH = '/api/friends';
+
 export function MemoryComposer({ initiallyOpen = false, compact = false, onSaved }: { initiallyOpen?: boolean; compact?: boolean; onSaved?: () => void }) {
   const [open, setOpen] = useState(initiallyOpen);
-  const [friends, setFriends] = useState<Friend[]>([]);
+  const [friends, setFriends] = useState<Friend[]>(() => getCachedApiData<Friend[]>(FRIENDS_PATH) || []);
   const [friendId, setFriendId] = useState('');
   const [content, setContent] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -19,7 +22,7 @@ export function MemoryComposer({ initiallyOpen = false, compact = false, onSaved
   const [saving, setSaving] = useState(false);
 
   useFocusEffect(useCallback(() => {
-    api<Friend[]>('/api/friends').then((items) => {
+    apiCached<Friend[]>(FRIENDS_PATH).then((items) => {
       setFriends(items);
       setFriendId((current) => items.some((friend) => friend.id === current) ? current : (items[0]?.id || ''));
     }).catch(() => {});
@@ -54,7 +57,7 @@ export function MemoryComposer({ initiallyOpen = false, compact = false, onSaved
       <View style={styles.packetIcon}><Sparkles size={19} color={colors.ink} /></View><View style={{ flex: 1 }}><Text style={styles.kicker}>Today’s memory</Text><Text style={styles.packetTitle}>{open ? 'Hold onto this moment' : 'What should today remember?'}</Text></View>{open ? <ChevronUp color={colors.ink} /> : <ChevronDown color={colors.ink} />}
     </Pressable>
     {open ? <View style={styles.body}>
-      <View style={styles.photoRow}>{imageUri ? <Image source={{ uri: imageUri }} style={styles.preview} /> : <View style={styles.photoEmpty}><ImagePlus size={28} color={colors.ink} /><Text style={styles.photoEmptyText}>A photo makes it vivid</Text></View>}<View style={styles.photoButtons}><Pressable onPress={() => pick('camera')} style={styles.smallButton}><Camera size={17} color={colors.ink} /><Text style={styles.smallButtonText}>Camera</Text></Pressable><Pressable onPress={() => pick('library')} style={styles.smallButton}><ImagePlus size={17} color={colors.ink} /><Text style={styles.smallButtonText}>Library</Text></Pressable></View></View>
+      <View style={styles.photoRow}>{imageUri ? <Image source={imageUri} style={styles.preview} contentFit="cover" /> : <View style={styles.photoEmpty}><ImagePlus size={28} color={colors.ink} /><Text style={styles.photoEmptyText}>A photo makes it vivid</Text></View>}<View style={styles.photoButtons}><Pressable onPress={() => pick('camera')} style={styles.smallButton}><Camera size={17} color={colors.ink} /><Text style={styles.smallButtonText}>Camera</Text></Pressable><Pressable onPress={() => pick('library')} style={styles.smallButton}><ImagePlus size={17} color={colors.ink} /><Text style={styles.smallButtonText}>Library</Text></Pressable></View></View>
       <Field label="The moment" placeholder="The tiny thing you don’t want to forget…" multiline value={content} onChangeText={setContent} maxLength={500} />
       <Text style={styles.label}>With</Text>
       {friends.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{friends.map((friend) => <Pressable key={friend.id} onPress={() => setFriendId(friend.id)} style={[styles.chip, friend.id === friendId && styles.chipActive]}><Text style={[styles.chipText, friend.id === friendId && styles.chipTextActive]}>{friend.name}</Text></Pressable>)}</ScrollView> : <Text style={styles.help}>Add a friend from the Friends tab before saving your first memory.</Text>}

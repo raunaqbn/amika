@@ -4,6 +4,12 @@ const TOKEN_KEY = 'amika_session_token';
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || 'https://amika.vercel.app').replace(/\/$/, '');
 
 let tokenCache: string | null | undefined;
+const responseCache = new Map<string, { value: unknown; updatedAt: number }>();
+const responseRequests = new Map<string, Promise<unknown>>();
+
+export function getTokenSnapshot() {
+  return tokenCache;
+}
 
 export async function getToken() {
   if (tokenCache !== undefined) return tokenCache;
@@ -17,6 +23,10 @@ export async function getToken() {
 }
 
 export async function setToken(token: string | null) {
+  if (tokenCache !== token) {
+    responseCache.clear();
+    responseRequests.clear();
+  }
   tokenCache = token;
   try {
     if (token) await SecureStore.setItemAsync(TOKEN_KEY, token);
@@ -40,6 +50,38 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     throw new Error(detail);
   }
   return data as T;
+}
+
+export function getCachedApiData<T>(path: string) {
+  return responseCache.get(path)?.value as T | undefined;
+}
+
+export function invalidateApiCache(path?: string) {
+  if (!path) {
+    responseCache.clear();
+    return;
+  }
+  responseCache.delete(path);
+}
+
+export async function apiCached<T>(path: string, options: { force?: boolean; maxAgeMs?: number } = {}) {
+  const maxAgeMs = options.maxAgeMs ?? 30_000;
+  const cached = responseCache.get(path);
+  if (!options.force && cached && Date.now() - cached.updatedAt < maxAgeMs) {
+    return cached.value as T;
+  }
+
+  const activeRequest = responseRequests.get(path);
+  if (activeRequest) return activeRequest as Promise<T>;
+
+  const request = api<T>(path)
+    .then((value) => {
+      responseCache.set(path, { value, updatedAt: Date.now() });
+      return value;
+    })
+    .finally(() => responseRequests.delete(path));
+  responseRequests.set(path, request);
+  return request;
 }
 
 export async function uploadImage(uri: string) {

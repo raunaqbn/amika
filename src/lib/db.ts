@@ -140,6 +140,7 @@ export type FriendInvite = {
 
 let clientInstance: Client | null = null;
 let tablesInitialized = false;
+let tablesInitializationPromise: Promise<void> | null = null;
 
 // Password hashing utilities
 function hashPassword(password: string): string {
@@ -169,11 +170,55 @@ function getClient(): Client {
   return clientInstance;
 }
 
-// Initialize database tables on first use
-async function ensureTablesExist() {
-  if (tablesInitialized) return;
+// Validate the deployed schema with one round trip. Previously every serverless
+// cold start ran every CREATE/ALTER statement below sequentially, even when the
+// production database was already current.
+async function hasCurrentSchema(client: Client) {
+  try {
+    await client.execute(`
+      SELECT
+        (SELECT phone FROM users LIMIT 0) AS usersReady,
+        (SELECT location FROM users LIMIT 0) AS userLocationReady,
+        (SELECT googleId FROM users LIMIT 0) AS userGoogleReady,
+        (SELECT isTemporary FROM users LIMIT 0) AS userTemporaryReady,
+        (SELECT interests FROM users LIMIT 0) AS userInterestsReady,
+        (SELECT id FROM sessions LIMIT 0) AS sessionsReady,
+        (SELECT email FROM friends LIMIT 0) AS friendsReady,
+        (SELECT interests FROM friends LIMIT 0) AS friendInterestsReady,
+        (SELECT profileImage FROM friends LIMIT 0) AS friendProfileReady,
+        (SELECT customProfileImage FROM friends LIMIT 0) AS friendCustomProfileReady,
+        (SELECT linkedUserId FROM friends LIMIT 0) AS friendLinkReady,
+        (SELECT imageUrl FROM memories LIMIT 0) AS memoriesReady,
+        (SELECT amikaFriendUserId FROM memories LIMIT 0) AS memoryAmikaFriendReady,
+        (SELECT visibility FROM memories LIMIT 0) AS memoryVisibilityReady,
+        (SELECT memoryDate FROM memories LIMIT 0) AS memoryDateReady,
+        (SELECT sharedWithFriend FROM memories LIMIT 0) AS memoryFriendSharingReady,
+        (SELECT sharedWithAmikaFriend FROM memories LIMIT 0) AS memoryAmikaSharingReady,
+        (SELECT id FROM memory_reactions LIMIT 0) AS reactionsReady,
+        (SELECT id FROM memory_comments LIMIT 0) AS commentsReady,
+        (SELECT readAt FROM direct_messages LIMIT 0) AS messagesReady,
+        (SELECT analysis FROM diary_notes LIMIT 0) AS diaryReady,
+        (SELECT imageUrl FROM diary_notes LIMIT 0) AS diaryImageReady,
+        (SELECT sharedWithFriend FROM diary_note_tags LIMIT 0) AS diaryTagsReady,
+        (SELECT sharedWithAmikaFriend FROM diary_note_amika_tags LIMIT 0) AS amikaTagsReady,
+        (SELECT userId FROM chat_transcripts LIMIT 0) AS chatsReady,
+        (SELECT status FROM user_connections LIMIT 0) AS connectionsReady,
+        (SELECT status FROM shared_items LIMIT 0) AS sharedItemsReady,
+        (SELECT status FROM friend_invites LIMIT 0) AS invitesReady
+    `);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
+async function initializeTables() {
   const client = getClient();
+  if (await hasCurrentSchema(client)) {
+    tablesInitialized = true;
+    return;
+  }
+
   const addColumn = async (table: string, column: string, definition: string) => {
     try {
       await client.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
@@ -408,6 +453,18 @@ async function ensureTablesExist() {
     console.error('Error initializing memory-first database tables:', error);
     throw error;
   }
+}
+
+// Initialize once per runtime and share the work across concurrent requests.
+async function ensureTablesExist() {
+  if (tablesInitialized) return;
+  if (!tablesInitializationPromise) {
+    tablesInitializationPromise = initializeTables().catch((error) => {
+      tablesInitializationPromise = null;
+      throw error;
+    });
+  }
+  await tablesInitializationPromise;
 }
 
 export const prisma = {
@@ -940,11 +997,21 @@ export const prisma = {
         friend: friendMap.get(row.friendId as string) || null,
       }));
     },
-    findFeed: async ({ userId, scope = 'friends' }: { userId: string; scope?: 'friends' | 'public' }) => {
+    findFeed: async ({ userId, scope = 'friends', limit, cursor }: {
+      userId: string;
+      scope?: 'friends' | 'public';
+      limit?: number;
+      cursor?: { date: string; id: string };
+    }) => {
       await ensureTablesExist();
       const client = getClient();
 
       const visibilitySql = `COALESCE(m.visibility, CASE WHEN m.sharedWithFriend = 1 THEN 'friends' ELSE 'private' END)`;
+      const dateSql = 'COALESCE(m.memoryDate, m.createdAt)';
+      const cursorSql = cursor
+        ? ` AND (${dateSql} < ? OR (${dateSql} = ? AND m.id < ?))`
+        : '';
+      const limitSql = limit ? ' LIMIT ?' : '';
       const sql = scope === 'public'
         ? `SELECT m.*, u.name AS authorName, u.profileImage AS authorImage,
                   f.name AS friendName, f.profileImage AS friendImage,
@@ -955,7 +1022,8 @@ export const prisma = {
            JOIN users u ON u.id = m.userId
            LEFT JOIN friends f ON f.id = m.friendId
            WHERE ${visibilitySql} = 'public'
-           ORDER BY COALESCE(m.memoryDate, m.createdAt) DESC`
+             ${cursorSql}
+           ORDER BY ${dateSql} DESC, m.id DESC${limitSql}`
         : `SELECT m.*, u.name AS authorName, u.profileImage AS authorImage,
                   f.name AS friendName, f.profileImage AS friendImage,
                   (SELECT COUNT(*) FROM memory_reactions mr WHERE mr.memoryId = m.id) AS reactionCount,
@@ -973,11 +1041,14 @@ export const prisma = {
                   WHERE status = 'accepted' AND (requesterId = ? OR addresseeId = ?)
                 )
               )
-           ORDER BY COALESCE(m.memoryDate, m.createdAt) DESC`;
+             ${cursorSql}
+           ORDER BY ${dateSql} DESC, m.id DESC${limitSql}`;
 
-      const args = scope === 'public'
+      const args: Array<string | number> = scope === 'public'
         ? [userId]
         : [userId, userId, userId, userId, userId];
+      if (cursor) args.push(cursor.date, cursor.date, cursor.id);
+      if (limit) args.push(limit);
       const result = await client.execute({ sql, args });
 
       return result.rows.map((row: any) => ({

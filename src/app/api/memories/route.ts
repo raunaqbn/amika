@@ -11,9 +11,33 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const scope = searchParams.get('scope');
+    const requestedLimit = Number(searchParams.get('limit'));
+    const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? Math.min(Math.floor(requestedLimit), 50)
+      : undefined;
+    const rawCursor = searchParams.get('cursor');
+    const [cursorDate, cursorId] = rawCursor?.split('|') || [];
+    const cursor = cursorDate && cursorId ? { date: cursorDate, id: cursorId } : undefined;
     const memories = scope === 'feed' || scope === 'public'
-      ? await prisma.memory.findFeed({ userId, scope: scope === 'public' ? 'public' : 'friends' })
+      ? await prisma.memory.findFeed({
+        userId,
+        scope: scope === 'public' ? 'public' : 'friends',
+        limit: limit ? limit + 1 : undefined,
+        cursor,
+      })
       : await prisma.memory.findMany({ userId });
+
+    if (limit && (scope === 'feed' || scope === 'public')) {
+      const hasMore = memories.length > limit;
+      const items = memories.slice(0, limit);
+      const last = items.at(-1);
+      return NextResponse.json({
+        items,
+        nextCursor: hasMore && last
+          ? `${last.memoryDate.toISOString()}|${last.id}`
+          : null,
+      });
+    }
     return NextResponse.json(memories);
   } catch (error) {
     console.error('Error fetching memories:', error);
