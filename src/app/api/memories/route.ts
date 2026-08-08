@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         limit: limit ? limit + 1 : undefined,
         cursor,
       })
-      : await prisma.memory.findMany({ userId });
+      : await prisma.memory.findMany({ userId, limit });
 
     if (limit && (scope === 'feed' || scope === 'public')) {
       const hasMore = memories.length > limit;

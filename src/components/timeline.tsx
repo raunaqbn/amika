@@ -32,8 +32,8 @@ export function Timeline() {
 
         // Fetch diary notes and memories in parallel
         const [diaryRes, memoriesRes] = await Promise.all([
-          fetch('/api/diary'),
-          fetch('/api/memories'),
+          fetch('/api/diary?limit=10'),
+          fetch('/api/memories?limit=10'),
         ]);
 
         if (!diaryRes.ok) throw new Error('Failed to fetch diary');

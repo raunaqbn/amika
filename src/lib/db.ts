@@ -974,7 +974,7 @@ export const prisma = {
     },
   },
   memory: {
-    findMany: async (args?: { userId?: string }) => {
+    findMany: async (args?: { userId?: string; limit?: number }) => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -985,6 +985,10 @@ export const prisma = {
         sqlArgs = [args.userId];
       }
       sql += ' ORDER BY createdAt DESC';
+      if (args?.limit) {
+        sql += ' LIMIT ?';
+        sqlArgs.push(args.limit);
+      }
 
       const memoriesResult = await client.execute({ sql, args: sqlArgs });
 
@@ -1424,33 +1428,50 @@ export const prisma = {
   },
 
   diaryNote: {
-    findMany: async ({ userId }: { userId: string }) => {
+    findMany: async ({ userId, limit }: { userId: string; limit?: number }) => {
       await ensureTablesExist();
       const client = getClient();
-      const result = await client.execute({ sql: 'SELECT * FROM diary_notes WHERE userId = ? ORDER BY createdAt DESC', args: [userId] });
-      return Promise.all(result.rows.map(async (row: any) => {
-        const tags = await client.execute({
-          sql: 'SELECT f.*, dnt.sharedWithFriend FROM diary_note_tags dnt JOIN friends f ON f.id = dnt.friendId WHERE dnt.noteId = ?',
-          args: [row.id as string],
+      const noteArgs: Array<string | number> = [userId];
+      let noteSql = 'SELECT * FROM diary_notes WHERE userId = ? ORDER BY createdAt DESC';
+      if (limit) {
+        noteSql += ' LIMIT ?';
+        noteArgs.push(limit);
+      }
+      const result = await client.execute({ sql: noteSql, args: noteArgs });
+      if (result.rows.length === 0) return [];
+
+      const noteIds = result.rows.map((row: any) => row.id as string);
+      const tags = await client.execute({
+        sql: `SELECT dnt.noteId, f.*, dnt.sharedWithFriend
+              FROM diary_note_tags dnt
+              JOIN friends f ON f.id = dnt.friendId
+              WHERE dnt.noteId IN (${noteIds.map(() => '?').join(', ')})`,
+        args: noteIds,
+      });
+      const tagsByNote = new Map<string, any[]>();
+      for (const tag of tags.rows as any[]) {
+        const noteTags = tagsByNote.get(tag.noteId as string) || [];
+        noteTags.push({
+          id: tag.id as string,
+          name: tag.name as string,
+          profileImage: tag.profileImage as string | null,
+          customProfileImage: tag.customProfileImage as string | null,
+          linkedUserId: tag.linkedUserId as string | null,
+          sharedWithFriend: Boolean(tag.sharedWithFriend),
         });
-        return {
-          id: row.id as string,
-          userId: row.userId as string,
-          title: row.title as string | null,
-          content: row.content as string,
-          analysis: row.analysis as string | null,
-          imageUrl: row.imageUrl as string | null,
-          createdAt: new Date(row.createdAt as string),
-          updatedAt: new Date(row.updatedAt as string),
-          friends: tags.rows.map((tag: any) => ({
-            id: tag.id as string,
-            name: tag.name as string,
-            profileImage: tag.profileImage as string | null,
-            customProfileImage: tag.customProfileImage as string | null,
-            linkedUserId: tag.linkedUserId as string | null,
-            sharedWithFriend: Boolean(tag.sharedWithFriend),
-          })),
-        };
+        tagsByNote.set(tag.noteId as string, noteTags);
+      }
+
+      return result.rows.map((row: any) => ({
+        id: row.id as string,
+        userId: row.userId as string,
+        title: row.title as string | null,
+        content: row.content as string,
+        analysis: row.analysis as string | null,
+        imageUrl: row.imageUrl as string | null,
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: new Date(row.updatedAt as string),
+        friends: tagsByNote.get(row.id as string) || [],
       }));
     },
     create: async ({ data }: { data: { userId: string; title?: string | null; content: string; analysis?: string | null; imageUrl?: string | null; friendIds?: string[]; friendTags?: { friendId: string; sharedWithFriend?: boolean }[] } }) => {

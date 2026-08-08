@@ -63,6 +63,8 @@ type Comment = {
   author: { id: string; name: string; profileImage: string | null };
 };
 
+const HOME_FEED_LIMIT = 18;
+
 const VISIBILITY: Record<Visibility, { label: string; icon: typeof LockKeyhole }> = {
   private: { label: 'Only me', icon: LockKeyhole },
   friends: { label: 'Friends only', icon: Users },
@@ -342,27 +344,35 @@ export function Dashboard() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const loadData = useCallback(async () => {
+  const loadMemories = useCallback(async () => {
     try {
-      const [memoriesResponse, friendsResponse] = await Promise.all([
-        fetch('/api/memories?scope=feed'),
-        fetch('/api/friends'),
-      ]);
-      if (!memoriesResponse.ok || !friendsResponse.ok) throw new Error('Could not load your memories.');
-      const [memoryData, friendData] = await Promise.all([memoriesResponse.json(), friendsResponse.json()]);
-      setMemories(memoryData);
-      setFriends(friendData);
-      if (!friendId && friendData[0]) setFriendId(friendData[0].id);
+      const response = await fetch(`/api/memories?scope=feed&limit=${HOME_FEED_LIMIT}`);
+      if (!response.ok) throw new Error('Could not load your memories.');
+      const data = await response.json();
+      setMemories(data.items);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Could not load your memories.');
     } finally {
       setLoading(false);
     }
-  }, [friendId]);
+  }, []);
+
+  const loadFriends = useCallback(async () => {
+    try {
+      const response = await fetch('/api/friends?view=compact');
+      if (!response.ok) throw new Error('Could not load your friends.');
+      const data: Friend[] = await response.json();
+      setFriends(data);
+      setFriendId((current) => current || data[0]?.id || '');
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Could not load your friends.');
+    }
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    void loadMemories();
+    void loadFriends();
+  }, [loadFriends, loadMemories]);
 
   useEffect(() => {
     return () => {
@@ -432,7 +442,7 @@ export function Dashboard() {
       setSelectedImage(null);
       if (imagePreview) URL.revokeObjectURL(imagePreview);
       setImagePreview(null);
-      await loadData();
+      await loadMemories();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Your memory was not saved.');
     } finally {
@@ -577,7 +587,7 @@ export function Dashboard() {
           ) : (
             <div className="memory-contact-sheet">
               {memories.map((memory, index) => (
-                <MemoryCard key={memory.id} memory={memory} featured={index === 0} onRefresh={loadData} />
+                <MemoryCard key={memory.id} memory={memory} featured={index === 0} onRefresh={loadMemories} />
               ))}
             </div>
           )}

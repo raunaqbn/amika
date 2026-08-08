@@ -32,14 +32,19 @@ Provide your therapeutic reflection:`,
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const userId = await getUserId();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const notes = await prisma.diaryNote.findMany({ userId });
+    const { searchParams } = new URL(request.url);
+    const requestedLimit = Number(searchParams.get('limit'));
+    const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? Math.min(Math.floor(requestedLimit), 50)
+      : undefined;
+    const notes = await prisma.diaryNote.findMany({ userId, limit });
     return NextResponse.json(notes);
   } catch (error) {
     console.error('Error fetching diary notes:', error);

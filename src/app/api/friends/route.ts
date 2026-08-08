@@ -9,11 +9,23 @@ function parseLocalDate(dateString: string | null | undefined): Date | null {
   return new Date(year, month - 1, day, 12, 0, 0);
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const userId = await getUserId();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    if (searchParams.get('view') === 'compact') {
+      const friends = await prisma.friend.findMany({ userId });
+      return NextResponse.json(friends.map((friend) => ({
+        id: friend.id,
+        name: friend.name,
+        profileImage: friend.profileImage,
+        customProfileImage: friend.customProfileImage,
+        linkedUserId: friend.linkedUserId,
+      })));
     }
 
     // Get all friends from friends table
