@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect } from 'expo-router';
 import { Camera, ChevronDown, ChevronUp, ImagePlus, Lock, Sparkles, Users } from 'lucide-react-native';
-import { api, apiCached, getCachedApiData, uploadImage } from '@/lib/api';
+import { api, apiCached, getCachedApiData, imageSource, prepareImageForUpload, uploadImage } from '@/lib/api';
 import { border, colors, shadow, type } from '@/lib/theme';
 import type { Friend } from '@/types';
 import { Button, Field } from './ui';
@@ -21,6 +21,7 @@ export function MemoryComposer({ initiallyOpen = false, compact = false, initial
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [visibility, setVisibility] = useState<'private' | 'friends'>('friends');
   const [saving, setSaving] = useState(false);
+  const [preparingPhoto, setPreparingPhoto] = useState(false);
 
   useFocusEffect(useCallback(() => {
     apiCached<Friend[]>(FRIENDS_PATH).then((items) => {
@@ -39,10 +40,23 @@ export function MemoryComposer({ initiallyOpen = false, compact = false, initial
   async function pick(source: 'camera' | 'library') {
     const permission = source === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) return Alert.alert('Photo permission needed', 'Allow Amika to use photos so you can keep this memory.');
-    const result = source === 'camera'
-      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: .72 })
-      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: .72 });
-    if (!result.canceled) setImageUri(result.assets[0].uri);
+    try {
+      const result = source === 'camera'
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: .55 })
+        : await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          quality: .55,
+          preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+        });
+      if (result.canceled) return;
+      const asset = result.assets[0];
+      setPreparingPhoto(true);
+      setImageUri(await prepareImageForUpload(asset.uri, asset.width, asset.height));
+    } catch (error) {
+      Alert.alert('Photo not ready', error instanceof Error ? error.message : 'Please choose a different photo.');
+    } finally {
+      setPreparingPhoto(false);
+    }
   }
 
   async function save() {
@@ -64,7 +78,7 @@ export function MemoryComposer({ initiallyOpen = false, compact = false, initial
       <View style={styles.packetIcon}><Sparkles size={19} color={colors.ink} /></View><View style={{ flex: 1 }}><Text style={styles.kicker}>Today’s memory</Text><Text style={styles.packetTitle}>{open ? 'Hold onto this moment' : 'What should today remember?'}</Text></View>{open ? <ChevronUp color={colors.ink} /> : <ChevronDown color={colors.ink} />}
     </Pressable>
     {open ? <View style={styles.body}>
-      <View style={styles.photoRow}>{imageUri ? <Image source={imageUri} style={styles.preview} contentFit="cover" /> : <View style={styles.photoEmpty}><ImagePlus size={28} color={colors.ink} /><Text style={styles.photoEmptyText}>A photo makes it vivid</Text></View>}<View style={styles.photoButtons}><Pressable onPress={() => pick('camera')} style={styles.smallButton}><Camera size={17} color={colors.ink} /><Text style={styles.smallButtonText}>Camera</Text></Pressable><Pressable onPress={() => pick('library')} style={styles.smallButton}><ImagePlus size={17} color={colors.ink} /><Text style={styles.smallButtonText}>Library</Text></Pressable></View></View>
+      <View style={styles.photoRow}>{imageUri ? <Image source={imageSource(imageUri)} style={styles.preview} contentFit="cover" /> : <View style={styles.photoEmpty}><ImagePlus size={28} color={colors.ink} /><Text style={styles.photoEmptyText}>{preparingPhoto ? 'Preparing photo…' : 'A photo makes it vivid'}</Text></View>}<View style={styles.photoButtons}><Pressable disabled={preparingPhoto} onPress={() => pick('camera')} style={styles.smallButton}><Camera size={17} color={colors.ink} /><Text style={styles.smallButtonText}>Camera</Text></Pressable><Pressable disabled={preparingPhoto} onPress={() => pick('library')} style={styles.smallButton}><ImagePlus size={17} color={colors.ink} /><Text style={styles.smallButtonText}>Library</Text></Pressable></View></View>
       <Field label="The moment" placeholder="The tiny thing you don’t want to forget…" multiline value={content} onChangeText={setContent} maxLength={500} />
       <Text style={styles.label}>Who was there? <Text style={styles.optional}>Optional</Text></Text>
       <FriendTagPicker
@@ -74,7 +88,7 @@ export function MemoryComposer({ initiallyOpen = false, compact = false, initial
         helper={friends.length ? 'Choose one friend, or leave the memory untagged.' : 'No friends yet—you can still save this memory without a tag.'}
       />
       <Text style={styles.label}>Who can see it</Text><View style={styles.privacyRow}><Pressable onPress={() => setVisibility('friends')} style={[styles.privacy, visibility === 'friends' && styles.privacyActive]}><Users size={17} color={colors.ink} /><View><Text style={styles.privacyTitle}>Friends</Text><Text style={styles.privacyBody}>{selected?.linkedUserId ? `Share with ${selected.name}` : 'Your Amika circle'}</Text></View></Pressable><Pressable onPress={() => setVisibility('private')} style={[styles.privacy, visibility === 'private' && styles.privacyActive]}><Lock size={17} color={colors.ink} /><View><Text style={styles.privacyTitle}>Only me</Text><Text style={styles.privacyBody}>Private keepsake</Text></View></Pressable></View>
-      <Button label="Save today’s memory" tone="ink" loading={saving} onPress={save} />
+      <Button label="Save today’s memory" tone="ink" loading={saving} disabled={preparingPhoto} onPress={save} />
     </View> : <Pressable onPress={() => setOpen(true)} style={styles.fold}><Text style={styles.foldText}>Add photo · tag a friend · keep it forever</Text></Pressable>}
   </View>;
 }

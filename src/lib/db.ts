@@ -2122,3 +2122,81 @@ export const prisma = {
   },
 
 };
+
+export async function getAuthorizedImage(
+  viewerUserId: string,
+  type: 'memory' | 'user' | 'friend',
+  id: string,
+): Promise<string | null> {
+  await ensureTablesExist();
+  const client = getClient();
+
+  if (type === 'friend') {
+    const result = await client.execute({
+      sql: 'SELECT customProfileImage, profileImage FROM friends WHERE id = ? AND userId = ?',
+      args: [id, viewerUserId],
+    });
+    if (!result.rows.length) return null;
+    return (result.rows[0].customProfileImage || result.rows[0].profileImage || null) as string | null;
+  }
+
+  if (type === 'user') {
+    const result = await client.execute({
+      sql: `SELECT u.profileImage
+            FROM users u
+            WHERE u.id = ? AND (
+              u.id = ? OR EXISTS (
+                SELECT 1 FROM user_connections uc
+                WHERE uc.status = 'accepted'
+                  AND ((uc.requesterId = ? AND uc.addresseeId = u.id)
+                    OR (uc.addresseeId = ? AND uc.requesterId = u.id))
+              )
+            )`,
+      args: [id, viewerUserId, viewerUserId, viewerUserId],
+    });
+    return result.rows.length ? (result.rows[0].profileImage as string | null) : null;
+  }
+
+  const result = await client.execute({
+    sql: `SELECT m.imageUrl
+          FROM memories m
+          WHERE m.id = ? AND (
+            m.userId = ?
+            OR COALESCE(m.visibility, CASE WHEN m.sharedWithFriend = 1 THEN 'friends' ELSE 'private' END) = 'public'
+            OR (
+              COALESCE(m.visibility, CASE WHEN m.sharedWithFriend = 1 THEN 'friends' ELSE 'private' END) = 'friends'
+              AND EXISTS (
+                SELECT 1 FROM user_connections uc
+                WHERE uc.status = 'accepted'
+                  AND ((uc.requesterId = ? AND uc.addresseeId = m.userId)
+                    OR (uc.addresseeId = ? AND uc.requesterId = m.userId))
+              )
+            )
+          )`,
+    args: [id, viewerUserId, viewerUserId, viewerUserId],
+  });
+  return result.rows.length ? (result.rows[0].imageUrl as string | null) : null;
+}
+
+export async function getFriendContextCounts(userId: string) {
+  await ensureTablesExist();
+  const client = getClient();
+  const [memoryResult, noteResult] = await Promise.all([
+    client.execute({
+      sql: 'SELECT friendId, COUNT(*) AS total FROM memories WHERE userId = ? AND friendId IS NOT NULL GROUP BY friendId',
+      args: [userId],
+    }),
+    client.execute({
+      sql: `SELECT dnt.friendId, COUNT(*) AS total
+            FROM diary_note_tags dnt
+            JOIN diary_notes dn ON dn.id = dnt.diaryNoteId
+            WHERE dn.userId = ?
+            GROUP BY dnt.friendId`,
+      args: [userId],
+    }),
+  ]);
+  return {
+    memories: new Map(memoryResult.rows.map((row) => [row.friendId as string, Number(row.total || 0)])),
+    notes: new Map(noteResult.rows.map((row) => [row.friendId as string, Number(row.total || 0)])),
+  };
+}

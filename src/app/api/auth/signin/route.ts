@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/db';
 import { getSessionCookieName } from '@/lib/auth';
+import { compactImageUrl } from '@/lib/mobile-images';
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
         email: user.email,
         name: user.name,
         birthday: user.birthday,
-        profileImage: user.profileImage,
+        profileImage: compactImageUrl(request, 'user', user.id, user.profileImage),
         createdAt: user.createdAt,
       },
     });

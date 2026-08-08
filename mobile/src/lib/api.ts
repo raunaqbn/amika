@@ -1,9 +1,10 @@
 import * as SecureStore from 'expo-secure-store';
 import { File, UploadType } from 'expo-file-system';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { readPersistentCache, removePersistentCache, writePersistentCache } from './cache-storage';
 
 const TOKEN_KEY = 'amika_session_token';
-const API_CACHE_KEY = 'api-v1';
+const API_CACHE_KEY = 'api-v2';
 const DEFAULT_MAX_AGE_MS = 5 * 60_000;
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || 'https://amika.vercel.app').replace(/\/$/, '');
 
@@ -74,7 +75,7 @@ export async function setToken(token: string | null) {
     // Keep the in-memory token so local unsigned simulator sessions still work.
   }
   if (previousToken && previousToken !== token) {
-    void removePersistentCache(previousToken, [API_CACHE_KEY, 'memory-feed-v1']);
+    void removePersistentCache(previousToken, [API_CACHE_KEY, 'api-v1', 'memory-feed-v1', 'memory-feed-v2']);
   }
 }
 
@@ -82,6 +83,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   const token = await getToken();
   const headers = new Headers(options.headers);
   headers.set('Accept', 'application/json');
+  headers.set('X-Amika-Compact-Images', '1');
   if (token) headers.set('Authorization', `Bearer ${token}`);
   if (options.body && !(options.body instanceof FormData)) headers.set('Content-Type', 'application/json');
 
@@ -158,4 +160,23 @@ export async function uploadImage(uri: string) {
     throw new Error(data.error || 'The photo could not be uploaded. Please try again.');
   }
   return { url: data.url };
+}
+
+export async function prepareImageForUpload(uri: string, width: number, height: number) {
+  const maxDimension = Math.max(width, height);
+  const context = ImageManipulator.manipulate(uri);
+  if (maxDimension > 1280) {
+    if (width >= height) context.resize({ width: 1280, height: null });
+    else context.resize({ width: null, height: 1280 });
+  }
+  const rendered = await context.renderAsync();
+  const result = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.68 });
+  return result.uri;
+}
+
+export function imageSource(uri?: string | null) {
+  if (!uri) return undefined;
+  if (!uri.startsWith(`${API_URL}/api/media/`)) return uri;
+  const token = getTokenSnapshot();
+  return token ? { uri, headers: { Authorization: `Bearer ${token}` } } : { uri };
 }

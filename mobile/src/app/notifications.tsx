@@ -7,7 +7,7 @@ import { Check, ChevronLeft, ChevronRight, MessageCircle, UserPlus, X } from 'lu
 import { Screen } from '@/components/screen';
 import { Avatar, Button, EmptyState, ErrorState } from '@/components/ui';
 import { useAuth } from '@/context/auth';
-import { api, invalidateApiCache } from '@/lib/api';
+import { api, imageSource, invalidateApiCache } from '@/lib/api';
 import { invalidateMemoryFeed } from '@/lib/memory-feed';
 import { refreshNotificationCount } from '@/lib/notification-count';
 import { border, colors, shadow, type } from '@/lib/theme';
@@ -121,7 +121,7 @@ export default function NotificationsScreen() {
                     <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
                   </View>
                 </View>
-                {item.item?.imageUrl ? <Image source={item.item.imageUrl} style={styles.memoryImage} contentFit="cover" cachePolicy="memory-disk" transition={100} /> : null}
+                {item.item?.imageUrl ? <Image source={imageSource(item.item.imageUrl)} style={styles.memoryImage} contentFit="cover" cachePolicy="memory-disk" transition={100} enforceEarlyResizing /> : null}
                 {item.item?.content ? <Text style={styles.memoryText}>{item.item.content}</Text> : null}
                 <View style={styles.actions}>
                   <Button label="Save to my memories" tone="citrus" loading={actionId === item.id} onPress={() => void updateSharedItem(item, 'accepted')} style={styles.saveButton} />
@@ -137,7 +137,7 @@ export default function NotificationsScreen() {
                   key={thread.id}
                   accessibilityRole="button"
                   accessibilityLabel={`Open ${thread.unreadCount} unread ${thread.unreadCount === 1 ? 'message' : 'messages'} from ${thread.name}`}
-                  onPress={() => router.push({ pathname: '/conversation/[id]', params: { id: thread.id, name: thread.name, image: thread.profileImage || '' } })}
+                  onPress={() => router.push({ pathname: '/conversation/[id]', params: { id: thread.id, name: thread.name } })}
                   style={({ pressed }) => [styles.listRow, index > 0 && styles.rowDivider, pressed && styles.rowPressed]}
                 >
                   <View style={styles.iconTile}><MessageCircle size={19} color={colors.ink} /></View>

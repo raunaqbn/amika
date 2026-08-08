@@ -224,7 +224,7 @@ export default function FriendsScreen() {
               key={friend.id}
               accessibilityRole="button"
               accessibilityLabel={`View ${friend.name}'s profile`}
-              onPress={() => router.push({ pathname: '/friend/[id]', params: { id: friend.id, data: JSON.stringify(friend) } })}
+              onPress={() => router.push({ pathname: '/friend/[id]', params: { id: friend.id } })}
               style={({ pressed }) => pressed && styles.pressed}
             >
               <PaperCard style={{ backgroundColor: cardColors[index % cardColors.length] }}>

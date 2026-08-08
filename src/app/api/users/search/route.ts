@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { compactImageUrl } from '@/lib/mobile-images';
 
 // GET - Search for users by email or name
 export async function GET(request: Request) {
@@ -19,7 +20,10 @@ export async function GET(request: Request) {
 
     const users = await prisma.searchUsers(query, session.user.id);
 
-    return NextResponse.json(users);
+    return NextResponse.json(users.map((user) => ({
+      ...user,
+      profileImage: compactImageUrl(request, 'user', user.id, user.profileImage),
+    })));
   } catch (error) {
     console.error('Error searching users:', error);
     return NextResponse.json({ error: 'Failed to search users' }, { status: 500 });

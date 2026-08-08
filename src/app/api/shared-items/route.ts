@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { compactImageUrl } from '@/lib/mobile-images';
 
 // GET - Fetch shared items for the authenticated user
 export async function GET(request: Request) {
@@ -28,7 +29,23 @@ export async function GET(request: Request) {
       itemType,
     });
 
-    return NextResponse.json(items);
+    return NextResponse.json(items.map((sharedItem: any) => ({
+      ...sharedItem,
+      sharedBy: sharedItem.sharedBy ? {
+        ...sharedItem.sharedBy,
+        profileImage: compactImageUrl(request, 'user', sharedItem.sharedBy.id, sharedItem.sharedBy.profileImage),
+      } : sharedItem.sharedBy,
+      sharedWith: sharedItem.sharedWith ? {
+        ...sharedItem.sharedWith,
+        profileImage: compactImageUrl(request, 'user', sharedItem.sharedWith.id, sharedItem.sharedWith.profileImage),
+      } : sharedItem.sharedWith,
+      item: sharedItem.item ? {
+        ...sharedItem.item,
+        imageUrl: sharedItem.itemType === 'memory'
+          ? compactImageUrl(request, 'memory', sharedItem.item.id, sharedItem.item.imageUrl)
+          : sharedItem.item.imageUrl,
+      } : sharedItem.item,
+    })));
   } catch (error) {
     console.error('Error fetching shared items:', error);
     return NextResponse.json({ error: 'Failed to fetch shared items' }, { status: 500 });

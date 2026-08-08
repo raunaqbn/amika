@@ -2,6 +2,22 @@ import { after, NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
 import { sendPushNotification } from '@/lib/push-notifications';
+import { compactImageUrl } from '@/lib/mobile-images';
+
+function compactMemory(request: NextRequest, memory: any) {
+  return {
+    ...memory,
+    imageUrl: compactImageUrl(request, 'memory', memory.id, memory.imageUrl),
+    author: memory.author ? {
+      ...memory.author,
+      profileImage: compactImageUrl(request, 'user', memory.author.id, memory.author.profileImage),
+    } : memory.author,
+    friend: memory.friend ? {
+      ...memory.friend,
+      profileImage: compactImageUrl(request, 'friend', memory.friend.id, memory.friend.profileImage),
+    } : memory.friend,
+  };
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,13 +49,13 @@ export async function GET(request: NextRequest) {
       const items = memories.slice(0, limit);
       const last = items.at(-1);
       return NextResponse.json({
-        items,
+        items: items.map((memory) => compactMemory(request, memory)),
         nextCursor: hasMore && last
           ? `${last.memoryDate.toISOString()}|${last.id}`
           : null,
       });
     }
-    return NextResponse.json(memories);
+    return NextResponse.json(memories.map((memory) => compactMemory(request, memory)));
   } catch (error) {
     console.error('Error fetching memories:', error);
     return NextResponse.json({ error: 'Failed to fetch memories' }, { status: 500 });

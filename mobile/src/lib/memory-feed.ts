@@ -7,7 +7,7 @@ type FeedSnapshot = MemoryPage & { updatedAt: number };
 
 const PAGE_SIZE = 12;
 const FRESH_FOR_MS = 5 * 60_000;
-const MEMORY_CACHE_KEY = 'memory-feed-v1';
+const MEMORY_CACHE_KEY = 'memory-feed-v2';
 
 let ownerToken: string | null | undefined;
 let snapshot: FeedSnapshot = { items: [], nextCursor: null, updatedAt: 0 };

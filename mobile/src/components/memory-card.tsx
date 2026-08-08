@@ -1,11 +1,11 @@
-import React, { memo, useCallback, useMemo, useRef } from 'react';
+import React, { memo, useCallback, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Heart, MessageCircle, Users } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Avatar, PaperCard } from './ui';
-import { api } from '@/lib/api';
+import { api, imageSource } from '@/lib/api';
 import { border, colors, type } from '@/lib/theme';
 import type { Memory } from '@/types';
 
@@ -26,10 +26,9 @@ export const MemoryCard = memo(function MemoryCard({ memory, onReaction }: Memor
   const reacting = useRef(false);
   const actor = memory.author?.name || 'You';
   const person = memory.friend?.name;
-  const serializedMemory = useMemo(() => JSON.stringify(memory), [memory]);
   const openMemory = useCallback(() => {
-    router.push({ pathname: '/memory/[id]', params: { id: memory.id, data: serializedMemory } });
-  }, [memory.id, router, serializedMemory]);
+    router.push({ pathname: '/memory/[id]', params: { id: memory.id } });
+  }, [memory.id, router]);
   const react = useCallback(async () => {
     if (reacting.current) return;
     reacting.current = true;
@@ -48,7 +47,7 @@ export const MemoryCard = memo(function MemoryCard({ memory, onReaction }: Memor
   }, [memory.id, memory.reactedByMe, memory.reactionCount, onReaction]);
   return <PaperCard style={styles.card}><Pressable accessibilityRole="button" accessibilityLabel={`Open memory by ${actor}`} onPress={openMemory}>
     <View style={styles.meta}><Avatar name={actor} uri={memory.author?.profileImage} size={38} /><View style={{ flex: 1 }}><Text style={styles.actor}>{actor}{person ? <Text style={styles.with}> with {person}</Text> : null}</Text><Text style={styles.date}>{niceDate(memory.memoryDate)}</Text></View><View style={styles.visibility}><Users size={13} color={colors.ink} /><Text style={styles.visibilityText}>{memory.visibility}</Text></View></View>
-    {memory.imageUrl ? <Image source={memory.imageUrl} style={styles.image} contentFit="cover" cachePolicy="memory-disk" recyclingKey={memory.id} transition={90} enforceEarlyResizing /> : <View style={styles.textOnly}><Text style={styles.bigQuote}>“</Text><Text style={styles.textOnlyCopy}>{memory.content}</Text></View>}
+    {memory.imageUrl ? <Image source={imageSource(memory.imageUrl)} style={styles.image} contentFit="cover" cachePolicy="memory-disk" recyclingKey={memory.id} transition={90} enforceEarlyResizing /> : <View style={styles.textOnly}><Text style={styles.bigQuote}>“</Text><Text style={styles.textOnlyCopy}>{memory.content}</Text></View>}
     {memory.imageUrl ? <Text style={styles.content}>{memory.content}</Text> : null}
   </Pressable><View style={styles.actions}><Pressable accessibilityLabel={memory.reactedByMe ? 'Remove heart' : 'Heart memory'} onPress={react} style={styles.action}><Heart size={19} color={memory.reactedByMe ? colors.danger : colors.ink} fill={memory.reactedByMe ? colors.danger : 'transparent'} /><Text style={styles.actionText}>{memory.reactionCount || 0}</Text></Pressable><Pressable accessibilityLabel="Open comments" onPress={openMemory} style={styles.action}><MessageCircle size={19} color={colors.ink} /><Text style={styles.actionText}>{memory.commentCount || 0}</Text></Pressable><Text style={styles.tapHint}>Tap to open</Text></View></PaperCard>;
 });

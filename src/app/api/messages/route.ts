@@ -2,6 +2,7 @@ import { after, NextRequest, NextResponse } from 'next/server';
 import { getUserId } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { sendPushNotification } from '@/lib/push-notifications';
+import { compactImageUrl } from '@/lib/mobile-images';
 
 export async function GET(request: NextRequest) {
   const userId = await getUserId();
@@ -15,12 +16,21 @@ export async function GET(request: NextRequest) {
     if (!connected) {
       return NextResponse.json({ error: 'You can only message friends.' }, { status: 403 });
     }
-    return NextResponse.json(
-      await prisma.directMessage.findConversation({ userId, otherUserId })
-    );
+    const messages = await prisma.directMessage.findConversation({ userId, otherUserId });
+    return NextResponse.json(messages.map((message: any) => ({
+      ...message,
+      sender: message.sender ? {
+        ...message.sender,
+        profileImage: compactImageUrl(request, 'user', message.sender.id, message.sender.profileImage),
+      } : message.sender,
+    })));
   }
 
-  return NextResponse.json(await prisma.directMessage.listThreads(userId));
+  const threads = await prisma.directMessage.listThreads(userId);
+  return NextResponse.json(threads.map((thread: any) => ({
+    ...thread,
+    profileImage: compactImageUrl(request, 'user', thread.id, thread.profileImage),
+  })));
 }
 
 export async function POST(request: NextRequest) {
@@ -45,7 +55,6 @@ export async function POST(request: NextRequest) {
           type: 'message',
           senderId: userId,
           senderName: sender?.name || 'Friend',
-          senderImage: sender?.profileImage || '',
         });
       } catch (pushError) {
         console.error('Error sending message push notification:', pushError);

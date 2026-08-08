@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { compactImageUrl } from '@/lib/mobile-images';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getSession();
 
@@ -29,7 +30,7 @@ export async function GET() {
         email: session.user.email,
         name: session.user.name,
         birthday: session.user.birthday,
-        profileImage: session.user.profileImage,
+        profileImage: compactImageUrl(request, 'user', session.user.id, session.user.profileImage),
         phone: session.user.phone,
         location: session.user.location,
         isTemporary: session.user.isTemporary,

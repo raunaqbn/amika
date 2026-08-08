@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserId } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { compactImageUrl } from '@/lib/mobile-images';
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const userId = await getUserId();
@@ -13,7 +14,18 @@ export async function GET(
 
   const { id } = await params;
   try {
-    return NextResponse.json(await prisma.memoryComment.findMany({ memoryId: id, userId }));
+    const comments = await prisma.memoryComment.findMany({ memoryId: id, userId });
+    return NextResponse.json(comments.map((comment: any) => ({
+      ...comment,
+      user: comment.user ? {
+        ...comment.user,
+        profileImage: compactImageUrl(request, 'user', comment.user.id, comment.user.profileImage),
+      } : comment.user,
+      author: comment.author ? {
+        ...comment.author,
+        profileImage: compactImageUrl(request, 'user', comment.author.id, comment.author.profileImage),
+      } : comment.author,
+    })));
   } catch {
     return NextResponse.json({ error: 'Memory not found' }, { status: 404 });
   }

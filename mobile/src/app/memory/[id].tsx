@@ -1,22 +1,21 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Heart, MessageCircle, Send, Users, X } from 'lucide-react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { api } from '@/lib/api';
-import { updateCachedMemory } from '@/lib/memory-feed';
+import { api, imageSource } from '@/lib/api';
+import { getMemoryFeedSnapshot, updateCachedMemory } from '@/lib/memory-feed';
 import { Avatar, EmptyState } from '@/components/ui';
 import { border, colors, type } from '@/lib/theme';
-import type { Memory } from '@/types';
 
 type Comment = { id: string; content: string; createdAt: string; user?: { name?: string; profileImage?: string | null }; author?: { name?: string; profileImage?: string | null } };
 
 export default function MemoryDetail() {
-  const router = useRouter(); const params = useLocalSearchParams<{ data?: string }>();
+  const router = useRouter(); const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const memory = useMemo(() => { try { return JSON.parse(params.data || '') as Memory; } catch { return null; } }, [params.data]);
+  const memory = getMemoryFeedSnapshot().items.find((item) => item.id === id) || null;
   const [comments, setComments] = useState<Comment[]>([]); const [reply, setReply] = useState(''); const [sending, setSending] = useState(false); const [reacted, setReacted] = useState(memory?.reactedByMe || false); const [count, setCount] = useState(memory?.reactionCount || 0);
   const loadComments = useCallback(async () => { if (memory) setComments(await api<Comment[]>(`/api/memories/${memory.id}/comments`).catch(() => [])); }, [memory]);
   useEffect(() => { loadComments(); }, [loadComments]);
@@ -26,7 +25,7 @@ export default function MemoryDetail() {
   async function send() { const content = reply.trim(); if (!content) return; setReply(''); setSending(true); try { const comment = await api<Comment>(`/api/memories/${memoryId}/comments`, { method: 'POST', body: JSON.stringify({ content }) }); setComments((current) => { const next = [...current, comment]; updateCachedMemory(memoryId, { commentCount: next.length }); return next; }); } catch (e) { setReply(content); Alert.alert('Reply not sent', e instanceof Error ? e.message : 'Try again.'); } finally { setSending(false); } }
   const actor = memory.author?.name || 'You';
   return <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}><KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}><View style={[styles.top, { paddingTop: Math.max(insets.top, 12), minHeight: 68 + Math.max(insets.top, 12) }]}><Pressable accessibilityLabel="Close memory" onPress={() => router.back()} style={styles.close}><X size={22} color={colors.ink} /></Pressable><View style={{ flex: 1 }}><Text style={styles.topKicker}>A memory with</Text><Text style={styles.topTitle}>{memory.friend?.name || actor}</Text></View><Avatar name={actor} uri={memory.author?.profileImage} size={39} color={colors.citrus} /></View><ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-    {memory.imageUrl ? <Pressable accessibilityRole="imagebutton" accessibilityLabel="Full memory photo"><Image source={memory.imageUrl} style={styles.hero} contentFit="contain" cachePolicy="memory-disk" priority="high" transition={70} enforceEarlyResizing /></Pressable> : <View style={styles.textHero}><Text style={styles.quote}>“</Text><Text style={styles.textHeroCopy}>{memory.content}</Text></View>}
+    {memory.imageUrl ? <Pressable accessibilityRole="imagebutton" accessibilityLabel="Full memory photo"><Image source={imageSource(memory.imageUrl)} style={styles.hero} contentFit="contain" cachePolicy="memory-disk" priority="high" transition={70} enforceEarlyResizing /></Pressable> : <View style={styles.textHero}><Text style={styles.quote}>“</Text><Text style={styles.textHeroCopy}>{memory.content}</Text></View>}
     <View style={styles.sheet}><View style={styles.dateRow}><Text style={styles.date}>{new Date(memory.memoryDate).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</Text><View style={styles.visibility}><Users size={13} color={colors.ink} /><Text style={styles.visibilityText}>{memory.visibility}</Text></View></View>{memory.imageUrl ? <Text style={styles.caption}>{memory.content}</Text> : null}<View style={styles.actions}><Pressable onPress={toggleReaction} style={styles.action}><Heart size={22} color={reacted ? colors.danger : colors.ink} fill={reacted ? colors.danger : 'transparent'} /><Text style={styles.actionText}>{count} hearts</Text></Pressable><View style={styles.action}><MessageCircle size={22} color={colors.ink} /><Text style={styles.actionText}>{comments.length} replies</Text></View></View><Text style={styles.repliesTitle}>Friends remember too</Text>{comments.length ? comments.map((comment) => <View key={comment.id} style={styles.comment}><Avatar name={comment.user?.name || comment.author?.name || 'A'} uri={comment.user?.profileImage || comment.author?.profileImage} size={34} color={colors.sky} /><View style={{ flex: 1 }}><Text style={styles.commentName}>{comment.user?.name || comment.author?.name || 'Friend'}</Text><Text style={styles.commentText}>{comment.content}</Text></View></View>) : <Text style={styles.noReplies}>No replies yet. Sometimes a heart says enough.</Text>}</View>
   </ScrollView><View style={styles.replyBar}><TextInput value={reply} onChangeText={setReply} placeholder="Add a little something…" placeholderTextColor={colors.muted} style={styles.reply} maxLength={240} /><Pressable disabled={sending} accessibilityLabel="Send reply" onPress={send} style={styles.send}><Send size={19} color={colors.ink} /></Pressable></View></KeyboardAvoidingView></SafeAreaView>;
 }

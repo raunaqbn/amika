@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { getFriendContextCounts, prisma } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
+import { compactImageUrl } from '@/lib/mobile-images';
 
 // Helper function to parse date strings from HTML date inputs
 function parseLocalDate(dateString: string | null | undefined): Date | null {
@@ -22,22 +23,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(friends.map((friend) => ({
         id: friend.id,
         name: friend.name,
-        profileImage: friend.profileImage,
-        customProfileImage: friend.customProfileImage,
+        profileImage: compactImageUrl(request, 'friend', friend.id, friend.customProfileImage || friend.profileImage),
+        customProfileImage: friend.customProfileImage
+          ? compactImageUrl(request, 'friend', friend.id, friend.customProfileImage)
+          : null,
         linkedUserId: friend.linkedUserId,
       })));
     }
 
     // Get all friends from friends table
-    const friends = await prisma.friend.findMany({
-      userId,
-      include: {
-        memories: {
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const friends = await prisma.friend.findMany({ userId, orderBy: { createdAt: 'desc' } });
 
     // Get all accepted connections (Amika friends)
     const acceptedConnections = await prisma.userConnection.findAcceptedConnections(userId);
@@ -61,10 +56,7 @@ export async function GET(request: NextRequest) {
             linkedUserId: connection.id,
           },
         });
-        newFriends.push({
-          ...newFriend,
-          memories: [],
-        });
+        newFriends.push(newFriend);
       }
     }
 
@@ -106,34 +98,19 @@ export async function GET(request: NextRequest) {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
-    // Count memories per friend
-    const friendMemoriesMap = new Map<string, number>();
-    for (const friend of allFriends as any[]) {
-      if (friend.memories && Array.isArray(friend.memories)) {
-        friendMemoriesMap.set(friend.id, friend.memories.length);
-      }
-    }
-
-    // Count diary notes per friend (via diary notes with friends tags)
-    const diaryNotes = await prisma.diaryNote.findMany({ userId });
-    const friendNotesMap = new Map<string, number>();
-    for (const note of diaryNotes) {
-      if (note.friends && Array.isArray(note.friends)) {
-        for (const friend of note.friends) {
-          friendNotesMap.set(
-            friend.id,
-            (friendNotesMap.get(friend.id) || 0) + 1
-          );
-        }
-      }
-    }
+    const contextCounts = await getFriendContextCounts(userId);
 
     // Add the memory and journal context used by the friend-circle UI.
-    const friendsWithContext = allFriends.map((friend: any) => ({
-      ...friend,
-      memoriesCount: friendMemoriesMap.get(friend.id) || 0,
-      notesCount: friendNotesMap.get(friend.id) || 0,
-    }));
+    const friendsWithContext = allFriends.map((friend: any) => {
+      const compactProfile = compactImageUrl(request, 'friend', friend.id, friend.customProfileImage || friend.profileImage);
+      return {
+        ...friend,
+        profileImage: compactProfile,
+        customProfileImage: friend.customProfileImage ? compactProfile : null,
+        memoriesCount: contextCounts.memories.get(friend.id) || 0,
+        notesCount: contextCounts.notes.get(friend.id) || 0,
+      };
+    });
 
     return NextResponse.json(friendsWithContext);
   } catch (error) {

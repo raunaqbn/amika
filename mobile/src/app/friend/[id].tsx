@@ -12,11 +12,6 @@ import type { Friend, Memory } from '@/types';
 
 const FRIENDS_PATH = '/api/friends';
 
-function parseFriend(value?: string) {
-  if (!value) return undefined;
-  try { return JSON.parse(value) as Friend; } catch { return undefined; }
-}
-
 function parseInterests(value?: string | null) {
   if (!value) return [];
   try {
@@ -37,9 +32,9 @@ function birthdayLabel(value?: string | null) {
 
 export default function FriendProfileScreen() {
   const router = useRouter();
-  const { id, data } = useLocalSearchParams<{ id: string; data?: string }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const cachedFriends = getCachedApiData<Friend[]>(FRIENDS_PATH);
-  const initialFriend = parseFriend(data) || cachedFriends?.find((item) => item.id === id);
+  const initialFriend = cachedFriends?.find((item) => item.id === id);
   const initialMemories = getMemoryFeedSnapshot().items.filter((memory) => memory.friendId === id || memory.friend?.id === id);
   const [friend, setFriend] = useState<Friend | undefined>(initialFriend);
   const [memories, setMemories] = useState<Memory[]>(initialMemories);
@@ -90,7 +85,7 @@ export default function FriendProfileScreen() {
         </View>
         <View style={styles.actions}>
           <Button label="Add a memory" tone="citrus" onPress={() => router.push({ pathname: '/add', params: { friendId: friend.id } })} style={styles.actionButton} />
-          {friend.linkedUserId ? <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/conversation/[id]', params: { id: friend.linkedUserId || '', name: friend.name, image: image || '' } })} style={styles.messageButton}>
+          {friend.linkedUserId ? <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/conversation/[id]', params: { id: friend.linkedUserId || '', name: friend.name } })} style={styles.messageButton}>
             <MessageCircle size={19} color={colors.ink} /><Text style={styles.messageLabel}>Message</Text>
           </Pressable> : null}
         </View>

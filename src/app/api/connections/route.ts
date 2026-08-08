@@ -2,6 +2,7 @@ import { after, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { sendPushNotification } from '@/lib/push-notifications';
+import { compactImageUrl } from '@/lib/mobile-images';
 
 // GET - Fetch connections for the authenticated user
 export async function GET(request: Request) {
@@ -19,7 +20,10 @@ export async function GET(request: Request) {
     if (accepted) {
       // Return only accepted connections (actual friends)
       const friends = await prisma.userConnection.findAcceptedConnections(session.user.id);
-      return NextResponse.json(friends);
+      return NextResponse.json(friends.map((friend: any) => ({
+        ...friend,
+        profileImage: compactImageUrl(request, 'user', friend.id, friend.profileImage),
+      })));
     }
 
     const connections = await prisma.userConnection.findMany({
@@ -28,7 +32,21 @@ export async function GET(request: Request) {
       status,
     });
 
-    return NextResponse.json(connections);
+    return NextResponse.json(connections.map((connection: any) => ({
+      ...connection,
+      otherUser: connection.otherUser ? {
+        ...connection.otherUser,
+        profileImage: compactImageUrl(request, 'user', connection.otherUser.id, connection.otherUser.profileImage),
+      } : connection.otherUser,
+      requester: connection.requester ? {
+        ...connection.requester,
+        profileImage: compactImageUrl(request, 'user', connection.requester.id, connection.requester.profileImage),
+      } : connection.requester,
+      addressee: connection.addressee ? {
+        ...connection.addressee,
+        profileImage: compactImageUrl(request, 'user', connection.addressee.id, connection.addressee.profileImage),
+      } : connection.addressee,
+    })));
   } catch (error) {
     console.error('Error fetching connections:', error);
     return NextResponse.json({ error: 'Failed to fetch connections' }, { status: 500 });

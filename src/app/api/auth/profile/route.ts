@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { compactImageUrl } from '@/lib/mobile-images';
 
 export async function PUT(request: NextRequest) {
   try {
@@ -59,7 +60,7 @@ export async function PUT(request: NextRequest) {
         email: updatedUser.email,
         name: updatedUser.name,
         birthday: updatedUser.birthday,
-        profileImage: updatedUser.profileImage,
+        profileImage: compactImageUrl(request, 'user', updatedUser.id, updatedUser.profileImage),
         phone: updatedUser.phone,
         location: updatedUser.location,
         isTemporary: updatedUser.isTemporary,
