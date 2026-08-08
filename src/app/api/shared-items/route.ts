@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { compactImageUrl } from '@/lib/mobile-images';
+import { respondToSharedItem } from '@/lib/shared-items';
 
 // GET - Fetch shared items for the authenticated user
 export async function GET(request: Request) {
@@ -106,62 +107,11 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
-    // Get the shared item details before updating
-    const sharedItems = await prisma.sharedItem.findMany({
-      userId: session.user.id,
-      type: 'received',
-    });
-    const sharedItemDetails = sharedItems.find((item: { id: string }) => item.id === id);
-
-    const sharedItem = await prisma.sharedItem.update({
+    const sharedItem = await respondToSharedItem({
       id,
       userId: session.user.id,
       status,
     });
-
-    // If accepted, copy the item to the recipient's account
-    if (status === 'accepted' && sharedItemDetails) {
-      try {
-        const recipientUserId = session.user.id;
-        const sharerId = sharedItemDetails.sharedByUserId;
-
-        // Find the friend record that links to the sharer
-        const friends = await prisma.friend.findMany({ userId: recipientUserId });
-        const sharerFriend = friends.find((f: { linkedUserId: string | null }) => f.linkedUserId === sharerId);
-
-        if (sharerFriend && sharedItemDetails.item) {
-          // Copy the item based on type
-          if (sharedItemDetails.itemType === 'memory' && sharedItemDetails.item.content) {
-            await prisma.memory.create({
-              data: {
-                userId: recipientUserId,
-                friendId: sharerFriend.id,
-                content: sharedItemDetails.item.content,
-                imageUrl: sharedItemDetails.item.imageUrl || null,
-                memoryDate: new Date(sharedItemDetails.item.memoryDate || sharedItemDetails.item.createdAt),
-                sharedWithFriend: true, // Mark as shared
-              },
-            });
-          } else if (sharedItemDetails.itemType === 'note' && sharedItemDetails.item.content) {
-            await prisma.diaryNote.create({
-              data: {
-                userId: recipientUserId,
-                title: sharedItemDetails.item.title || null,
-                content: sharedItemDetails.item.content,
-                analysis: null, // Don't copy the analysis
-                imageUrl: sharedItemDetails.item.imageUrl || null,
-                friendIds: [sharerFriend.id],
-                friendTags: [{ friendId: sharerFriend.id, sharedWithFriend: true }],
-              },
-            });
-          }
-        }
-
-      } catch (copyError) {
-        console.error('Error copying shared item to recipient:', copyError);
-        // Don't fail the acceptance if copy fails
-      }
-    }
 
     return NextResponse.json(sharedItem);
   } catch (error: any) {
