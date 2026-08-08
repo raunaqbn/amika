@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { compactImageUrl } from '@/lib/mobile-images';
+import { compactImageUrl, mediaImageUrl } from '@/lib/mobile-images';
 
 export async function GET(request: Request) {
   try {
@@ -11,8 +11,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ user: null });
     }
 
-    // Get user stats
-    const stats = await prisma.getUserStats(session.user.id);
+    const includeStats = new URL(request.url).searchParams.get('stats') === 'true';
+    const stats = includeStats ? await prisma.getUserStats(session.user.id) : undefined;
 
     // Parse interests from JSON string
     let interests: string[] = [];
@@ -30,14 +30,16 @@ export async function GET(request: Request) {
         email: session.user.email,
         name: session.user.name,
         birthday: session.user.birthday,
-        profileImage: compactImageUrl(request, 'user', session.user.id, session.user.profileImage),
+        profileImage: session.user.hasProfileImage
+          ? mediaImageUrl(request, 'user', session.user.id)
+          : compactImageUrl(request, 'user', session.user.id, session.user.profileImage),
         phone: session.user.phone,
         location: session.user.location,
         isTemporary: session.user.isTemporary,
         interests,
         createdAt: session.user.createdAt,
       },
-      stats,
+      ...(includeStats && { stats }),
     });
   } catch (error) {
     console.error('Error getting session:', error);

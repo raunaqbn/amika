@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFriendContextCounts, prisma } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
-import { compactImageUrl } from '@/lib/mobile-images';
+import { compactImageUrl, mediaImageUrl } from '@/lib/mobile-images';
 
 // Helper function to parse date strings from HTML date inputs
 function parseLocalDate(dateString: string | null | undefined): Date | null {
@@ -19,14 +19,14 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     if (searchParams.get('view') === 'compact') {
-      const friends = await prisma.friend.findMany({ userId });
+      const friends = await prisma.friend.findCompact({ userId });
       return NextResponse.json(friends.map((friend) => ({
         id: friend.id,
         name: friend.name,
-        profileImage: compactImageUrl(request, 'friend', friend.id, friend.customProfileImage || friend.profileImage),
-        customProfileImage: friend.customProfileImage
-          ? compactImageUrl(request, 'friend', friend.id, friend.customProfileImage)
+        profileImage: friend.hasCustomProfileImage || friend.hasProfileImage
+          ? mediaImageUrl(request, 'friend', friend.id)
           : null,
+        customProfileImage: friend.hasCustomProfileImage ? mediaImageUrl(request, 'friend', friend.id) : null,
         linkedUserId: friend.linkedUserId,
       })));
     }

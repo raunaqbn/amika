@@ -3,25 +3,24 @@ import { prisma, type User } from './db';
 
 const SESSION_COOKIE_NAME = 'amika_session';
 
-export async function getSession(): Promise<{ user: User } | null> {
+async function getSessionToken() {
   const cookieStore = await cookies();
   const headerStore = await headers();
   const authorization = headerStore.get('authorization');
   const bearerToken = authorization?.startsWith('Bearer ')
     ? authorization.slice('Bearer '.length).trim()
     : null;
-  const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value || bearerToken;
+  return cookieStore.get(SESSION_COOKIE_NAME)?.value || bearerToken;
+}
+
+export async function getSession(): Promise<{ user: User & { hasProfileImage?: boolean } } | null> {
+  const sessionToken = await getSessionToken();
 
   if (!sessionToken) {
     return null;
   }
 
-  const session = await prisma.session.findByToken(sessionToken);
-  if (!session) {
-    return null;
-  }
-
-  const user = await prisma.user.findById(session.userId);
+  const user = await prisma.session.findUserByToken(sessionToken);
   if (!user) {
     return null;
   }
@@ -30,8 +29,8 @@ export async function getSession(): Promise<{ user: User } | null> {
 }
 
 export async function getUserId(): Promise<string | null> {
-  const session = await getSession();
-  return session?.user.id ?? null;
+  const sessionToken = await getSessionToken();
+  return sessionToken ? prisma.session.findUserIdByToken(sessionToken) : null;
 }
 
 export async function requireAuth(): Promise<User> {

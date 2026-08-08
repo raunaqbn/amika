@@ -28,7 +28,7 @@ type AuthContextType = {
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signUp: (email: string, password: string, name: string, birthday?: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
-  refreshSession: () => Promise<void>;
+  refreshSession: (options?: { includeStats?: boolean }) => Promise<void>;
   updateProfile: (data: { name?: string; birthday?: string | null; profileImage?: string | null; phone?: string | null; location?: string | null; interests?: string[] }) => Promise<{ success: boolean; error?: string }>;
 };
 
@@ -39,14 +39,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refreshSession = useCallback(async () => {
+  const refreshSession = useCallback(async (options?: { includeStats?: boolean }) => {
     try {
-      const response = await fetch('/api/auth/session');
+      const response = await fetch(options?.includeStats ? '/api/auth/session?stats=true' : '/api/auth/session');
       const data = await response.json();
 
       if (data.user) {
         setUser(data.user);
-        setStats(data.stats || null);
+        if ('stats' in data) setStats(data.stats || null);
       } else {
         setUser(null);
         setStats(null);

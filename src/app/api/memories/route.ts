@@ -2,19 +2,28 @@ import { after, NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
 import { sendPushNotification } from '@/lib/push-notifications';
-import { compactImageUrl } from '@/lib/mobile-images';
+import { compactImageUrl, mediaImageUrl } from '@/lib/mobile-images';
 
 function compactMemory(request: NextRequest, memory: any) {
+  const { hasImage, ...memoryWithoutFlags } = memory;
+  const { hasProfileImage: authorHasImage, ...author } = memory.author || {};
+  const { hasProfileImage: friendHasImage, ...friend } = memory.friend || {};
   return {
-    ...memory,
-    imageUrl: compactImageUrl(request, 'memory', memory.id, memory.imageUrl),
+    ...memoryWithoutFlags,
+    imageUrl: hasImage
+      ? mediaImageUrl(request, 'memory', memory.id)
+      : compactImageUrl(request, 'memory', memory.id, memory.imageUrl),
     author: memory.author ? {
-      ...memory.author,
-      profileImage: compactImageUrl(request, 'user', memory.author.id, memory.author.profileImage),
+      ...author,
+      profileImage: authorHasImage
+        ? mediaImageUrl(request, 'user', memory.author.id)
+        : compactImageUrl(request, 'user', memory.author.id, memory.author.profileImage),
     } : memory.author,
     friend: memory.friend ? {
-      ...memory.friend,
-      profileImage: compactImageUrl(request, 'friend', memory.friend.id, memory.friend.profileImage),
+      ...friend,
+      profileImage: friendHasImage
+        ? mediaImageUrl(request, 'friend', memory.friend.id)
+        : compactImageUrl(request, 'friend', memory.friend.id, memory.friend.profileImage),
     } : memory.friend,
   };
 }

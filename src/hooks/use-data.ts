@@ -60,12 +60,11 @@ interface NotificationCountResponse {
 
 export function useNotificationCount(options: UseDataOptions = {}) {
   const { data, error, isLoading, mutate: mutatePendingCount } = useSWR<NotificationCountResponse>(
-    CACHE_KEYS.NOTIFICATIONS_PENDING,
+    options.isPaused ? null : CACHE_KEYS.NOTIFICATIONS_PENDING,
     {
       dedupingInterval: 30000,
       refreshInterval: options.refreshInterval ?? 30000,
       revalidateOnMount: options.revalidateOnMount ?? true,
-      isPaused: () => options.isPaused ?? false,
     }
   );
 

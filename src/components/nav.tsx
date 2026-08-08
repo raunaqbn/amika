@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   Bell,
@@ -32,10 +33,20 @@ const utilityLinks = [
 export function Nav() {
   const pathname = usePathname();
   const { user, loading, signOut } = useAuth();
+  const [notificationPolling, setNotificationPolling] = useState(false);
   const { pendingCount } = useNotificationCount({
     refreshInterval: user ? 30000 : 0,
-    isPaused: !user,
+    isPaused: !user || !notificationPolling,
   });
+
+  useEffect(() => {
+    if (!user) {
+      setNotificationPolling(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setNotificationPolling(true), 750);
+    return () => window.clearTimeout(timer);
+  }, [user]);
 
   if (pathname === '/signin' || pathname === '/signup' || (!loading && !user)) return null;
   if (!user) return null;

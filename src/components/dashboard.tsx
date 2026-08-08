@@ -63,7 +63,7 @@ type Comment = {
   author: { id: string; name: string; profileImage: string | null };
 };
 
-const HOME_FEED_LIMIT = 18;
+const HOME_FEED_LIMIT = 8;
 
 const VISIBILITY: Record<Visibility, { label: string; icon: typeof LockKeyhole }> = {
   private: { label: 'Only me', icon: LockKeyhole },
@@ -253,6 +253,8 @@ export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory
             fill
             sizes={featured ? '(max-width: 768px) 100vw, 720px' : '(max-width: 768px) 100vw, 420px'}
             className="object-cover"
+            loading={featured ? 'eager' : 'lazy'}
+            fetchPriority={featured ? 'high' : 'auto'}
             unoptimized
           />
           <span className="memory-post__expand" aria-hidden="true"><Maximize2 /></span>
@@ -332,8 +334,10 @@ export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory
 export function Dashboard() {
   const { user } = useAuth();
   const [memories, setMemories] = useState<FeedMemory[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [caption, setCaption] = useState('');
@@ -344,16 +348,26 @@ export function Dashboard() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const loadMemories = useCallback(async () => {
+  const loadMemories = useCallback(async (cursor?: string) => {
+    const loadingOlder = Boolean(cursor);
+    if (loadingOlder) setLoadingMore(true);
     try {
-      const response = await fetch(`/api/memories?scope=feed&limit=${HOME_FEED_LIMIT}`);
+      const query = new URLSearchParams({ scope: 'feed', limit: String(HOME_FEED_LIMIT) });
+      if (cursor) query.set('cursor', cursor);
+      const response = await fetch(`/api/memories?${query}`);
       if (!response.ok) throw new Error('Could not load your memories.');
       const data = await response.json();
-      setMemories(data.items);
+      setMemories((current) => {
+        if (!loadingOlder) return data.items;
+        const knownIds = new Set(current.map((memory) => memory.id));
+        return [...current, ...data.items.filter((memory: FeedMemory) => !knownIds.has(memory.id))];
+      });
+      setNextCursor(data.nextCursor);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Could not load your memories.');
     } finally {
-      setLoading(false);
+      if (loadingOlder) setLoadingMore(false);
+      else setLoading(false);
     }
   }, []);
 
@@ -567,7 +581,7 @@ export function Dashboard() {
       </header>
 
       <div className="memory-feed-layout">
-        <main className="memory-feed" aria-busy={loading}>
+        <main className="memory-feed" aria-busy={loading || loadingMore}>
           <div className="memory-feed__title">
             <div>
               <span>From your circle</span>
@@ -585,11 +599,24 @@ export function Dashboard() {
               <p>Add the tiny moment you would otherwise forget. It does not need to be a milestone.</p>
             </div>
           ) : (
-            <div className="memory-contact-sheet">
-              {memories.map((memory, index) => (
-                <MemoryCard key={memory.id} memory={memory} featured={index === 0} onRefresh={loadMemories} />
-              ))}
-            </div>
+            <>
+              <div className="memory-contact-sheet">
+                {memories.map((memory, index) => (
+                  <MemoryCard key={memory.id} memory={memory} featured={index === 0} onRefresh={loadMemories} />
+                ))}
+              </div>
+              {nextCursor && (
+                <button
+                  className="memory-feed__load-more"
+                  type="button"
+                  onClick={() => void loadMemories(nextCursor)}
+                  disabled={loadingMore}
+                >
+                  {loadingMore && <LoaderCircle className="spin" aria-hidden="true" />}
+                  {loadingMore ? 'Loading older memories…' : 'Load older memories'}
+                </button>
+              )}
+            </>
           )}
         </main>
 

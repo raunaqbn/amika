@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
@@ -23,12 +24,16 @@ export default function ProfilePage() {
   const router = useRouter();
   const { user, stats, loading, signOut, updateProfile, refreshSession } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const requestedStatsRef = useRef(false);
 
   const [name, setName] = useState('');
   const [birthday, setBirthday] = useState('');
   const [phone, setPhone] = useState('');
   const [location, setLocation] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [photoSaving, setPhotoSaving] = useState(false);
+  const [photoError, setPhotoError] = useState('');
+  const [photoMessage, setPhotoMessage] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -54,20 +59,67 @@ export default function ProfilePage() {
     }
   }, [loading, user, router]);
 
+  useEffect(() => {
+    if (user && !stats && !requestedStatsRef.current) {
+      requestedStatsRef.current = true;
+      void refreshSession({ includeStats: true });
+    }
+  }, [refreshSession, stats, user]);
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 4 * 1024 * 1024) {
-      setError('Image must be less than 4MB');
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      setPhotoError('Choose a JPG, PNG, WebP, or GIF image.');
+      e.target.value = '';
       return;
     }
 
+    if (file.size > 4 * 1024 * 1024) {
+      setPhotoError('That photo is over 4 MB. Choose a smaller image and try again.');
+      e.target.value = '';
+      return;
+    }
+
+    setPhotoError('');
+    setPhotoMessage('');
     const reader = new FileReader();
     reader.onloadend = () => {
       setProfileImage(reader.result as string);
     };
+    reader.onerror = () => {
+      setPhotoError('That photo could not be opened. Choose another image and try again.');
+    };
     reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const saveProfilePhoto = async () => {
+    setPhotoSaving(true);
+    setPhotoError('');
+    setPhotoMessage('');
+    const result = await updateProfile({ profileImage });
+    if (result.success) {
+      setPhotoMessage('Profile photo saved.');
+    } else {
+      setPhotoError(result.error || 'Your photo could not be saved. Try again.');
+    }
+    setPhotoSaving(false);
+  };
+
+  const removeProfilePhoto = async () => {
+    setPhotoSaving(true);
+    setPhotoError('');
+    setPhotoMessage('');
+    const result = await updateProfile({ profileImage: null });
+    if (result.success) {
+      setProfileImage(null);
+      setPhotoMessage('Profile photo removed.');
+    } else {
+      setPhotoError(result.error || 'Your photo could not be removed. Try again.');
+    }
+    setPhotoSaving(false);
   };
 
   const handleSave = async () => {
@@ -80,7 +132,6 @@ export default function ProfilePage() {
       birthday: birthday || null,
       phone: phone || null,
       location: location || null,
-      profileImage,
     });
 
     if (result.success) {
@@ -115,41 +166,64 @@ export default function ProfilePage() {
       <h1 className="text-2xl font-semibold text-gray-800 mb-6">Profile</h1>
 
       {/* Profile Picture */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-        <div className="flex items-center gap-6">
-          <div className="relative">
-            <div className="w-24 h-24 rounded-full bg-[#A8C5A8]/10 flex items-center justify-center overflow-hidden">
+      <div className="profile-photo-card bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+        <div className="profile-photo-card__content">
+          <div className="profile-photo-card__avatar">
+            <div>
               {profileImage ? (
-                <img
+                <Image
                   src={profileImage}
-                  alt="Profile"
-                  className="w-full h-full object-cover"
+                  alt={`${user.name}'s profile photo`}
+                  fill
+                  sizes="112px"
+                  className="object-cover"
+                  unoptimized
                 />
               ) : (
-                <User className="w-12 h-12 text-[#A8C5A8]" />
+                <User aria-hidden="true" />
               )}
             </div>
+          </div>
+          <div className="profile-photo-card__identity">
+            <span>Your profile photo</span>
+            <h2>{user.name}</h2>
+            <p>{user.email}</p>
+            <small>Member since {format(new Date(user.createdAt), 'MMMM yyyy')}</small>
+          </div>
+          <div className="profile-photo-card__actions">
             <button
+              type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="absolute bottom-0 right-0 w-8 h-8 bg-[#A8C5A8] rounded-full flex items-center justify-center text-white hover:bg-[#97B497] transition-colors"
+              disabled={photoSaving}
             >
-              <Camera className="w-4 h-4" />
+              <Camera aria-hidden="true" />
+              {profileImage ? 'Choose a new photo' : 'Add a photo'}
             </button>
+            {profileImage !== user.profileImage ? (
+              <>
+                <button type="button" onClick={saveProfilePhoto} disabled={photoSaving}>
+                  {photoSaving ? <Loader2 className="spin" aria-hidden="true" /> : <Save aria-hidden="true" />}
+                  {photoSaving ? 'Saving…' : 'Save photo'}
+                </button>
+                <button type="button" onClick={() => setProfileImage(user.profileImage)} disabled={photoSaving}>Cancel</button>
+              </>
+            ) : profileImage ? (
+              <button type="button" onClick={removeProfilePhoto} disabled={photoSaving}>Remove photo</button>
+            ) : null}
             <input
               ref={fileInputRef}
+              id="profile-photo"
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif"
               onChange={handleImageUpload}
-              className="hidden"
+              className="sr-only"
             />
           </div>
-          <div>
-            <h2 className="text-xl font-semibold text-gray-800">{user.name}</h2>
-            <p className="text-gray-500">{user.email}</p>
-            <p className="text-gray-400 text-sm mt-1">
-              Member since {format(new Date(user.createdAt), 'MMMM yyyy')}
-            </p>
-          </div>
+        </div>
+        <p className="profile-photo-card__help">JPG, PNG, WebP, or GIF. Maximum 4 MB.</p>
+        <div className="profile-photo-card__status" aria-live="polite">
+          {photoError && <p role="alert">{photoError}</p>}
+          {photoMessage && <p>{photoMessage}</p>}
         </div>
       </div>
 

@@ -149,6 +149,24 @@ let clientInstance: Client | null = null;
 let tablesInitialized = false;
 let tablesInitializationPromise: Promise<void> | null = null;
 
+const PERFORMANCE_INDEXES = [
+  'CREATE INDEX IF NOT EXISTS idx_memories_feed ON memories(visibility, createdAt)',
+  'CREATE INDEX IF NOT EXISTS idx_memories_user_date ON memories(userId, memoryDate)',
+  'CREATE INDEX IF NOT EXISTS idx_memories_user_sort ON memories(userId, COALESCE(memoryDate, createdAt) DESC, id DESC)',
+  'CREATE INDEX IF NOT EXISTS idx_friends_user_created ON friends(userId, createdAt DESC)',
+  'CREATE INDEX IF NOT EXISTS idx_diary_notes_user_created ON diary_notes(userId, createdAt DESC)',
+  'CREATE INDEX IF NOT EXISTS idx_user_connections_status_users ON user_connections(status, requesterId, addresseeId)',
+  'CREATE INDEX IF NOT EXISTS idx_shared_items_recipient_status ON shared_items(sharedWithUserId, status)',
+  'CREATE INDEX IF NOT EXISTS idx_direct_messages_pair ON direct_messages(senderId, recipientId, createdAt)',
+  'CREATE INDEX IF NOT EXISTS idx_direct_messages_recipient_read ON direct_messages(recipientId, readAt)',
+  'CREATE INDEX IF NOT EXISTS idx_memory_comments_memory ON memory_comments(memoryId, createdAt)',
+  'CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(userId)',
+] as const;
+
+async function ensurePerformanceIndexes(client: Client) {
+  await client.batch([...PERFORMANCE_INDEXES], 'write');
+}
+
 // Password hashing utilities
 function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -180,9 +198,9 @@ function getClient(): Client {
 // Validate the deployed schema with one round trip. Previously every serverless
 // cold start ran every CREATE/ALTER statement below sequentially, even when the
 // production database was already current.
-async function hasCurrentSchema(client: Client) {
+async function getSchemaStatus(client: Client) {
   try {
-    await client.execute(`
+    const result = await client.execute(`
       SELECT
         (SELECT phone FROM users LIMIT 0) AS usersReady,
         (SELECT location FROM users LIMIT 0) AS userLocationReady,
@@ -212,17 +230,36 @@ async function hasCurrentSchema(client: Client) {
         (SELECT status FROM user_connections LIMIT 0) AS connectionsReady,
         (SELECT status FROM shared_items LIMIT 0) AS sharedItemsReady,
         (SELECT token FROM push_tokens LIMIT 0) AS pushTokensReady,
-        (SELECT status FROM friend_invites LIMIT 0) AS invitesReady
+        (SELECT status FROM friend_invites LIMIT 0) AS invitesReady,
+        (SELECT COUNT(*) FROM sqlite_master
+          WHERE type = 'index' AND name IN (
+            'idx_memories_feed',
+            'idx_memories_user_date',
+            'idx_memories_user_sort',
+            'idx_friends_user_created',
+            'idx_diary_notes_user_created',
+            'idx_user_connections_status_users',
+            'idx_shared_items_recipient_status',
+            'idx_direct_messages_pair',
+            'idx_direct_messages_recipient_read',
+            'idx_memory_comments_memory',
+            'idx_push_tokens_user'
+          )) AS performanceIndexCount
     `);
-    return true;
+    return {
+      columnsReady: true,
+      indexesReady: Number(result.rows[0]?.performanceIndexCount || 0) === PERFORMANCE_INDEXES.length,
+    };
   } catch {
-    return false;
+    return { columnsReady: false, indexesReady: false };
   }
 }
 
 async function initializeTables() {
   const client = getClient();
-  if (await hasCurrentSchema(client)) {
+  const schemaStatus = await getSchemaStatus(client);
+  if (schemaStatus.columnsReady) {
+    if (!schemaStatus.indexesReady) await ensurePerformanceIndexes(client);
     tablesInitialized = true;
     return;
   }
@@ -462,11 +499,7 @@ async function initializeTables() {
     await addColumn('diary_note_tags', 'sharedWithFriend', 'INTEGER NOT NULL DEFAULT 0');
     await addColumn('chat_transcripts', 'userId', 'TEXT');
 
-    await client.execute('CREATE INDEX IF NOT EXISTS idx_memories_feed ON memories(visibility, createdAt)');
-    await client.execute('CREATE INDEX IF NOT EXISTS idx_memories_user_date ON memories(userId, memoryDate)');
-    await client.execute('CREATE INDEX IF NOT EXISTS idx_direct_messages_pair ON direct_messages(senderId, recipientId, createdAt)');
-    await client.execute('CREATE INDEX IF NOT EXISTS idx_memory_comments_memory ON memory_comments(memoryId, createdAt)');
-    await client.execute('CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(userId)');
+    await ensurePerformanceIndexes(client);
     tablesInitialized = true;
   } catch (error) {
     console.error('Error initializing memory-first database tables:', error);
@@ -758,6 +791,46 @@ export const prisma = {
       return session;
     },
 
+    findUserIdByToken: async (token: string): Promise<string | null> => {
+      await ensureTablesExist();
+      const result = await getClient().execute({
+        sql: 'SELECT userId FROM sessions WHERE token = ? AND expiresAt > ? LIMIT 1',
+        args: [token, new Date().toISOString()],
+      });
+      return result.rows.length ? result.rows[0].userId as string : null;
+    },
+
+    findUserByToken: async (token: string): Promise<(User & { hasProfileImage: boolean }) | null> => {
+      await ensureTablesExist();
+      const result = await getClient().execute({
+        sql: `SELECT u.id, u.email, u.passwordHash, u.name, u.birthday,
+                     u.phone, u.location, u.googleId, u.isTemporary, u.interests,
+                     u.createdAt, (u.profileImage IS NOT NULL AND u.profileImage != '') AS hasProfileImage
+              FROM sessions s
+              JOIN users u ON u.id = s.userId
+              WHERE s.token = ? AND s.expiresAt > ?
+              LIMIT 1`,
+        args: [token, new Date().toISOString()],
+      });
+      if (!result.rows.length) return null;
+      const row = result.rows[0];
+      return {
+        id: row.id as string,
+        email: row.email as string,
+        passwordHash: row.passwordHash as string,
+        name: row.name as string,
+        birthday: row.birthday ? new Date(row.birthday as string) : null,
+        profileImage: null,
+        hasProfileImage: Boolean(row.hasProfileImage),
+        phone: row.phone as string | null,
+        location: row.location as string | null,
+        googleId: row.googleId as string | null,
+        isTemporary: Boolean(row.isTemporary),
+        interests: row.interests as string | null,
+        createdAt: new Date(row.createdAt as string),
+      };
+    },
+
     delete: async (token: string): Promise<void> => {
       await ensureTablesExist();
       const client = getClient();
@@ -780,6 +853,25 @@ export const prisma = {
   },
 
   friend: {
+    findCompact: async ({ userId }: { userId: string }) => {
+      await ensureTablesExist();
+      const result = await getClient().execute({
+        sql: `SELECT id, name, linkedUserId,
+                     (profileImage IS NOT NULL AND profileImage != '') AS hasProfileImage,
+                     (customProfileImage IS NOT NULL AND customProfileImage != '') AS hasCustomProfileImage
+              FROM friends
+              WHERE userId = ?
+              ORDER BY createdAt DESC`,
+        args: [userId],
+      });
+      return result.rows.map((row) => ({
+        id: row.id as string,
+        name: row.name as string,
+        linkedUserId: row.linkedUserId as string | null,
+        hasProfileImage: Boolean(row.hasProfileImage),
+        hasCustomProfileImage: Boolean(row.hasCustomProfileImage),
+      }));
+    },
     findMany: async (args?: { userId?: string; include?: { memories?: { orderBy?: { createdAt: string } } }; orderBy?: { createdAt: string } }) => {
       await ensureTablesExist();
       const client = getClient();
@@ -1035,23 +1127,25 @@ export const prisma = {
         ? ` AND (${dateSql} < ? OR (${dateSql} = ? AND m.id < ?))`
         : '';
       const limitSql = limit ? ' LIMIT ?' : '';
+      const feedColumns = `m.id, m.userId, m.friendId, m.content, m.visibility,
+                           m.memoryDate, m.sharedWithFriend, m.createdAt,
+                           (m.imageUrl IS NOT NULL AND m.imageUrl != '') AS hasImage,
+                           u.name AS authorName,
+                           (u.profileImage IS NOT NULL AND u.profileImage != '') AS authorHasImage,
+                           f.name AS friendName,
+                           (f.profileImage IS NOT NULL AND f.profileImage != '') AS friendHasImage,
+                           (SELECT COUNT(*) FROM memory_reactions mr WHERE mr.memoryId = m.id) AS reactionCount,
+                           (SELECT COUNT(*) FROM memory_comments mc WHERE mc.memoryId = m.id) AS commentCount,
+                           EXISTS(SELECT 1 FROM memory_reactions mine WHERE mine.memoryId = m.id AND mine.userId = ?) AS reactedByMe`;
       const sql = scope === 'public'
-        ? `SELECT m.*, u.name AS authorName, u.profileImage AS authorImage,
-                  f.name AS friendName, f.profileImage AS friendImage,
-                  (SELECT COUNT(*) FROM memory_reactions mr WHERE mr.memoryId = m.id) AS reactionCount,
-                  (SELECT COUNT(*) FROM memory_comments mc WHERE mc.memoryId = m.id) AS commentCount,
-                  EXISTS(SELECT 1 FROM memory_reactions mine WHERE mine.memoryId = m.id AND mine.userId = ?) AS reactedByMe
+        ? `SELECT ${feedColumns}
            FROM memories m
            JOIN users u ON u.id = m.userId
            LEFT JOIN friends f ON f.id = m.friendId
            WHERE ${visibilitySql} = 'public'
              ${cursorSql}
            ORDER BY ${dateSql} DESC, m.id DESC${limitSql}`
-        : `SELECT m.*, u.name AS authorName, u.profileImage AS authorImage,
-                  f.name AS friendName, f.profileImage AS friendImage,
-                  (SELECT COUNT(*) FROM memory_reactions mr WHERE mr.memoryId = m.id) AS reactionCount,
-                  (SELECT COUNT(*) FROM memory_comments mc WHERE mc.memoryId = m.id) AS commentCount,
-                  EXISTS(SELECT 1 FROM memory_reactions mine WHERE mine.memoryId = m.id AND mine.userId = ?) AS reactedByMe
+        : `SELECT ${feedColumns}
            FROM memories m
            JOIN users u ON u.id = m.userId
            LEFT JOIN friends f ON f.id = m.friendId
@@ -1079,7 +1173,8 @@ export const prisma = {
         userId: row.userId as string,
         friendId: row.friendId as string | null,
         content: row.content as string,
-        imageUrl: row.imageUrl as string | null,
+        imageUrl: null,
+        hasImage: Boolean(row.hasImage),
         visibility: (row.visibility as Memory['visibility']) || (Boolean(row.sharedWithFriend) ? 'friends' : 'private'),
         memoryDate: new Date((row.memoryDate as string) || (row.createdAt as string)),
         sharedWithFriend: Boolean(row.sharedWithFriend),
@@ -1087,12 +1182,14 @@ export const prisma = {
         author: {
           id: row.userId as string,
           name: row.authorName as string,
-          profileImage: row.authorImage as string | null,
+          profileImage: null,
+          hasProfileImage: Boolean(row.authorHasImage),
         },
         friend: row.friendId ? {
           id: row.friendId as string,
           name: row.friendName as string,
-          profileImage: row.friendImage as string | null,
+          profileImage: null,
+          hasProfileImage: Boolean(row.friendHasImage),
         } : null,
         reactionCount: Number(row.reactionCount || 0),
         commentCount: Number(row.commentCount || 0),
