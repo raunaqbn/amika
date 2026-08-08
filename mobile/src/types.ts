@@ -22,6 +22,22 @@ export type Friend = {
   lastContact?: string | null;
 };
 
+export type DiscoverableUser = {
+  id: string;
+  name: string;
+  email: string;
+  profileImage?: string | null;
+};
+
+export type Connection = {
+  id: string;
+  requesterId: string;
+  addresseeId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: string;
+  otherUser: DiscoverableUser | null;
+};
+
 export type Memory = {
   id: string;
   userId: string;
