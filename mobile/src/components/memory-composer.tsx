@@ -6,8 +6,9 @@ import * as Haptics from 'expo-haptics';
 import { useFocusEffect } from 'expo-router';
 import { Camera, ChevronDown, ChevronUp, ImagePlus, Lock, Sparkles, UserPlus, UserRound, Users } from 'lucide-react-native';
 import { api, apiCached, getCachedApiData, imageSource, prepareImageForUpload, uploadImage } from '@/lib/api';
+import { prependCachedMemory } from '@/lib/memory-feed';
 import { border, colors, shadow, type } from '@/lib/theme';
-import type { Friend } from '@/types';
+import type { Friend, Memory } from '@/types';
 import { Button, Field } from './ui';
 import { FriendTagPicker } from './friend-tag-picker';
 
@@ -68,7 +69,16 @@ export function MemoryComposer({ initiallyOpen = false, compact = false, initial
     setSaving(true);
     try {
       const uploaded = imageUri ? await uploadImage(imageUri) : null;
-      await api('/api/memories', { method: 'POST', body: JSON.stringify({ friendId: friendIds[0] || null, friendIds, content: content.trim(), imageUrl: uploaded?.url || null, visibility, sharedWithFriend: friendIds.length > 0 && visibility === 'friends', memoryDate: new Date().toISOString() }) });
+      const memory = await api<Memory>('/api/memories', { method: 'POST', body: JSON.stringify({ friendId: friendIds[0] || null, friendIds, content: content.trim(), imageUrl: uploaded?.url || null, visibility, sharedWithFriend: friendIds.length > 0 && visibility === 'friends', memoryDate: new Date().toISOString() }) });
+      await prependCachedMemory({
+        ...memory,
+        friend: selected ? { id: selected.id, name: selected.name, profileImage: selected.customProfileImage || selected.profileImage } : null,
+        audienceCount: visibility === 'friends' ? friendIds.length : 0,
+        reactionCount: 0,
+        commentCount: 0,
+        reactedByMe: false,
+        isOwn: true,
+      });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setContent(''); setImageUri(null); setFriendIds(initialFriendId ? [initialFriendId] : []); setShareWithMore(false); setVisibility('private'); setOpen(false);
       onSaved?.();

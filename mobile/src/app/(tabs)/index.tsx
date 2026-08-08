@@ -7,7 +7,6 @@ import { MemoryCard } from '@/components/memory-card';
 import { DividerLabel, EmptyState, ErrorState, Spinner } from '@/components/ui';
 import {
   getMemoryFeedSnapshot,
-  invalidateMemoryFeed,
   loadMemoryFeed,
   loadMoreMemories,
   updateCachedMemory,
@@ -75,9 +74,9 @@ export default function HomeScreen() {
   }, [load]);
 
   const memorySaved = useCallback(() => {
-    invalidateMemoryFeed();
+    applyFeed(getMemoryFeedSnapshot());
     void load(true, true);
-  }, [load]);
+  }, [applyFeed, load]);
 
   const renderMemory = useCallback(({ item }: { item: Memory }) => (
     <MemoryCard memory={item} onReaction={updateReaction} />

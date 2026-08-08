@@ -12,6 +12,7 @@ const MEMORY_CACHE_KEY = 'memory-feed-v2';
 let ownerToken: string | null | undefined;
 let snapshot: FeedSnapshot = { items: [], nextCursor: null, updatedAt: 0 };
 let firstPageRequest: Promise<FeedSnapshot> | null = null;
+let firstPageGeneration = 0;
 let nextPageRequest: Promise<FeedSnapshot> | null = null;
 let hydratedForToken: string | null | undefined;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -32,6 +33,7 @@ function resetForCurrentUser() {
     ownerToken = currentToken;
     snapshot = { items: [], nextCursor: null, updatedAt: 0 };
     firstPageRequest = null;
+    firstPageGeneration += 1;
     nextPageRequest = null;
     hydratedForToken = undefined;
     if (persistTimer) {
@@ -64,16 +66,21 @@ export async function loadMemoryFeed(force = false) {
   if (!force && snapshot.items.length && Date.now() - snapshot.updatedAt < FRESH_FOR_MS) {
     return snapshot;
   }
-  if (firstPageRequest) return firstPageRequest;
+  if (firstPageRequest && !force) return firstPageRequest;
 
-  firstPageRequest = api<MemoryPage>(`/api/memories?scope=feed&limit=${PAGE_SIZE}`)
+  const generation = ++firstPageGeneration;
+  const request = api<MemoryPage>(`/api/memories?scope=feed&limit=${PAGE_SIZE}`)
     .then((page) => {
+      if (generation !== firstPageGeneration) return snapshot;
       snapshot = { ...page, updatedAt: Date.now() };
       scheduleFeedWrite();
       return snapshot;
     })
-    .finally(() => { firstPageRequest = null; });
-  return firstPageRequest;
+    .finally(() => {
+      if (firstPageRequest === request) firstPageRequest = null;
+    });
+  firstPageRequest = request;
+  return request;
 }
 
 export async function loadMoreMemories() {
@@ -100,6 +107,8 @@ export async function loadMoreMemories() {
 
 export function updateCachedMemory(memoryId: string, update: Partial<Memory>) {
   resetForCurrentUser();
+  firstPageGeneration += 1;
+  firstPageRequest = null;
   snapshot = {
     ...snapshot,
     items: snapshot.items.map((memory) => memory.id === memoryId ? { ...memory, ...update } : memory),
@@ -108,8 +117,25 @@ export function updateCachedMemory(memoryId: string, update: Partial<Memory>) {
   return snapshot;
 }
 
+export async function prependCachedMemory(memory: Memory) {
+  resetForCurrentUser();
+  await hydrateMemoryFeed();
+  resetForCurrentUser();
+  firstPageGeneration += 1;
+  firstPageRequest = null;
+  snapshot = {
+    ...snapshot,
+    items: [memory, ...snapshot.items.filter((item) => item.id !== memory.id)],
+    updatedAt: Date.now(),
+  };
+  scheduleFeedWrite();
+  return snapshot;
+}
+
 export function removeCachedMemory(memoryId: string) {
   resetForCurrentUser();
+  firstPageGeneration += 1;
+  firstPageRequest = null;
   snapshot = {
     ...snapshot,
     items: snapshot.items.filter((memory) => memory.id !== memoryId),
@@ -120,6 +146,8 @@ export function removeCachedMemory(memoryId: string) {
 
 export function invalidateMemoryFeed() {
   resetForCurrentUser();
+  firstPageGeneration += 1;
+  firstPageRequest = null;
   snapshot = { ...snapshot, updatedAt: 0 };
   scheduleFeedWrite();
 }
@@ -132,6 +160,8 @@ export async function clearMemoryFeedCache() {
     persistTimer = null;
   }
   snapshot = { items: [], nextCursor: null, updatedAt: 0 };
+  firstPageGeneration += 1;
+  firstPageRequest = null;
   hydratedForToken = undefined;
   await removePersistentCache(token, [MEMORY_CACHE_KEY]);
 }
