@@ -16,6 +16,7 @@ type AuthContextValue = {
   signUp(name: string, email: string, password: string): Promise<void>;
   signOut(): Promise<void>;
   refresh(): Promise<void>;
+  updateProfile(data: { profileImage?: string | null; interests?: string[]; statusText?: string | null }): Promise<User>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -105,7 +106,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const value = useMemo(() => ({ user, loading, signIn, signInWithGoogle, signUp, signOut, refresh }), [user, loading, signIn, signInWithGoogle, signUp, signOut, refresh]);
+  const updateProfile = useCallback(async (data: { profileImage?: string | null; interests?: string[]; statusText?: string | null }) => {
+    const result = await api<{ user: User }>('/api/auth/profile', {
+      method: 'PUT', body: JSON.stringify(data),
+    });
+    const nextUser = data.profileImage !== undefined && result.user.profileImage?.includes('/api/media/')
+      ? { ...result.user, profileImage: `${result.user.profileImage}?v=${Date.now()}` }
+      : result.user;
+    setUser(nextUser);
+    return nextUser;
+  }, []);
+
+  const value = useMemo(() => ({ user, loading, signIn, signInWithGoogle, signUp, signOut, refresh, updateProfile }), [user, loading, signIn, signInWithGoogle, signUp, signOut, refresh, updateProfile]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

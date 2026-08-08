@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
             name: connection.name,
             birthday: connection.birthday,
             profileImage: connection.profileImage,
+            interests: connection.interests,
             linkedUserId: connection.id,
           },
         });
@@ -82,7 +83,8 @@ export async function GET(request: NextRequest) {
           const needsUpdate =
             friend.profileImage !== linkedConnection.profileImage ||
             (friend.birthday?.toISOString?.() || friend.birthday) !== (linkedConnection.birthday?.toISOString?.() || linkedConnection.birthday) ||
-            friend.name !== linkedConnection.name;
+            friend.name !== linkedConnection.name ||
+            friend.interests !== linkedConnection.interests;
 
           if (needsUpdate) {
             // Update the friend record with latest data from linked user
@@ -92,12 +94,14 @@ export async function GET(request: NextRequest) {
                 name: linkedConnection.name,
                 profileImage: linkedConnection.profileImage,
                 birthday: linkedConnection.birthday,
+                interests: linkedConnection.interests,
               } as any,
             });
             // Update the in-memory object as well
             friend.name = linkedConnection.name;
             friend.profileImage = linkedConnection.profileImage;
             friend.birthday = linkedConnection.birthday;
+            friend.interests = linkedConnection.interests;
           }
         }
       }
@@ -107,6 +111,9 @@ export async function GET(request: NextRequest) {
 
     // Add the memory and journal context used by the friend-circle UI.
     const friendsWithContext = allFriends.map((friend: any) => {
+      const linkedConnection = friend.linkedUserId
+        ? acceptedConnections.find((connection) => connection.id === friend.linkedUserId)
+        : undefined;
       const compactProfile = compactImageUrl(request, 'friend', friend.id, friend.customProfileImage || friend.profileImage);
       const lastEngagedAt = latestEngagement(
         friend.lastContact,
@@ -116,6 +123,8 @@ export async function GET(request: NextRequest) {
       );
       return {
         ...friend,
+        interests: linkedConnection?.interests ?? friend.interests,
+        statusText: linkedConnection?.statusText ?? null,
         profileImage: compactProfile,
         customProfileImage: friend.customProfileImage ? compactProfile : null,
         memoriesCount: contextCounts.memories.get(friend.id) || 0,

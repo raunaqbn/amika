@@ -3,6 +3,12 @@ import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { compactImageUrl, isMediaImageUrl } from '@/lib/mobile-images';
 import { persistImage } from '@/lib/media-storage';
+import {
+  normalizeProfileInterests,
+  normalizeProfileStatus,
+  parseStoredInterests,
+  ProfileInputError,
+} from '@/lib/profile';
 
 export async function PUT(request: NextRequest) {
   try {
@@ -13,7 +19,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, birthday, profileImage, phone, location, interests } = body;
+    const { name, birthday, profileImage, phone, location, interests, statusText } = body;
 
     // Parse birthday if provided
     let birthdayDate: Date | null | undefined = undefined;
@@ -26,15 +32,11 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Handle interests - convert array to JSON string
-    let interestsJson: string | null | undefined = undefined;
-    if (interests !== undefined) {
-      if (interests === null || (Array.isArray(interests) && interests.length === 0)) {
-        interestsJson = null;
-      } else if (Array.isArray(interests)) {
-        interestsJson = JSON.stringify(interests);
-      }
-    }
+    const normalizedInterests = normalizeProfileInterests(interests);
+    const interestsJson = normalizedInterests === undefined
+      ? undefined
+      : normalizedInterests === null ? null : JSON.stringify(normalizedInterests);
+    const normalizedStatus = normalizeProfileStatus(statusText);
 
     const updatedUser = await prisma.user.update(session.user.id, {
       ...(name !== undefined && { name }),
@@ -47,17 +49,8 @@ export async function PUT(request: NextRequest) {
       ...(phone !== undefined && { phone }),
       ...(location !== undefined && { location }),
       ...(interestsJson !== undefined && { interests: interestsJson }),
+      ...(normalizedStatus !== undefined && { statusText: normalizedStatus }),
     });
-
-    // Parse interests back to array for response
-    let parsedInterests: string[] = [];
-    if (updatedUser.interests) {
-      try {
-        parsedInterests = JSON.parse(updatedUser.interests);
-      } catch {
-        parsedInterests = [];
-      }
-    }
 
     return NextResponse.json({
       user: {
@@ -69,11 +62,15 @@ export async function PUT(request: NextRequest) {
         phone: updatedUser.phone,
         location: updatedUser.location,
         isTemporary: updatedUser.isTemporary,
-        interests: parsedInterests,
+        interests: parseStoredInterests(updatedUser.interests),
+        statusText: updatedUser.statusText,
         createdAt: updatedUser.createdAt,
       },
     });
   } catch (error) {
+    if (error instanceof ProfileInputError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.error('Error updating profile:', error);
     return NextResponse.json(
       { error: 'Failed to update profile' },

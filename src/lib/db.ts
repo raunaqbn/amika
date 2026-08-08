@@ -16,6 +16,7 @@ export type User = {
   googleId: string | null;
   isTemporary: boolean;
   interests: string | null; // JSON array of interest IDs
+  statusText: string | null;
   createdAt: Date;
 };
 
@@ -281,6 +282,7 @@ async function getSchemaStatus(client: Client) {
         (SELECT googleId FROM users LIMIT 0) AS userGoogleReady,
         (SELECT isTemporary FROM users LIMIT 0) AS userTemporaryReady,
         (SELECT interests FROM users LIMIT 0) AS userInterestsReady,
+        (SELECT statusText FROM users LIMIT 0) AS userStatusReady,
         (SELECT id FROM sessions LIMIT 0) AS sessionsReady,
         (SELECT email FROM friends LIMIT 0) AS friendsReady,
         (SELECT interests FROM friends LIMIT 0) AS friendInterestsReady,
@@ -366,6 +368,7 @@ async function initializeTables() {
         googleId TEXT,
         isTemporary INTEGER NOT NULL DEFAULT 0,
         interests TEXT,
+        statusText TEXT,
         createdAt TEXT NOT NULL
       )
     `);
@@ -596,6 +599,7 @@ async function initializeTables() {
     await addColumn('users', 'googleId', 'TEXT');
     await addColumn('users', 'isTemporary', 'INTEGER NOT NULL DEFAULT 0');
     await addColumn('users', 'interests', 'TEXT');
+    await addColumn('users', 'statusText', 'TEXT');
     await addColumn('friends', 'email', 'TEXT');
     await addColumn('friends', 'interests', 'TEXT');
     await addColumn('friends', 'profileImage', 'TEXT');
@@ -683,6 +687,7 @@ export const prisma = {
         googleId: row.googleId as string | null,
         isTemporary: Boolean(row.isTemporary),
         interests: row.interests as string | null,
+        statusText: row.statusText as string | null,
         createdAt: new Date(row.createdAt as string),
       };
     },
@@ -711,6 +716,7 @@ export const prisma = {
         googleId: row.googleId as string | null,
         isTemporary: Boolean(row.isTemporary),
         interests: row.interests as string | null,
+        statusText: row.statusText as string | null,
         createdAt: new Date(row.createdAt as string),
       };
     },
@@ -739,6 +745,7 @@ export const prisma = {
         googleId: row.googleId as string | null,
         isTemporary: Boolean(row.isTemporary),
         interests: row.interests as string | null,
+        statusText: row.statusText as string | null,
         createdAt: new Date(row.createdAt as string),
       };
     },
@@ -775,12 +782,13 @@ export const prisma = {
         googleId: data.googleId ?? null,
         isTemporary: data.isTemporary ?? false,
         interests: null,
+        statusText: null,
         createdAt: new Date(),
       };
 
       try {
         await client.execute({
-          sql: 'INSERT INTO users (id, email, passwordHash, name, birthday, profileImage, phone, location, googleId, isTemporary, interests, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          sql: 'INSERT INTO users (id, email, passwordHash, name, birthday, profileImage, phone, location, googleId, isTemporary, interests, statusText, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           args: [
             user.id,
             user.email,
@@ -793,6 +801,7 @@ export const prisma = {
             user.googleId,
             user.isTemporary ? 1 : 0,
             user.interests,
+            user.statusText,
             user.createdAt.toISOString(),
           ],
         });
@@ -818,6 +827,7 @@ export const prisma = {
       googleId?: string | null;
       isTemporary?: boolean;
       interests?: string | null;
+      statusText?: string | null;
     }): Promise<User> => {
       await ensureTablesExist();
       const client = getClient();
@@ -837,10 +847,11 @@ export const prisma = {
         googleId: data.googleId !== undefined ? data.googleId : existing.googleId,
         isTemporary: data.isTemporary !== undefined ? data.isTemporary : existing.isTemporary,
         interests: data.interests !== undefined ? data.interests : existing.interests,
+        statusText: data.statusText !== undefined ? data.statusText : existing.statusText,
       };
 
       await client.execute({
-        sql: 'UPDATE users SET name = ?, birthday = ?, profileImage = ?, phone = ?, location = ?, googleId = ?, isTemporary = ?, interests = ? WHERE id = ?',
+        sql: 'UPDATE users SET name = ?, birthday = ?, profileImage = ?, phone = ?, location = ?, googleId = ?, isTemporary = ?, interests = ?, statusText = ? WHERE id = ?',
         args: [
           updated.name,
           updated.birthday ? updated.birthday.toISOString() : null,
@@ -850,6 +861,7 @@ export const prisma = {
           updated.googleId,
           updated.isTemporary ? 1 : 0,
           updated.interests,
+          updated.statusText,
           id,
         ],
       });
@@ -938,7 +950,7 @@ export const prisma = {
       await ensureTablesExist();
       const result = await getClient().execute({
         sql: `SELECT u.id, u.email, u.passwordHash, u.name, u.birthday,
-                     u.phone, u.location, u.googleId, u.isTemporary, u.interests,
+                     u.phone, u.location, u.googleId, u.isTemporary, u.interests, u.statusText,
                      u.createdAt, (u.profileImage IS NOT NULL AND u.profileImage != '') AS hasProfileImage
               FROM sessions s
               JOIN users u ON u.id = s.userId
@@ -961,6 +973,7 @@ export const prisma = {
         googleId: row.googleId as string | null,
         isTemporary: Boolean(row.isTemporary),
         interests: row.interests as string | null,
+        statusText: row.statusText as string | null,
         createdAt: new Date(row.createdAt as string),
       };
     },
@@ -2140,13 +2153,13 @@ export const prisma = {
       await ensureTablesExist();
       const client = getClient();
       const result = await client.execute({
-        sql: "SELECT u.id, u.name, u.email, u.profileImage, u.birthday, u.interests, uc.createdAt FROM user_connections uc JOIN users u ON u.id = CASE WHEN uc.requesterId = ? THEN uc.addresseeId ELSE uc.requesterId END WHERE uc.status = 'accepted' AND (uc.requesterId = ? OR uc.addresseeId = ?) ORDER BY uc.createdAt DESC",
+        sql: "SELECT u.id, u.name, u.email, u.profileImage, u.birthday, u.interests, u.statusText, uc.createdAt FROM user_connections uc JOIN users u ON u.id = CASE WHEN uc.requesterId = ? THEN uc.addresseeId ELSE uc.requesterId END WHERE uc.status = 'accepted' AND (uc.requesterId = ? OR uc.addresseeId = ?) ORDER BY uc.createdAt DESC",
         args: [userId, userId, userId],
       });
       return result.rows.map((row: any) => ({
         id: row.id as string, name: row.name as string, email: row.email as string,
         profileImage: row.profileImage as string | null, birthday: row.birthday ? new Date(row.birthday as string) : null,
-        interests: row.interests as string | null, createdAt: new Date(row.createdAt as string),
+        interests: row.interests as string | null, statusText: row.statusText as string | null, createdAt: new Date(row.createdAt as string),
       }));
     },
     update: async ({ id, userId, status }: { id: string; userId: string; status: 'accepted' | 'rejected' }) => {

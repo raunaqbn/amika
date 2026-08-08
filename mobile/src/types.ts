@@ -4,6 +4,8 @@ export type User = {
   name: string;
   profileImage?: string | null;
   birthday?: string | null;
+  interests?: string[];
+  statusText?: string | null;
 };
 
 export type Friend = {
@@ -19,6 +21,7 @@ export type Friend = {
   birthday?: string | null;
   notes?: string | null;
   interests?: string | null;
+  statusText?: string | null;
   lastContact?: string | null;
 };
 

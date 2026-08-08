@@ -58,6 +58,8 @@ export async function POST(request: NextRequest) {
         name: user.name,
         birthday: user.birthday,
         profileImage: user.profileImage,
+        interests: [],
+        statusText: user.statusText,
         createdAt: user.createdAt,
       },
     });

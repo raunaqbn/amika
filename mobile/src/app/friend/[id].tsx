@@ -7,6 +7,7 @@ import { MemoryCard } from '@/components/memory-card';
 import { Avatar, Button, EmptyState, ErrorState, Spinner } from '@/components/ui';
 import { apiCached, getCachedApiData } from '@/lib/api';
 import { getMemoryFeedSnapshot, updateCachedMemory } from '@/lib/memory-feed';
+import { interestLabel } from '@/lib/interests';
 import { border, colors, shadow, type } from '@/lib/theme';
 import type { Friend, Memory } from '@/types';
 
@@ -43,7 +44,7 @@ export default function FriendProfileScreen() {
 
   useEffect(() => {
     let active = true;
-    apiCached<Friend[]>(FRIENDS_PATH).then((items) => {
+    apiCached<Friend[]>(FRIENDS_PATH, { force: true }).then((items) => {
       if (!active) return;
       setFriend(items.find((item) => item.id === id));
       setLoading(false);
@@ -78,6 +79,7 @@ export default function FriendProfileScreen() {
         <Avatar name={friend.name} uri={image} size={92} color={colors.citrus} />
         <Text style={styles.connection}>{friend.linkedUserId ? 'Connected on Amika' : 'In your circle'}</Text>
         <Text style={styles.name}>{friend.name}</Text>
+        {friend.statusText ? <Text style={styles.status}>“{friend.statusText}”</Text> : null}
         <View style={styles.stats}>
           <View style={styles.stat}><Text style={styles.statNumber}>{friend.memoriesCount || 0}</Text><Text style={styles.statLabel}>memories</Text></View>
           <View style={styles.statRule} />
@@ -95,7 +97,7 @@ export default function FriendProfileScreen() {
         <View style={styles.detailRow}><View style={[styles.detailIcon, { backgroundColor: colors.rose }]}><Heart size={18} color={colors.ink} /></View><View style={styles.detailCopy}><Text style={styles.detailLabel}>How you met</Text><Text style={styles.detailValue}>{friend.howWeMet || 'No beginning added yet.'}</Text></View></View>
         {birthday ? <View style={styles.detailRow}><View style={[styles.detailIcon, { backgroundColor: colors.citrus }]}><Cake size={18} color={colors.ink} /></View><View style={styles.detailCopy}><Text style={styles.detailLabel}>Birthday</Text><Text style={styles.detailValue}>{birthday}</Text></View></View> : null}
         <View style={styles.detailRow}><View style={[styles.detailIcon, { backgroundColor: colors.sky }]}><BookOpen size={18} color={colors.ink} /></View><View style={styles.detailCopy}><Text style={styles.detailLabel}>Private notes</Text><Text style={styles.detailValue}>{friend.notes || 'Nothing private noted yet.'}</Text></View></View>
-        {interests.length ? <View style={styles.interests}><View style={styles.interestHeading}><Sparkles size={17} color={colors.ink} /><Text style={styles.detailLabel}>Their things</Text></View><View style={styles.chips}>{interests.map((interest) => <Text key={interest} style={styles.chip}>{interest}</Text>)}</View></View> : null}
+        {interests.length ? <View style={styles.interests}><View style={styles.interestHeading}><Sparkles size={17} color={colors.ink} /><Text style={styles.detailLabel}>Their things</Text></View><View style={styles.chips}>{interests.map((interest) => <Text key={interest} style={styles.chip}>{interestLabel(interest)}</Text>)}</View></View> : null}
       </View>
 
       <View style={styles.memoryHeading}><View><Text style={styles.memoryKicker}>Shared history</Text><Text style={styles.memoryTitle}>Memories with {friend.name}</Text></View><Camera size={22} color={colors.ink} /></View>
@@ -115,6 +117,7 @@ const styles = StyleSheet.create({
   hero: { alignItems: 'center', padding: 22, borderRadius: 20, backgroundColor: colors.periwinkle, ...border, ...shadow },
   connection: { marginTop: 13, fontFamily: type.heavy, color: colors.periwinkleDark, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1.25 },
   name: { marginTop: 2, fontFamily: type.heavy, color: colors.ink, fontSize: 29, textAlign: 'center' },
+  status: { maxWidth: 290, marginTop: 7, fontFamily: type.medium, color: colors.ink, opacity: .72, fontSize: 13, lineHeight: 19, textAlign: 'center' },
   stats: { marginTop: 17, flexDirection: 'row', alignItems: 'center' },
   stat: { minWidth: 100, alignItems: 'center' },
   statNumber: { fontFamily: type.heavy, color: colors.ink, fontSize: 21 },

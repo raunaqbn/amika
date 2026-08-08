@@ -18,6 +18,7 @@ model User {
   googleId     String?   @unique
   isTemporary  Boolean   @default(false)
   interests    String?
+  statusText   String?
   createdAt    DateTime  @default(now())
 
   sessions            Session[]

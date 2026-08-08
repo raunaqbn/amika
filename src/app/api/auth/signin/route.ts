@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { prisma } from '@/lib/db';
 import { getSessionCookieName } from '@/lib/auth';
 import { compactImageUrl } from '@/lib/mobile-images';
+import { parseStoredInterests } from '@/lib/profile';
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,6 +48,8 @@ export async function POST(request: NextRequest) {
         name: user.name,
         birthday: user.birthday,
         profileImage: compactImageUrl(request, 'user', user.id, user.profileImage),
+        interests: parseStoredInterests(user.interests),
+        statusText: user.statusText,
         createdAt: user.createdAt,
       },
     });

@@ -13,8 +13,8 @@
       "buildNumber": "12",
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Amika uses your camera when you choose to capture a memory.",
-        "NSPhotoLibraryUsageDescription": "Amika lets you choose a photo to add to a memory.",
+        "NSCameraUsageDescription": "Take photos for your Amika profile and memories.",
+        "NSPhotoLibraryUsageDescription": "Choose photos for your Amika profile and memories.",
         "NSPhotoLibraryAddUsageDescription": "Amika can save a memory photo when you ask it to.",
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -51,8 +51,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Choose a photo to keep with your Amika memory.",
-          "cameraPermission": "Take a photo to keep with your Amika memory.",
+          "photosPermission": "Choose photos for your Amika profile and memories.",
+          "cameraPermission": "Take photos for your Amika profile and memories.",
           "microphonePermission": false
         }
       ],
