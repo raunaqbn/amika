@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
+import { sendPushNotification } from '@/lib/push-notifications';
 
 export async function GET(request: NextRequest) {
   try {
@@ -89,12 +90,25 @@ export async function POST(request: NextRequest) {
           if (friend && friend.linkedUserId) {
             try {
               // Create a SharedItem so the Amika friend gets a notification
-              await prisma.sharedItem.create({
+              const sharedItem = await prisma.sharedItem.create({
                 sharedByUserId: userId,
                 sharedWithUserId: friend.linkedUserId,
                 itemType: 'memory',
                 itemId: memory.id,
                 message: undefined,
+              });
+              after(async () => {
+                try {
+                  const author = await prisma.user.findById(userId);
+                  await sendPushNotification(
+                    friend.linkedUserId!,
+                    `${author?.name || 'A friend'} added a memory with you`,
+                    memory.content,
+                    { type: 'memory_tagged', sharedItemId: sharedItem.id, memoryId: memory.id },
+                  );
+                } catch (pushError) {
+                  console.error('Error sending tagged-memory push notification:', pushError);
+                }
               });
             } catch (shareError) {
               // Ignore duplicate share errors
@@ -151,12 +165,25 @@ export async function PUT(request: NextRequest) {
           const friend = friends.find((f: { id: string }) => f.id === fId);
           if (friend && friend.linkedUserId) {
             try {
-              await prisma.sharedItem.create({
+              const sharedItem = await prisma.sharedItem.create({
                 sharedByUserId: userId,
                 sharedWithUserId: friend.linkedUserId,
                 itemType: 'memory',
                 itemId: id,
                 message: undefined,
+              });
+              after(async () => {
+                try {
+                  const author = await prisma.user.findById(userId);
+                  await sendPushNotification(
+                    friend.linkedUserId!,
+                    `${author?.name || 'A friend'} added a memory with you`,
+                    updatedMemory.content,
+                    { type: 'memory_tagged', sharedItemId: sharedItem.id, memoryId: id },
+                  );
+                } catch (pushError) {
+                  console.error('Error sending tagged-memory push notification:', pushError);
+                }
               });
             } catch (shareError) {
               // Ignore duplicate share errors

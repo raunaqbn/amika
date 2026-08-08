@@ -126,6 +126,13 @@ type SharedItem = {
   createdAt: Date;
 };
 
+type PushToken = {
+  token: string;
+  userId: string;
+  platform: 'ios' | 'android';
+  updatedAt: Date;
+};
+
 export type FriendInvite = {
   id: string;
   inviterId: string;
@@ -204,6 +211,7 @@ async function hasCurrentSchema(client: Client) {
         (SELECT userId FROM chat_transcripts LIMIT 0) AS chatsReady,
         (SELECT status FROM user_connections LIMIT 0) AS connectionsReady,
         (SELECT status FROM shared_items LIMIT 0) AS sharedItemsReady,
+        (SELECT token FROM push_tokens LIMIT 0) AS pushTokensReady,
         (SELECT status FROM friend_invites LIMIT 0) AS invitesReady
     `);
     return true;
@@ -409,6 +417,16 @@ async function initializeTables() {
     `);
 
     await client.execute(`
+      CREATE TABLE IF NOT EXISTS push_tokens (
+        token TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        platform TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS friend_invites (
         id TEXT PRIMARY KEY,
         inviterId TEXT NOT NULL,
@@ -448,6 +466,7 @@ async function initializeTables() {
     await client.execute('CREATE INDEX IF NOT EXISTS idx_memories_user_date ON memories(userId, memoryDate)');
     await client.execute('CREATE INDEX IF NOT EXISTS idx_direct_messages_pair ON direct_messages(senderId, recipientId, createdAt)');
     await client.execute('CREATE INDEX IF NOT EXISTS idx_memory_comments_memory ON memory_comments(memoryId, createdAt)');
+    await client.execute('CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(userId)');
     tablesInitialized = true;
   } catch (error) {
     console.error('Error initializing memory-first database tables:', error);
@@ -1728,8 +1747,12 @@ export const prisma = {
         ]);
         let item: any = null;
         if (row.itemType === 'memory') {
-          const found = await client.execute({ sql: 'SELECT id, content, imageUrl, createdAt FROM memories WHERE id = ?', args: [row.itemId as string] });
-          if (found.rows[0]) item = { ...found.rows[0], createdAt: new Date(found.rows[0].createdAt as string) };
+          const found = await client.execute({ sql: 'SELECT id, content, imageUrl, memoryDate, createdAt FROM memories WHERE id = ?', args: [row.itemId as string] });
+          if (found.rows[0]) item = {
+            ...found.rows[0],
+            memoryDate: new Date((found.rows[0].memoryDate as string) || (found.rows[0].createdAt as string)),
+            createdAt: new Date(found.rows[0].createdAt as string),
+          };
         } else if (row.itemType === 'note') {
           const found = await client.execute({ sql: 'SELECT id, title, content, imageUrl, createdAt FROM diary_notes WHERE id = ?', args: [row.itemId as string] });
           if (found.rows[0]) item = { ...found.rows[0], createdAt: new Date(found.rows[0].createdAt as string) };
@@ -1771,12 +1794,14 @@ export const prisma = {
       const result = await client.execute({ sql: "UPDATE shared_items SET status = 'rejected' WHERE sharedWithUserId = ? AND status = 'pending'", args: [userId] });
       return { count: result.rowsAffected };
     },
-    getPendingCount: async (userId: string) => {
+    getPendingCount: async (userId: string, itemType?: string) => {
       await ensureTablesExist();
       const client = getClient();
       const [connections, shared, messages] = await Promise.all([
         client.execute({ sql: "SELECT COUNT(*) AS count FROM user_connections WHERE addresseeId = ? AND status = 'pending'", args: [userId] }),
-        client.execute({ sql: "SELECT COUNT(*) AS count FROM shared_items WHERE sharedWithUserId = ? AND status = 'pending'", args: [userId] }),
+        itemType
+          ? client.execute({ sql: "SELECT COUNT(*) AS count FROM shared_items WHERE sharedWithUserId = ? AND status = 'pending' AND itemType = ?", args: [userId, itemType] })
+          : client.execute({ sql: "SELECT COUNT(*) AS count FROM shared_items WHERE sharedWithUserId = ? AND status = 'pending'", args: [userId] }),
         client.execute({ sql: 'SELECT COUNT(*) AS count FROM direct_messages WHERE recipientId = ? AND readAt IS NULL', args: [userId] }),
       ]);
       return {
@@ -1784,6 +1809,49 @@ export const prisma = {
         sharedItems: Number(shared.rows[0]?.count || 0),
         chatNotifications: Number(messages.rows[0]?.count || 0),
       };
+    },
+  },
+
+  pushToken: {
+    upsert: async ({ token, userId, platform }: Omit<PushToken, 'updatedAt'>) => {
+      await ensureTablesExist();
+      const updatedAt = new Date();
+      await getClient().execute({
+        sql: 'INSERT INTO push_tokens (token, userId, platform, updatedAt) VALUES (?, ?, ?, ?) ON CONFLICT(token) DO UPDATE SET userId = excluded.userId, platform = excluded.platform, updatedAt = excluded.updatedAt',
+        args: [token, userId, platform, updatedAt.toISOString()],
+      });
+      return { token, userId, platform, updatedAt } satisfies PushToken;
+    },
+    findMany: async (userId: string): Promise<PushToken[]> => {
+      await ensureTablesExist();
+      const result = await getClient().execute({
+        sql: 'SELECT token, userId, platform, updatedAt FROM push_tokens WHERE userId = ? ORDER BY updatedAt DESC',
+        args: [userId],
+      });
+      return result.rows.map((row: any) => ({
+        token: row.token as string,
+        userId: row.userId as string,
+        platform: row.platform as PushToken['platform'],
+        updatedAt: new Date(row.updatedAt as string),
+      }));
+    },
+    delete: async ({ token, userId }: { token: string; userId: string }) => {
+      await ensureTablesExist();
+      await getClient().execute({
+        sql: 'DELETE FROM push_tokens WHERE token = ? AND userId = ?',
+        args: [token, userId],
+      });
+      return { success: true };
+    },
+    deleteMany: async (tokens: string[]) => {
+      await ensureTablesExist();
+      if (!tokens.length) return { count: 0 };
+      let count = 0;
+      for (const token of tokens) {
+        const result = await getClient().execute({ sql: 'DELETE FROM push_tokens WHERE token = ?', args: [token] });
+        count += result.rowsAffected;
+      }
+      return { count };
     },
   },
 

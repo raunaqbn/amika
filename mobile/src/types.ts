@@ -75,6 +75,25 @@ export type Message = {
   sender?: { id: string; name: string; profileImage?: string | null };
 };
 
+export type SharedItem = {
+  id: string;
+  sharedByUserId: string;
+  sharedWithUserId: string;
+  itemType: 'memory' | 'note';
+  itemId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  message?: string | null;
+  createdAt: string;
+  sharedBy: { id: string; name: string; email: string; profileImage?: string | null };
+  item?: { id: string; title?: string | null; content?: string; imageUrl?: string | null; memoryDate?: string; createdAt?: string } | null;
+};
+
+export type NotificationCounts = {
+  connectionRequests: number;
+  sharedItems: number;
+  chatNotifications: number;
+};
+
 export type JournalNote = {
   id: string;
   title?: string | null;

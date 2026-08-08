@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/auth';
+import { sendPushNotification } from '@/lib/push-notifications';
 
 // GET - Fetch connections for the authenticated user
 export async function GET(request: Request) {
@@ -51,6 +52,19 @@ export async function POST(request: Request) {
     const connection = await prisma.userConnection.create({
       requesterId: session.user.id,
       addresseeId,
+    });
+
+    after(async () => {
+      try {
+        await sendPushNotification(
+          addresseeId,
+          `${session.user.name || 'A friend'} wants to connect`,
+          'Open Amika to respond.',
+          { type: 'friend_request', connectionId: connection.id },
+        );
+      } catch (pushError) {
+        console.error('Error sending friend-request push notification:', pushError);
+      }
     });
 
     return NextResponse.json(connection);

@@ -33,6 +33,7 @@ model User {
   itemsReceived       SharedItem[] @relation("SharedWithUser")
   messagesSent        DirectMessage[] @relation("MessageSender")
   messagesReceived    DirectMessage[] @relation("MessageRecipient")
+  pushTokens          PushToken[]
 }
 
 model Session {
@@ -181,4 +182,14 @@ model SharedItem {
   createdAt        DateTime @default(now())
 
   @@unique([sharedByUserId, sharedWithUserId, itemType, itemId])
+}
+
+model PushToken {
+  token     String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform  String
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }

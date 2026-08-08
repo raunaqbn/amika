@@ -10,7 +10,7 @@
     "backgroundColor": "#F7F2E8",
     "ios": {
       "bundleIdentifier": "app.amika.ios",
-      "buildNumber": "6",
+      "buildNumber": "7",
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Amika uses your camera when you choose to capture a memory.",
@@ -60,6 +60,14 @@
         {
           "configureAndroidBackup": true,
           "faceIDPermission": "Allow Amika to securely access your account."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#9EA8F8",
+          "defaultChannel": "amika"
         }
       ]
     ],

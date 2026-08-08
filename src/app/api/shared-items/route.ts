@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     const pendingCount = searchParams.get('pendingCount') === 'true';
 
     if (pendingCount) {
-      const counts = await prisma.sharedItem.getPendingCount(session.user.id);
+      const counts = await prisma.sharedItem.getPendingCount(session.user.id, itemType);
       return NextResponse.json(counts);
     }
 
@@ -118,6 +118,7 @@ export async function PUT(request: Request) {
                 friendId: sharerFriend.id,
                 content: sharedItemDetails.item.content,
                 imageUrl: sharedItemDetails.item.imageUrl || null,
+                memoryDate: new Date(sharedItemDetails.item.memoryDate || sharedItemDetails.item.createdAt),
                 sharedWithFriend: true, // Mark as shared
               },
             });

@@ -141,6 +141,17 @@ components:
     rounded: "{rounded.mobile-control}"
     height: "47px"
     width: "47px"
+  mobile-notification-bell:
+    backgroundColor: "{colors.mobile-white}"
+    textColor: "{colors.mobile-graphite}"
+    rounded: "{rounded.mobile-control}"
+    height: "42px"
+    width: "42px"
+  mobile-notification-badge:
+    backgroundColor: "{colors.mobile-citrus}"
+    textColor: "{colors.mobile-graphite}"
+    rounded: "{rounded.mobile-pill}"
+    height: "20px"
 ---
 
 # Design System: Amika Memory System
@@ -311,6 +322,12 @@ On native, this becomes the folded **Pocket Accordion** packet. Its 92px periwin
 Memory cards preserve a consistent author header, dated image or periwinkle text field, caption and friend tag, then lightweight social actions. Featured cards span the grid and use a sky offset, but the information model remains identical so emphasis never changes behavior.
 
 Native memory cards retain the same information order in a single stream. They use an 18px Mobile White Print surface, 1.5px line, and hard 4px offset; media keeps a 4:3 contact-sheet ratio while text-only memories become a minimum 160px periwinkle field. Tapping anywhere on the memory opens a full-screen safe-area-aware viewer: the complete image is shown with `contain`, followed by date, audience, caption, reactions, replies, and a keyboard-safe reply field. The full picture is never trapped in the feed crop.
+
+### Notifications
+
+The native header bell is a reusable 42px Mobile White Print control with 14px corners and a 1.5px Mobile Line edge. When unread activity exists, the bell fills Mobile Periwinkle and a 20px Mobile Citrus badge overlaps its upper-right edge; counts above nine display `9+`. The same citrus, ink-edged count treatment appears on unread message rows and the Messages tab so urgency stays recognizable without adding a new warning color.
+
+The notification center groups only actionable friendship activity under compact uppercase section labels: **Memories with you**, **Messages**, and **Friend requests**. A tagged-memory card preserves its author, time, optional 4:3 image, and full caption, then makes **Save to my memories** the single citrus action; dismiss remains a separate 48px White Print icon control. Saving provides success haptics and confirmation, removes the pending card, refreshes counts, and makes the memory available in the feed. Message pushes deep-link to the relevant conversation; other pushes open the notification center. Foreground notifications may use the platform banner, list, sound, and app badge, but they must keep the in-app bell, Messages badge, and app-icon count synchronized.
 
 ## Do's and Don'ts
 

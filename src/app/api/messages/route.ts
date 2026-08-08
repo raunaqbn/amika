@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { getUserId } from '@/lib/auth';
 import { prisma } from '@/lib/db';
+import { sendPushNotification } from '@/lib/push-notifications';
 
 export async function GET(request: NextRequest) {
   const userId = await getUserId();
@@ -36,9 +37,21 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    return NextResponse.json(
-      await prisma.directMessage.create({ senderId: userId, recipientId, content })
-    );
+    const message = await prisma.directMessage.create({ senderId: userId, recipientId, content });
+    after(async () => {
+      try {
+        const sender = await prisma.user.findById(userId);
+        await sendPushNotification(recipientId, sender?.name || 'A friend', content, {
+          type: 'message',
+          senderId: userId,
+          senderName: sender?.name || 'Friend',
+          senderImage: sender?.profileImage || '',
+        });
+      } catch (pushError) {
+        console.error('Error sending message push notification:', pushError);
+      }
+    });
+    return NextResponse.json(message);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Message could not be sent.' },
