@@ -35,44 +35,92 @@ const IDENTITY_MATRIX = [
 ];
 
 const FILTERS = [
-  { id: 'original', label: 'Original', matrix: IDENTITY_MATRIX },
+  { id: 'original', label: 'Original', description: 'True to your photo', matrix: IDENTITY_MATRIX },
   {
-    id: 'pop', label: 'Pop', matrix: [
-      1.18, -0.05, -0.05, 0, 0,
-      -0.04, 1.17, -0.04, 0, 0,
-      -0.03, -0.04, 1.2, 0, 0,
+    id: 'clarendon', label: 'Clarendon', description: 'Crisp, bright, and cool', matrix: [
+      1.26, -0.08, -0.05, 0, 3,
+      -0.04, 1.18, -0.03, 0, 2,
+      -0.03, -0.04, 1.22, 0, 8,
       0, 0, 0, 1, 0,
     ],
   },
   {
-    id: 'warm', label: 'Warm', matrix: [
-      1.1, 0.03, 0, 0, 5,
-      0.01, 1.02, 0, 0, 2,
-      0, 0, 0.88, 0, 0,
+    id: 'gingham', label: 'Gingham', description: 'Soft, faded warmth', matrix: [
+      0.86, 0.08, 0.04, 0, 12,
+      0.05, 0.88, 0.04, 0, 10,
+      0.05, 0.06, 0.84, 0, 9,
       0, 0, 0, 1, 0,
     ],
   },
   {
-    id: 'cool', label: 'Cool', matrix: [
-      0.91, 0, 0, 0, 0,
-      0, 1.01, 0.02, 0, 1,
-      0, 0.03, 1.13, 0, 4,
+    id: 'moon', label: 'Moon', description: 'Bold black and white', matrix: [
+      0.27, 0.7, 0.07, 0, -5,
+      0.27, 0.7, 0.07, 0, -5,
+      0.27, 0.7, 0.07, 0, -5,
       0, 0, 0, 1, 0,
     ],
   },
   {
-    id: 'mono', label: 'Mono', matrix: [
-      0.2126, 0.7152, 0.0722, 0, 0,
-      0.2126, 0.7152, 0.0722, 0, 0,
-      0.2126, 0.7152, 0.0722, 0, 0,
+    id: 'lark', label: 'Lark', description: 'Airy blues and greens', matrix: [
+      1.04, 0.02, -0.03, 0, 6,
+      -0.02, 1.12, 0.02, 0, 5,
+      -0.03, 0.03, 1.13, 0, 6,
       0, 0, 0, 1, 0,
     ],
   },
   {
-    id: 'fade', label: 'Fade', matrix: [
-      0.78, 0.08, 0.08, 0, 16,
-      0.08, 0.78, 0.08, 0, 14,
-      0.08, 0.08, 0.78, 0, 12,
+    id: 'reyes', label: 'Reyes', description: 'Warm, creamy, and faded', matrix: [
+      0.84, 0.08, 0.04, 0, 18,
+      0.05, 0.82, 0.04, 0, 15,
+      0.03, 0.06, 0.76, 0, 12,
+      0, 0, 0, 1, 0,
+    ],
+  },
+  {
+    id: 'juno', label: 'Juno', description: 'Warm color and rich contrast', matrix: [
+      1.2, 0.02, -0.06, 0, 4,
+      -0.03, 1.12, 0, 0, 1,
+      -0.04, -0.02, 1.03, 0, -2,
+      0, 0, 0, 1, 0,
+    ],
+  },
+  {
+    id: 'slumber', label: 'Slumber', description: 'Dreamy amber shadows', matrix: [
+      0.93, 0.08, 0.02, 0, 12,
+      0.04, 0.9, 0.03, 0, 8,
+      0.02, 0.04, 0.8, 0, 4,
+      0, 0, 0, 1, 0,
+    ],
+  },
+  {
+    id: 'crema', label: 'Crema', description: 'Gentle contrast and warmth', matrix: [
+      0.92, 0.06, 0.02, 0, 10,
+      0.03, 0.91, 0.03, 0, 8,
+      0.02, 0.05, 0.86, 0, 5,
+      0, 0, 0, 1, 0,
+    ],
+  },
+  {
+    id: 'ludwig', label: 'Ludwig', description: 'Clean light and warm reds', matrix: [
+      1.13, 0.03, -0.03, 0, 4,
+      0, 1.03, 0, 0, 1,
+      -0.02, 0.02, 0.91, 0, 0,
+      0, 0, 0, 1, 0,
+    ],
+  },
+  {
+    id: 'aden', label: 'Aden', description: 'Pastel color and soft light', matrix: [
+      0.88, 0.08, 0.04, 0, 14,
+      0.04, 0.89, 0.05, 0, 12,
+      0.03, 0.05, 0.92, 0, 13,
+      0, 0, 0, 1, 0,
+    ],
+  },
+  {
+    id: 'perpetua', label: 'Perpetua', description: 'Fresh blue-green lift', matrix: [
+      0.98, 0.02, -0.01, 0, 3,
+      -0.02, 1.08, 0.03, 0, 4,
+      -0.03, 0.04, 1.12, 0, 8,
       0, 0, 0, 1, 0,
     ],
   },
@@ -148,8 +196,9 @@ function getCropRect(sourceWidth: number, sourceHeight: number, ratio: number, z
   };
 }
 
-function FilterPreview({ active, image, label, matrix, onPress }: {
+function FilterPreview({ active, description, image, label, matrix, onPress }: {
   active: boolean;
+  description: string;
   image: SkImage;
   label: string;
   matrix: readonly number[];
@@ -159,13 +208,13 @@ function FilterPreview({ active, image, label, matrix, onPress }: {
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ checked: active, selected: active }}
-      accessibilityLabel={`${label} photo filter`}
+      accessibilityLabel={`${label} photo filter. ${description}`}
       onPress={onPress}
-      style={styles.filterOption}
+      style={({ pressed }) => [styles.filterOption, active && styles.filterOptionActive, pressed && styles.filterOptionPressed]}
     >
-      <View style={[styles.filterThumb, active && styles.filterThumbActive]}>
+      <View style={styles.filterThumb}>
         <Canvas style={StyleSheet.absoluteFill}>
-          <SkiaImage image={image} x={0} y={0} width={68} height={68} fit="cover">
+          <SkiaImage image={image} x={0} y={0} width={74} height={74} fit="cover">
             <ColorMatrix matrix={[...matrix]} />
           </SkiaImage>
         </Canvas>
@@ -395,11 +444,15 @@ export function PhotoEditor({ height, initialRecipe = DEFAULT_PHOTO_EDIT, onCanc
             </View>
 
             <View style={styles.section}>
-              <View style={styles.sectionHeading}><SlidersHorizontal size={18} color={colors.ink} /><Text style={styles.sectionTitle}>Filters</Text></View>
+              <View style={styles.filterSectionHeading}>
+                <View style={styles.sectionHeading}><SlidersHorizontal size={18} color={colors.ink} /><Text style={styles.sectionTitle}>Filters</Text></View>
+                <Text accessibilityLiveRegion="polite" style={styles.selectedFilterName}>{selectedFilter.label}</Text>
+              </View>
+              <Text style={styles.filterDescription}>{selectedFilter.description}</Text>
               {image ? (
                 <ScrollView accessibilityRole="radiogroup" horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
                   {FILTERS.map((filter) => (
-                    <FilterPreview active={filter.id === filterId} image={image} key={filter.id} label={filter.label} matrix={filter.matrix} onPress={() => setFilterId(filter.id)} />
+                    <FilterPreview active={filter.id === filterId} description={filter.description} image={image} key={filter.id} label={filter.label} matrix={filter.matrix} onPress={() => setFilterId(filter.id)} />
                   ))}
                 </ScrollView>
               ) : null}
@@ -444,10 +497,14 @@ const styles = StyleSheet.create({
   cropButtonActive: { backgroundColor: colors.periwinkle },
   cropButtonText: { fontFamily: type.heavy, color: colors.muted, fontSize: 12 },
   cropButtonTextActive: { color: colors.ink },
-  filterRow: { gap: 12, paddingRight: 12 },
-  filterOption: { minHeight: 96, minWidth: 70, alignItems: 'center', gap: 7 },
-  filterThumb: { width: 70, height: 70, overflow: 'hidden', borderRadius: 15, padding: 2, backgroundColor: colors.white, ...border },
-  filterThumbActive: { borderWidth: 3, borderColor: colors.ink, padding: 0 },
+  filterSectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  selectedFilterName: { flexShrink: 1, fontFamily: type.heavy, color: colors.periwinkleDark, fontSize: 12, textAlign: 'right' },
+  filterDescription: { marginTop: -5, fontFamily: type.medium, color: colors.muted, fontSize: 12 },
+  filterRow: { gap: 8, paddingHorizontal: 1, paddingBottom: 3, paddingRight: 13 },
+  filterOption: { width: 88, minHeight: 108, alignItems: 'center', gap: 7, paddingHorizontal: 6, paddingVertical: 6, borderRadius: 14, borderWidth: 1.5, borderColor: 'transparent' },
+  filterOptionActive: { backgroundColor: colors.periwinkle, borderColor: colors.line },
+  filterOptionPressed: { opacity: 0.72 },
+  filterThumb: { width: 74, height: 74, overflow: 'hidden', borderRadius: 12, backgroundColor: colors.white, ...border },
   filterCheck: { position: 'absolute', right: 4, bottom: 4, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.periwinkle, borderWidth: 1.5, borderColor: colors.ink },
   filterLabel: { fontFamily: type.medium, color: colors.muted, fontSize: 11 },
   filterLabelActive: { fontFamily: type.heavy, color: colors.ink },

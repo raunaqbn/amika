@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, KeyboardEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -98,6 +98,9 @@ export default function MessagesPage() {
   const loadingThreadsRef = useRef(false);
   const loadingConversationsRef = useRef(new Set<string>());
   const activeConversationRef = useRef('');
+  const streamRef = useRef<HTMLDivElement>(null);
+  const shouldStickToBottomRef = useRef(true);
+  const needsInitialScrollRef = useRef(true);
 
   const loadThreads = useCallback(async () => {
     if (loadingThreadsRef.current) return;
@@ -151,6 +154,10 @@ export default function MessagesPage() {
     ? `/api/messages?${selectedKind === 'group' ? 'thread' : 'with'}=${encodeURIComponent(selectedId)}`
     : '';
   useEffect(() => {
+    needsInitialScrollRef.current = true;
+    shouldStickToBottomRef.current = true;
+  }, [selectedId]);
+  useEffect(() => {
     if (!selectedId || !selectedKind) return;
     loadConversation({ id: selectedId, kind: selectedKind });
   }, [loadConversation, selectedId, selectedKind]);
@@ -175,6 +182,15 @@ export default function MessagesPage() {
       document.removeEventListener('visibilitychange', refreshAll);
     };
   }, [loadConversation, loadThreads, selectedId, selectedKind]);
+
+  useLayoutEffect(() => {
+    const stream = streamRef.current;
+    if (!stream || !messages.length) return;
+    if (needsInitialScrollRef.current || shouldStickToBottomRef.current) {
+      stream.scrollTop = stream.scrollHeight;
+      needsInitialScrollRef.current = false;
+    }
+  }, [messages, selectedId]);
 
   useEffect(() => {
     if (!composerOpen) return;
@@ -268,6 +284,7 @@ export default function MessagesPage() {
     });
     if (response.ok) {
       setDraft('');
+      shouldStickToBottomRef.current = true;
       await Promise.all([loadConversation(selectedThread), loadThreads()]);
       setDraftThread(null);
     } else {
@@ -340,7 +357,16 @@ export default function MessagesPage() {
               {selectedThread.kind === 'direct' ? <Link href={`/friends/amika/${selectedThread.id}`}>View profile</Link> : null}
             </header>
 
-            <div className="messages-stream" aria-live="polite">
+            <div
+              ref={streamRef}
+              className="messages-stream"
+              aria-live="polite"
+              onScroll={(event) => {
+                const stream = event.currentTarget;
+                const distanceFromBottom = stream.scrollHeight - stream.clientHeight - stream.scrollTop;
+                shouldStickToBottomRef.current = distanceFromBottom < 80;
+              }}
+            >
               <div className="messages-day"><span>Shared conversation</span></div>
               {messages.length === 0 ? (
                 <div className="messages-first">

@@ -89,6 +89,14 @@ export default function ConversationScreen() {
     };
   }, [conversationPath, id, isGroup, load]);
   useEffect(() => {
+    if (!messages.length || hasPositionedList.current) return;
+    const attempts = [0, 100, 250].map((delay, index) => setTimeout(() => {
+      scrollToLatest(false);
+      if (index === 2) hasPositionedList.current = true;
+    }, delay));
+    return () => attempts.forEach(clearTimeout);
+  }, [conversationPath, messages.length, scrollToLatest]);
+  useEffect(() => {
     if (Platform.OS !== 'ios') return;
     const subscription = Keyboard.addListener('keyboardDidShow', () => {
       shouldStickToBottom.current = true;
@@ -118,10 +126,9 @@ export default function ConversationScreen() {
     }
   }
   return <SafeAreaView style={styles.safe}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><View style={styles.header}><Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.back}><ChevronLeft size={24} color={colors.ink} /></Pressable><Avatar name={name || 'F'} uri={image} size={39} color={isGroup ? colors.sky : colors.rose} /><View style={styles.headerCopy}><Text numberOfLines={1} style={styles.name}>{name || 'Friend'}</Text><Text style={styles.subtitle}>{isGroup ? `${memberCount || ''} people` : 'Private thread'}</Text></View></View><FlatList ref={listRef} data={messages} keyExtractor={(item) => item.id} contentContainerStyle={styles.list} keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} keyboardShouldPersistTaps="handled" onContentSizeChange={() => {
-    if (!hasPositionedList.current || shouldStickToBottom.current) {
-      scrollToLatest(hasPositionedList.current);
-      hasPositionedList.current = true;
-    }
+    if (!messages.length) return;
+    if (!hasPositionedList.current) scrollToLatest(false);
+    else if (shouldStickToBottom.current) scrollToLatest(true);
   }} onScroll={({ nativeEvent }) => {
     const distanceFromBottom = nativeEvent.contentSize.height - nativeEvent.layoutMeasurement.height - nativeEvent.contentOffset.y;
     shouldStickToBottom.current = distanceFromBottom < 80;
