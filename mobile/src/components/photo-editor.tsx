@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { File, Paths } from 'expo-file-system';
 import {
   Canvas,
@@ -22,7 +22,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { border, colors, type } from '@/lib/theme';
 import { Button, Spinner } from './ui';
 
@@ -177,14 +177,18 @@ function FilterPreview({ active, image, label, matrix, onPress }: {
 }
 
 export function PhotoEditor({ height, initialRecipe = DEFAULT_PHOTO_EDIT, onCancel, onChooseAnother, onUsePhoto, uri, visible, width }: PhotoEditorProps) {
-  const { width: screenWidth } = useWindowDimensions();
+  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const [filterId, setFilterId] = useState<FilterId>(initialRecipe.filterId);
   const [cropId, setCropId] = useState<CropId>(initialRecipe.cropId);
   const [positionX, setPositionX] = useState(initialRecipe.positionX);
   const [positionY, setPositionY] = useState(initialRecipe.positionY);
   const [zoom, setZoom] = useState(initialRecipe.zoom);
+  const [dragging, setDragging] = useState(false);
   const [applying, setApplying] = useState(false);
   const [imageError, setImageError] = useState('');
+  const currentPosition = useRef({ x: positionX, y: positionY });
+  const dragStart = useRef({ x: positionX, y: positionY });
+  const dragMetrics = useRef({ drawScale: 1, maxOriginX: 0, maxOriginY: 0 });
   const image = useImage(uri, () => setImageError('This photo could not be opened. Choose another one and try again.'));
 
   useEffect(() => {
@@ -194,6 +198,7 @@ export function PhotoEditor({ height, initialRecipe = DEFAULT_PHOTO_EDIT, onCanc
     setPositionX(initialRecipe.positionX);
     setPositionY(initialRecipe.positionY);
     setZoom(initialRecipe.zoom);
+    setDragging(false);
     setImageError('');
   }, [initialRecipe.cropId, initialRecipe.filterId, initialRecipe.positionX, initialRecipe.positionY, initialRecipe.zoom, uri, visible]);
 
@@ -206,7 +211,7 @@ export function PhotoEditor({ height, initialRecipe = DEFAULT_PHOTO_EDIT, onCanc
   const cropRect = useMemo(() => getCropRect(width, height, outputRatio, zoom, positionX, positionY), [height, outputRatio, positionX, positionY, width, zoom]);
   const canvasSize = useMemo(() => {
     const maxWidth = Math.min(screenWidth - 32, 520);
-    const maxHeight = Math.min(430, Math.max(280, screenWidth * 1.08));
+    const maxHeight = Math.min(430, Math.max(200, screenHeight - 360));
     let canvasWidth = maxWidth;
     let canvasHeight = canvasWidth / outputRatio;
     if (canvasHeight > maxHeight) {
@@ -214,8 +219,9 @@ export function PhotoEditor({ height, initialRecipe = DEFAULT_PHOTO_EDIT, onCanc
       canvasWidth = canvasHeight * outputRatio;
     }
     return { height: canvasHeight, width: canvasWidth };
-  }, [outputRatio, screenWidth]);
+  }, [outputRatio, screenHeight, screenWidth]);
   const drawScale = canvasSize.width / cropRect.width;
+  const canDrag = cropRect.maxOriginX > 0 || cropRect.maxOriginY > 0;
   const previewRect = {
     height: height * drawScale,
     width: width * drawScale,
@@ -223,13 +229,35 @@ export function PhotoEditor({ height, initialRecipe = DEFAULT_PHOTO_EDIT, onCanc
     y: -cropRect.originY * drawScale,
   };
 
+  currentPosition.current = { x: positionX, y: positionY };
+  dragMetrics.current = {
+    drawScale,
+    maxOriginX: cropRect.maxOriginX,
+    maxOriginY: cropRect.maxOriginY,
+  };
+
   const panResponder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 2 || Math.abs(gesture.dy) > 2,
-    onPanResponderMove: (_, gesture) => {
-      if (cropRect.maxOriginX > 0) setPositionX(clamp(positionX - (2 * gesture.dx) / (drawScale * cropRect.maxOriginX), -1, 1));
-      if (cropRect.maxOriginY > 0) setPositionY(clamp(positionY - (2 * gesture.dy) / (drawScale * cropRect.maxOriginY), -1, 1));
+    onStartShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponderCapture: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponderCapture: () => true,
+    onPanResponderGrant: () => {
+      dragStart.current = currentPosition.current;
+      setDragging(true);
     },
-  }), [cropRect.maxOriginX, cropRect.maxOriginY, drawScale, positionX, positionY]);
+    onPanResponderMove: (_, gesture) => {
+      const metrics = dragMetrics.current;
+      if (metrics.maxOriginX > 0) {
+        setPositionX(clamp(dragStart.current.x - (2 * gesture.dx) / (metrics.drawScale * metrics.maxOriginX), -1, 1));
+      }
+      if (metrics.maxOriginY > 0) {
+        setPositionY(clamp(dragStart.current.y - (2 * gesture.dy) / (metrics.drawScale * metrics.maxOriginY), -1, 1));
+      }
+    },
+    onPanResponderRelease: () => setDragging(false),
+    onPanResponderTerminate: () => setDragging(false),
+    onPanResponderTerminationRequest: () => false,
+  }), []);
 
   function resetAndCancel() {
     onCancel();
@@ -301,21 +329,22 @@ export function PhotoEditor({ height, initialRecipe = DEFAULT_PHOTO_EDIT, onCanc
 
   return (
     <Modal animationType="slide" presentationStyle="fullScreen" visible={visible} onRequestClose={requestClose}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <View style={styles.header}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Cancel photo edits" disabled={applying} onPress={requestClose} style={styles.headerButton}>
-            <X size={21} color={colors.ink} />
-          </Pressable>
-          <View style={styles.headerTitle}>
-            <Text style={styles.kicker}>Before you keep it</Text>
-            <Text style={styles.title}>Edit photo</Text>
+      <SafeAreaProvider style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'right', 'bottom', 'left']}>
+          <View style={styles.header}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Cancel photo edits" disabled={applying} onPress={requestClose} style={styles.headerButton}>
+              <X size={21} color={colors.ink} />
+            </Pressable>
+            <View style={styles.headerTitle}>
+              <Text style={styles.kicker}>Before you keep it</Text>
+              <Text style={styles.title}>Edit photo</Text>
+            </View>
+            <Pressable accessibilityRole="button" accessibilityLabel={applying ? 'Applying photo edits' : 'Use edited photo'} disabled={!image || applying} onPress={apply} style={[styles.useButton, (!image || applying) && styles.disabled]}>
+              {applying ? <Spinner size="small" color={colors.ink} /> : <Text style={styles.useButtonText}>Use photo</Text>}
+            </Pressable>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel={applying ? 'Applying photo edits' : 'Use edited photo'} disabled={!image || applying} onPress={apply} style={[styles.useButton, (!image || applying) && styles.disabled]}>
-            {applying ? <Spinner size="small" color={colors.ink} /> : <Text style={styles.useButtonText}>Use photo</Text>}
-          </Pressable>
-        </View>
 
-        <ScrollView contentContainerStyle={styles.content} bounces={false}>
+          <ScrollView contentContainerStyle={styles.content} bounces={false} scrollEnabled={!dragging}>
           {imageError ? (
             <View style={styles.errorState}>
               <Text style={styles.errorTitle}>This photo didn’t open</Text>
@@ -332,10 +361,10 @@ export function PhotoEditor({ height, initialRecipe = DEFAULT_PHOTO_EDIT, onCanc
                       <ColorMatrix matrix={[...selectedFilter.matrix]} />
                     </SkiaImage>
                   </Canvas>
-                  <View accessibilityRole="adjustable" accessibilityLabel="Photo crop. Drag to reposition." style={StyleSheet.absoluteFill} {...panResponder.panHandlers}>
+                  <View accessibilityRole="adjustable" accessibilityLabel={canDrag ? 'Photo crop. Drag to reposition.' : 'Photo crop. Zoom in to reposition.'} style={StyleSheet.absoluteFill} {...panResponder.panHandlers}>
                     <View style={[styles.gridLine, styles.gridVerticalOne]} /><View style={[styles.gridLine, styles.gridVerticalTwo]} />
                     <View style={[styles.gridLine, styles.gridHorizontalOne]} /><View style={[styles.gridLine, styles.gridHorizontalTwo]} />
-                    <View style={styles.dragHint}><Text style={styles.dragHintText}>Drag to position</Text></View>
+                    <View style={styles.dragHint}><Text style={styles.dragHintText}>{canDrag ? 'Drag to position' : 'Zoom in to reposition'}</Text></View>
                   </View>
                 </>
               ) : (
@@ -376,8 +405,9 @@ export function PhotoEditor({ height, initialRecipe = DEFAULT_PHOTO_EDIT, onCanc
               ) : null}
             </View>
           </> : null}
-        </ScrollView>
-      </SafeAreaView>
+          </ScrollView>
+        </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -386,7 +416,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.paper },
   header: { minHeight: 74, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 11, borderBottomWidth: 1.5, borderBottomColor: colors.line, backgroundColor: colors.periwinkle },
   headerButton: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white, ...border },
-  headerTitle: { flex: 1 },
+  headerTitle: { flex: 1, minWidth: 0 },
   kicker: { fontFamily: type.heavy, color: colors.periwinkleDark, fontSize: 10, letterSpacing: 1.1, textTransform: 'uppercase' },
   title: { fontFamily: type.heavy, color: colors.ink, fontSize: 20, lineHeight: 23 },
   useButton: { minWidth: 96, height: 48, paddingHorizontal: 12, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.citrus, ...border },
