@@ -2189,7 +2189,7 @@ export async function getFriendContextCounts(userId: string) {
     client.execute({
       sql: `SELECT dnt.friendId, COUNT(*) AS total
             FROM diary_note_tags dnt
-            JOIN diary_notes dn ON dn.id = dnt.diaryNoteId
+            JOIN diary_notes dn ON dn.id = dnt.noteId
             WHERE dn.userId = ?
             GROUP BY dnt.friendId`,
       args: [userId],
