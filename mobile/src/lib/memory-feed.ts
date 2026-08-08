@@ -108,6 +108,16 @@ export function updateCachedMemory(memoryId: string, update: Partial<Memory>) {
   return snapshot;
 }
 
+export function removeCachedMemory(memoryId: string) {
+  resetForCurrentUser();
+  snapshot = {
+    ...snapshot,
+    items: snapshot.items.filter((memory) => memory.id !== memoryId),
+  };
+  scheduleFeedWrite();
+  return snapshot;
+}
+
 export function invalidateMemoryFeed() {
   resetForCurrentUser();
   snapshot = { ...snapshot, updatedAt: 0 };

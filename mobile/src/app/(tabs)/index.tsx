@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { FlatList, Platform, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Screen } from '@/components/screen';
@@ -82,6 +82,7 @@ export default function HomeScreen() {
   const renderMemory = useCallback(({ item }: { item: Memory }) => (
     <MemoryCard memory={item} onReaction={updateReaction} />
   ), [updateReaction]);
+  const listHeader = useMemo(() => <View style={styles.listHeader}><MemoryComposer onSaved={memorySaved} /><DividerLabel>Recently kept</DividerLabel></View>, [memorySaved]);
 
   return <Screen title="Your circle" eyebrow="Amika · Today" scroll={false}>
     <FlatList
@@ -91,8 +92,8 @@ export default function HomeScreen() {
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.listContent}
-      ListHeaderComponent={<View style={styles.listHeader}><MemoryComposer onSaved={memorySaved} /><DividerLabel>Recently kept</DividerLabel></View>}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      ListHeaderComponent={listHeader}
+      ItemSeparatorComponent={MemorySeparator}
       ListEmptyComponent={loading
         ? <Spinner color={colors.ink} style={styles.loader} />
         : error
@@ -108,14 +109,18 @@ export default function HomeScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.ink} />}
       onEndReached={loadMore}
       onEndReachedThreshold={0.45}
-      initialNumToRender={3}
-      maxToRenderPerBatch={4}
-      updateCellsBatchingPeriod={40}
-      windowSize={5}
+      initialNumToRender={4}
+      maxToRenderPerBatch={6}
+      updateCellsBatchingPeriod={16}
+      windowSize={7}
       removeClippedSubviews={Platform.OS === 'android'}
     />
   </Screen>;
 }
+
+const MemorySeparator = memo(function MemorySeparator() {
+  return <View style={styles.separator} />;
+});
 
 const styles = StyleSheet.create({
   listContent: { paddingBottom: 34 },

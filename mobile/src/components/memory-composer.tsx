@@ -19,7 +19,7 @@ export function MemoryComposer({ initiallyOpen = false, compact = false, initial
   const [friendId, setFriendId] = useState(initialFriendId || '');
   const [content, setContent] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const [visibility, setVisibility] = useState<'private' | 'friends'>('friends');
+  const [visibility, setVisibility] = useState<'private' | 'friends'>('private');
   const [saving, setSaving] = useState(false);
   const [preparingPhoto, setPreparingPhoto] = useState(false);
 
@@ -66,7 +66,7 @@ export function MemoryComposer({ initiallyOpen = false, compact = false, initial
       const uploaded = imageUri ? await uploadImage(imageUri) : null;
       await api('/api/memories', { method: 'POST', body: JSON.stringify({ friendId: friendId || null, content: content.trim(), imageUrl: uploaded?.url || null, visibility, sharedWithFriend: Boolean(friendId) && visibility === 'friends', memoryDate: new Date().toISOString() }) });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setContent(''); setImageUri(null); setFriendId(initialFriendId || ''); setOpen(false);
+      setContent(''); setImageUri(null); setFriendId(initialFriendId || ''); setVisibility('private'); setOpen(false);
       onSaved?.();
     } catch (error) { Alert.alert('Memory not saved', error instanceof Error ? error.message : 'Please try again.'); }
     finally { setSaving(false); }
@@ -84,10 +84,14 @@ export function MemoryComposer({ initiallyOpen = false, compact = false, initial
       <FriendTagPicker
         friends={friends}
         selectedIds={friendId ? [friendId] : []}
-        onChange={(ids) => setFriendId(ids[0] || '')}
-        helper={friends.length ? 'Choose one friend, or leave the memory untagged.' : 'No friends yet—you can still save this memory without a tag.'}
+        onChange={(ids) => {
+          const nextFriendId = ids[0] || '';
+          setFriendId(nextFriendId);
+          setVisibility(nextFriendId && friends.find((friend) => friend.id === nextFriendId)?.linkedUserId ? 'friends' : 'private');
+        }}
+        helper={friends.length ? 'Choose one friend to share with them, or choose No one for a private memory.' : 'No friends yet—you can still save this memory privately.'}
       />
-      <Text style={styles.label}>Who can see it</Text><View style={styles.privacyRow}><Pressable onPress={() => setVisibility('friends')} style={[styles.privacy, visibility === 'friends' && styles.privacyActive]}><Users size={17} color={colors.ink} /><View><Text style={styles.privacyTitle}>Friends</Text><Text style={styles.privacyBody}>{selected?.linkedUserId ? `Share with ${selected.name}` : 'Your Amika circle'}</Text></View></Pressable><Pressable onPress={() => setVisibility('private')} style={[styles.privacy, visibility === 'private' && styles.privacyActive]}><Lock size={17} color={colors.ink} /><View><Text style={styles.privacyTitle}>Only me</Text><Text style={styles.privacyBody}>Private keepsake</Text></View></Pressable></View>
+      <Text style={styles.label}>Who can see it</Text><View style={styles.privacyRow}><Pressable accessibilityState={{ disabled: !selected?.linkedUserId, selected: visibility === 'friends' }} disabled={!selected?.linkedUserId} onPress={() => setVisibility('friends')} style={[styles.privacy, visibility === 'friends' && styles.privacyActive, !selected?.linkedUserId && styles.privacyDisabled]}><Users size={17} color={colors.ink} /><View><Text style={styles.privacyTitle}>Tagged friend</Text><Text style={styles.privacyBody}>{selected?.linkedUserId ? `Share with ${selected.name}` : 'Choose an Amika friend'}</Text></View></Pressable><Pressable accessibilityState={{ selected: visibility === 'private' }} onPress={() => setVisibility('private')} style={[styles.privacy, visibility === 'private' && styles.privacyActive]}><Lock size={17} color={colors.ink} /><View><Text style={styles.privacyTitle}>Only me</Text><Text style={styles.privacyBody}>Private keepsake</Text></View></Pressable></View>
       <Button label="Save today’s memory" tone="ink" loading={saving} disabled={preparingPhoto} onPress={save} />
     </View> : <Pressable onPress={() => setOpen(true)} style={styles.fold}><Text style={styles.foldText}>Add photo · tag a friend · keep it forever</Text></Pressable>}
   </View>;
@@ -97,5 +101,5 @@ const styles = StyleSheet.create({
   packet: { backgroundColor: colors.periwinkle, borderRadius: 20, ...border, ...shadow }, packetTop: { minHeight: 92, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }, packetIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.citrus, alignItems: 'center', justifyContent: 'center', ...border }, kicker: { fontFamily: type.heavy, color: colors.periwinkleDark, textTransform: 'uppercase', fontSize: 10, letterSpacing: 1.4 }, packetTitle: { fontFamily: type.heavy, color: colors.ink, fontSize: 20, lineHeight: 25, marginTop: 2 }, fold: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 16, borderTopWidth: 1.5, borderTopColor: colors.line, backgroundColor: 'rgba(255,255,255,.22)', borderBottomLeftRadius: 18, borderBottomRightRadius: 18 }, foldText: { fontFamily: type.medium, fontSize: 12, color: colors.ink },
   body: { padding: 15, paddingTop: 2, gap: 15 }, photoRow: { flexDirection: 'row', gap: 10 }, preview: { flex: 1, aspectRatio: 4 / 3, borderRadius: 14, ...border }, photoEmpty: { flex: 1, minHeight: 122, borderRadius: 14, borderStyle: 'dashed', backgroundColor: 'rgba(255,255,255,.3)', alignItems: 'center', justifyContent: 'center', gap: 5, ...border }, photoEmptyText: { fontFamily: type.medium, fontSize: 12, color: colors.ink }, photoButtons: { width: 96, gap: 8 }, smallButton: { flex: 1, backgroundColor: colors.white, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 4, ...border }, smallButtonText: { fontFamily: type.heavy, fontSize: 11, color: colors.ink },
   label: { fontFamily: type.heavy, color: colors.ink, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }, optional: { fontFamily: type.medium, color: colors.muted, fontSize: 10, letterSpacing: .5 },
-  privacyRow: { flexDirection: 'row', gap: 8 }, privacy: { flex: 1, minHeight: 68, backgroundColor: 'rgba(255,255,255,.35)', borderRadius: 14, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8, ...border }, privacyActive: { backgroundColor: colors.citrus }, privacyTitle: { fontFamily: type.heavy, color: colors.ink, fontSize: 12 }, privacyBody: { fontFamily: type.regular, color: colors.ink, fontSize: 10, marginTop: 1 },
+  privacyRow: { flexDirection: 'row', gap: 8 }, privacy: { flex: 1, minHeight: 68, backgroundColor: 'rgba(255,255,255,.35)', borderRadius: 14, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8, ...border }, privacyActive: { backgroundColor: colors.citrus }, privacyDisabled: { opacity: .48 }, privacyTitle: { fontFamily: type.heavy, color: colors.ink, fontSize: 12 }, privacyBody: { fontFamily: type.regular, color: colors.ink, fontSize: 10, marginTop: 1 },
 });
