@@ -56,11 +56,11 @@ export async function POST(request: NextRequest) {
     const { friendId, friendIds, content, imageUrl, visibility = 'friends', memoryDate, sharedWithFriend } = body;
 
     // Support both single friendId and multiple friendIds (use first one as primary)
-    const primaryFriendId = friendId || (friendIds && friendIds[0]);
+    const primaryFriendId = friendId || (Array.isArray(friendIds) && friendIds[0]) || null;
 
-    if (!primaryFriendId || !content?.trim()) {
+    if (!content?.trim()) {
       return NextResponse.json(
-        { error: 'Friend ID and content required' },
+        { error: 'Content required' },
         { status: 400 }
       );
     }
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       try {
         // Get all friends to check which ones have linkedUserId (are Amika users)
         const friends = await prisma.friend.findMany({ userId });
-        const allFriendIds = friendIds || [primaryFriendId];
+        const allFriendIds = (Array.isArray(friendIds) ? friendIds : [primaryFriendId]).filter((id): id is string => typeof id === 'string' && id.length > 0);
 
         for (const fId of allFriendIds) {
           const friend = friends.find((f: { id: string }) => f.id === fId);

@@ -959,10 +959,10 @@ export const prisma = {
       await ensureTablesExist();
       const client = getClient();
 
-      let sql = 'SELECT * FROM memories WHERE friendId IS NOT NULL';
+      let sql = 'SELECT * FROM memories';
       let sqlArgs: any[] = [];
       if (args?.userId) {
-        sql += ' AND userId = ?';
+        sql += ' WHERE userId = ?';
         sqlArgs = [args.userId];
       }
       sql += ' ORDER BY createdAt DESC';
@@ -987,14 +987,14 @@ export const prisma = {
       return memoriesResult.rows.map((row: any) => ({
         id: row.id as string,
         userId: row.userId as string,
-        friendId: row.friendId as string,
+        friendId: row.friendId as string | null,
         content: row.content as string,
         imageUrl: row.imageUrl as string | null,
         visibility: (row.visibility as Memory['visibility']) || (Boolean(row.sharedWithFriend) ? 'friends' : 'private'),
         memoryDate: new Date((row.memoryDate as string) || (row.createdAt as string)),
         sharedWithFriend: Boolean(row.sharedWithFriend),
         createdAt: new Date(row.createdAt as string),
-        friend: friendMap.get(row.friendId as string) || null,
+        friend: row.friendId ? friendMap.get(row.friendId as string) || null : null,
       }));
     },
     findFeed: async ({ userId, scope = 'friends', limit, cursor }: {
@@ -1119,23 +1119,25 @@ export const prisma = {
         createdAt: new Date(row.createdAt as string),
       }));
     },
-    create: async ({ data }: { data: { userId: string; friendId: string; content: string; imageUrl?: string | null; visibility?: Memory['visibility']; memoryDate?: Date; sharedWithFriend?: boolean } }) => {
+    create: async ({ data }: { data: { userId: string; friendId?: string | null; content: string; imageUrl?: string | null; visibility?: Memory['visibility']; memoryDate?: Date; sharedWithFriend?: boolean } }) => {
       await ensureTablesExist();
       const client = getClient();
 
-      const friendResult = await client.execute({
-        sql: 'SELECT * FROM friends WHERE id = ? AND userId = ?',
-        args: [data.friendId, data.userId],
-      });
+      if (data.friendId) {
+        const friendResult = await client.execute({
+          sql: 'SELECT * FROM friends WHERE id = ? AND userId = ?',
+          args: [data.friendId, data.userId],
+        });
 
-      if (friendResult.rows.length === 0) {
-        throw new Error("Friend not found");
+        if (friendResult.rows.length === 0) {
+          throw new Error("Friend not found");
+        }
       }
 
       const memory: Memory = {
         id: randomUUID(),
         userId: data.userId,
-        friendId: data.friendId,
+        friendId: data.friendId ?? null,
         content: data.content,
         imageUrl: data.imageUrl ?? null,
         visibility: data.visibility ?? (data.sharedWithFriend ? 'friends' : 'private'),
