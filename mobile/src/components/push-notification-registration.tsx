@@ -29,7 +29,16 @@ export function PushNotificationRegistration() {
       if (!response || response.notification.request.identifier === lastHandledResponseId) return;
       lastHandledResponseId = response.notification.request.identifier;
       const data = response.notification.request.content.data || {};
-      if (data.type === 'message' && typeof data.senderId === 'string') {
+      if (data.type === 'message' && typeof data.threadId === 'string' && data.isGroup === true) {
+        router.push({
+          pathname: '/conversation/[id]',
+          params: {
+            id: data.threadId,
+            name: typeof data.threadName === 'string' ? data.threadName : 'Group chat',
+            kind: 'group',
+          },
+        });
+      } else if (data.type === 'message' && typeof data.senderId === 'string') {
         router.push({
           pathname: '/conversation/[id]',
           params: {

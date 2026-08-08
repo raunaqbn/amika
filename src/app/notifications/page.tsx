@@ -24,6 +24,7 @@ type MessageThread = {
   lastMessage: string | null;
   lastMessageAt: string | null;
   unreadCount: number;
+  kind: 'direct' | 'group';
 };
 
 export default function NotificationsPage() {
@@ -111,7 +112,7 @@ export default function NotificationsPage() {
           ) : (
             <div className="notification-list notification-list--messages">
               {messages.map((thread) => (
-                <Link key={thread.id} href={`/messages?with=${thread.id}`}>
+                <Link key={thread.id} href={`/messages?${thread.kind === 'group' ? 'thread' : 'with'}=${thread.id}`}>
                   <span className="notification-avatar">
                     {thread.profileImage ? <Image src={thread.profileImage} alt="" fill className="object-cover" unoptimized /> : thread.name.slice(0, 2).toUpperCase()}
                   </span>

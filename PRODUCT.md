@@ -22,7 +22,7 @@ Amika is a memory-first social network: the primary object is a dated moment con
 
 - A daily memory can include text, photos, tagged friends, a date, and a visibility choice.
 - Memories appear in a friends feed, on profiles, in personal collections, and—when explicitly public—in discovery.
-- Friends can respond and continue the moment through social interactions and direct messages.
+- Friends can respond and continue the moment through social interactions and direct or group conversations.
 - Private journaling remains available for reflection that should not be social.
 
 ## Capabilities and Constraints

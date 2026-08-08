@@ -137,7 +137,7 @@ export default function NotificationsScreen() {
                   key={thread.id}
                   accessibilityRole="button"
                   accessibilityLabel={`Open ${thread.unreadCount} unread ${thread.unreadCount === 1 ? 'message' : 'messages'} from ${thread.name}`}
-                  onPress={() => router.push({ pathname: '/conversation/[id]', params: { id: thread.id, name: thread.name } })}
+                  onPress={() => router.push({ pathname: '/conversation/[id]', params: { id: thread.id, name: thread.name, kind: thread.kind, memberCount: String(thread.memberCount || thread.members?.length || 0) } })}
                   style={({ pressed }) => [styles.listRow, index > 0 && styles.rowDivider, pressed && styles.rowPressed]}
                 >
                   <View style={styles.iconTile}><MessageCircle size={19} color={colors.ink} /></View>

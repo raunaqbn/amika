@@ -64,12 +64,16 @@ export type Thread = {
   lastMessage?: string | null;
   lastMessageAt?: string | null;
   unreadCount: number;
+  kind: 'direct' | 'group';
+  memberCount?: number;
+  members?: DiscoverableUser[];
 };
 
 export type Message = {
   id: string;
   senderId: string;
-  recipientId: string;
+  recipientId: string | null;
+  threadId?: string;
   content: string;
   createdAt: string;
   readAt?: string | null;

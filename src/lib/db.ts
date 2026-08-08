@@ -163,6 +163,20 @@ type DirectMessage = {
   readAt: Date | null;
 };
 
+type GroupConversation = {
+  id: string;
+  createdBy: string;
+  createdAt: Date;
+};
+
+type GroupMessage = {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  content: string;
+  createdAt: Date;
+};
+
 type UserConnection = {
   id: string;
   requesterId: string;
@@ -215,6 +229,9 @@ const PERFORMANCE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_shared_items_recipient_status ON shared_items(sharedWithUserId, status)',
   'CREATE INDEX IF NOT EXISTS idx_direct_messages_pair ON direct_messages(senderId, recipientId, createdAt)',
   'CREATE INDEX IF NOT EXISTS idx_direct_messages_recipient_read ON direct_messages(recipientId, readAt)',
+  'CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_conversation_members(userId, conversationId)',
+  'CREATE INDEX IF NOT EXISTS idx_group_messages_conversation ON group_messages(conversationId, createdAt)',
+  'CREATE INDEX IF NOT EXISTS idx_group_messages_sender ON group_messages(senderId, createdAt)',
   'CREATE INDEX IF NOT EXISTS idx_memory_comments_memory ON memory_comments(memoryId, createdAt)',
   'CREATE INDEX IF NOT EXISTS idx_push_tokens_user ON push_tokens(userId)',
 ] as const;
@@ -278,6 +295,9 @@ async function getSchemaStatus(client: Client) {
         (SELECT id FROM memory_reactions LIMIT 0) AS reactionsReady,
         (SELECT id FROM memory_comments LIMIT 0) AS commentsReady,
         (SELECT readAt FROM direct_messages LIMIT 0) AS messagesReady,
+        (SELECT id FROM group_conversations LIMIT 0) AS groupConversationsReady,
+        (SELECT lastReadAt FROM group_conversation_members LIMIT 0) AS groupMembersReady,
+        (SELECT id FROM group_messages LIMIT 0) AS groupMessagesReady,
         (SELECT analysis FROM diary_notes LIMIT 0) AS diaryReady,
         (SELECT imageUrl FROM diary_notes LIMIT 0) AS diaryImageReady,
         (SELECT sharedWithFriend FROM diary_note_tags LIMIT 0) AS diaryTagsReady,
@@ -298,6 +318,9 @@ async function getSchemaStatus(client: Client) {
             'idx_shared_items_recipient_status',
             'idx_direct_messages_pair',
             'idx_direct_messages_recipient_read',
+            'idx_group_members_user',
+            'idx_group_messages_conversation',
+            'idx_group_messages_sender',
             'idx_memory_comments_memory',
             'idx_push_tokens_user'
           )) AS performanceIndexCount
@@ -429,6 +452,39 @@ async function initializeTables() {
         readAt TEXT,
         FOREIGN KEY (senderId) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (recipientId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS group_conversations (
+        id TEXT PRIMARY KEY,
+        createdBy TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (createdBy) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS group_conversation_members (
+        conversationId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        joinedAt TEXT NOT NULL,
+        lastReadAt TEXT,
+        PRIMARY KEY (conversationId, userId),
+        FOREIGN KEY (conversationId) REFERENCES group_conversations(id) ON DELETE CASCADE,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS group_messages (
+        id TEXT PRIMARY KEY,
+        conversationId TEXT NOT NULL,
+        senderId TEXT NOT NULL,
+        content TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (conversationId) REFERENCES group_conversations(id) ON DELETE CASCADE,
+        FOREIGN KEY (senderId) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
 
@@ -1557,7 +1613,7 @@ export const prisma = {
           unreadCount: Number(unread.rows[0]?.count || 0),
         };
       }));
-      return threads.sort((a, b) => {
+      return threads.filter((thread) => thread.lastMessageAt).sort((a, b) => {
         if (a.unreadCount !== b.unreadCount) return b.unreadCount - a.unreadCount;
         return new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime();
       });
@@ -1593,6 +1649,187 @@ export const prisma = {
         args: [message.id, message.senderId, message.recipientId, message.content, message.createdAt.toISOString(), null],
       });
       return message;
+    },
+  },
+
+  groupConversation: {
+    findOrCreate: async ({ createdBy, memberIds }: { createdBy: string; memberIds: string[] }) => {
+      await ensureTablesExist();
+      const client = getClient();
+      const uniqueMemberIds = [...new Set(memberIds)].filter((id) => id && id !== createdBy);
+      if (uniqueMemberIds.length < 2) throw new Error('Choose at least two friends for a group chat.');
+      if (uniqueMemberIds.length > 19) throw new Error('Group chats can include up to 20 people.');
+
+      const connections = await prisma.userConnection.findAcceptedConnections(createdBy);
+      const connectedIds = new Set(connections.map((friend: any) => friend.id as string));
+      if (uniqueMemberIds.some((id) => !connectedIds.has(id))) throw new Error('You can only add friends to a group chat.');
+
+      const allMemberIds = [createdBy, ...uniqueMemberIds];
+      const placeholders = allMemberIds.map(() => '?').join(', ');
+      const existing = await client.execute({
+        sql: `SELECT gc.id, gc.createdBy, gc.createdAt
+              FROM group_conversations gc
+              WHERE (SELECT COUNT(*) FROM group_conversation_members total WHERE total.conversationId = gc.id) = ?
+                AND NOT EXISTS (
+                  SELECT 1 FROM group_conversation_members member
+                  WHERE member.conversationId = gc.id AND member.userId NOT IN (${placeholders})
+                )
+              LIMIT 1`,
+        args: [allMemberIds.length, ...allMemberIds],
+      });
+
+      let conversation: GroupConversation;
+      if (existing.rows.length) {
+        const row = existing.rows[0];
+        conversation = {
+          id: row.id as string,
+          createdBy: row.createdBy as string,
+          createdAt: new Date(row.createdAt as string),
+        };
+      } else {
+        conversation = { id: randomUUID(), createdBy, createdAt: new Date() };
+        await client.batch([
+          {
+            sql: 'INSERT INTO group_conversations (id, createdBy, createdAt) VALUES (?, ?, ?)',
+            args: [conversation.id, conversation.createdBy, conversation.createdAt.toISOString()],
+          },
+          ...allMemberIds.map((userId) => ({
+            sql: 'INSERT INTO group_conversation_members (conversationId, userId, joinedAt, lastReadAt) VALUES (?, ?, ?, ?)',
+            args: [conversation.id, userId, conversation.createdAt.toISOString(), conversation.createdAt.toISOString()],
+          })),
+        ], 'write');
+      }
+
+      return prisma.groupConversation.getThread({ conversationId: conversation.id, userId: createdBy });
+    },
+    getThread: async ({ conversationId, userId }: { conversationId: string; userId: string }) => {
+      await ensureTablesExist();
+      const client = getClient();
+      const membership = await client.execute({
+        sql: 'SELECT lastReadAt FROM group_conversation_members WHERE conversationId = ? AND userId = ?',
+        args: [conversationId, userId],
+      });
+      if (!membership.rows.length) throw new Error('Group conversation not found.');
+
+      const [members, last, unread] = await Promise.all([
+        client.execute({
+          sql: 'SELECT u.id, u.name, u.email, u.profileImage FROM group_conversation_members member JOIN users u ON u.id = member.userId WHERE member.conversationId = ? ORDER BY member.joinedAt ASC',
+          args: [conversationId],
+        }),
+        client.execute({
+          sql: 'SELECT content, createdAt FROM group_messages WHERE conversationId = ? ORDER BY createdAt DESC LIMIT 1',
+          args: [conversationId],
+        }),
+        client.execute({
+          sql: 'SELECT COUNT(*) AS count FROM group_messages WHERE conversationId = ? AND senderId != ? AND (? IS NULL OR createdAt > ?)',
+          args: [conversationId, userId, membership.rows[0].lastReadAt, membership.rows[0].lastReadAt],
+        }),
+      ]);
+      const people = members.rows.map((row: any) => ({
+        id: row.id as string,
+        name: row.name as string,
+        email: row.email as string,
+        profileImage: row.profileImage as string | null,
+      }));
+      const others = people.filter((member) => member.id !== userId);
+      return {
+        id: conversationId,
+        kind: 'group' as const,
+        name: others.map((member) => member.name).join(', '),
+        email: '',
+        profileImage: null,
+        members: people,
+        memberCount: people.length,
+        lastMessage: last.rows[0]?.content as string | null || null,
+        lastMessageAt: last.rows[0]?.createdAt as string | null || null,
+        unreadCount: Number(unread.rows[0]?.count || 0),
+      };
+    },
+    listThreads: async (userId: string) => {
+      await ensureTablesExist();
+      const client = getClient();
+      const result = await client.execute({
+        sql: `SELECT conversationId
+              FROM group_conversation_members member
+              WHERE member.userId = ?
+                AND EXISTS (SELECT 1 FROM group_messages message WHERE message.conversationId = member.conversationId)`,
+        args: [userId],
+      });
+      return Promise.all(result.rows.map((row: any) => prisma.groupConversation.getThread({
+        conversationId: row.conversationId as string,
+        userId,
+      })));
+    },
+    findConversation: async ({ conversationId, userId }: { conversationId: string; userId: string }) => {
+      await ensureTablesExist();
+      const client = getClient();
+      const membership = await client.execute({
+        sql: 'SELECT conversationId FROM group_conversation_members WHERE conversationId = ? AND userId = ?',
+        args: [conversationId, userId],
+      });
+      if (!membership.rows.length) throw new Error('Group conversation not found.');
+      const result = await client.execute({
+        sql: `SELECT message.*, sender.name AS senderName, sender.profileImage AS senderImage
+              FROM group_messages message
+              JOIN users sender ON sender.id = message.senderId
+              WHERE message.conversationId = ?
+              ORDER BY message.createdAt ASC`,
+        args: [conversationId],
+      });
+      await client.execute({
+        sql: 'UPDATE group_conversation_members SET lastReadAt = ? WHERE conversationId = ? AND userId = ?',
+        args: [new Date().toISOString(), conversationId, userId],
+      });
+      return result.rows.map((row: any) => ({
+        id: row.id as string,
+        threadId: row.conversationId as string,
+        senderId: row.senderId as string,
+        recipientId: null,
+        content: row.content as string,
+        createdAt: new Date(row.createdAt as string),
+        readAt: null,
+        sender: { id: row.senderId as string, name: row.senderName as string, profileImage: row.senderImage as string | null },
+      }));
+    },
+    createMessage: async ({ conversationId, senderId, content }: { conversationId: string; senderId: string; content: string }) => {
+      await ensureTablesExist();
+      const client = getClient();
+      const membership = await client.execute({
+        sql: 'SELECT conversationId FROM group_conversation_members WHERE conversationId = ? AND userId = ?',
+        args: [conversationId, senderId],
+      });
+      if (!membership.rows.length) throw new Error('You are not part of this group conversation.');
+      const message: GroupMessage = { id: randomUUID(), conversationId, senderId, content, createdAt: new Date() };
+      await client.batch([
+        {
+          sql: 'INSERT INTO group_messages (id, conversationId, senderId, content, createdAt) VALUES (?, ?, ?, ?, ?)',
+          args: [message.id, message.conversationId, message.senderId, message.content, message.createdAt.toISOString()],
+        },
+        {
+          sql: 'UPDATE group_conversation_members SET lastReadAt = ? WHERE conversationId = ? AND userId = ?',
+          args: [message.createdAt.toISOString(), conversationId, senderId],
+        },
+      ], 'write');
+      return { ...message, threadId: conversationId, recipientId: null, readAt: null };
+    },
+    listRecipientIds: async ({ conversationId, excludeUserId }: { conversationId: string; excludeUserId: string }) => {
+      await ensureTablesExist();
+      const result = await getClient().execute({
+        sql: 'SELECT userId FROM group_conversation_members WHERE conversationId = ? AND userId != ?',
+        args: [conversationId, excludeUserId],
+      });
+      return result.rows.map((row: any) => row.userId as string);
+    },
+    countUnread: async (userId: string) => {
+      await ensureTablesExist();
+      const result = await getClient().execute({
+        sql: `SELECT COUNT(*) AS count
+              FROM group_messages message
+              JOIN group_conversation_members member ON member.conversationId = message.conversationId AND member.userId = ?
+              WHERE message.senderId != ? AND (member.lastReadAt IS NULL OR message.createdAt > member.lastReadAt)`,
+        args: [userId, userId],
+      });
+      return Number(result.rows[0]?.count || 0);
     },
   },
 
@@ -2007,17 +2244,24 @@ export const prisma = {
     getPendingCount: async (userId: string, itemType?: string) => {
       await ensureTablesExist();
       const client = getClient();
-      const [connections, shared, messages] = await Promise.all([
+      const [connections, shared, messages, groupMessages] = await Promise.all([
         client.execute({ sql: "SELECT COUNT(*) AS count FROM user_connections WHERE addresseeId = ? AND status = 'pending'", args: [userId] }),
         itemType
           ? client.execute({ sql: "SELECT COUNT(*) AS count FROM shared_items WHERE sharedWithUserId = ? AND status = 'pending' AND itemType = ?", args: [userId, itemType] })
           : client.execute({ sql: "SELECT COUNT(*) AS count FROM shared_items WHERE sharedWithUserId = ? AND status = 'pending'", args: [userId] }),
         client.execute({ sql: 'SELECT COUNT(*) AS count FROM direct_messages WHERE recipientId = ? AND readAt IS NULL', args: [userId] }),
+        client.execute({
+          sql: `SELECT COUNT(*) AS count
+                FROM group_messages message
+                JOIN group_conversation_members member ON member.conversationId = message.conversationId AND member.userId = ?
+                WHERE message.senderId != ? AND (member.lastReadAt IS NULL OR message.createdAt > member.lastReadAt)`,
+          args: [userId, userId],
+        }),
       ]);
       return {
         connectionRequests: Number(connections.rows[0]?.count || 0),
         sharedItems: Number(shared.rows[0]?.count || 0),
-        chatNotifications: Number(messages.rows[0]?.count || 0),
+        chatNotifications: Number(messages.rows[0]?.count || 0) + Number(groupMessages.rows[0]?.count || 0),
       };
     },
   },

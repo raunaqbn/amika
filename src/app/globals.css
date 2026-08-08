@@ -1190,7 +1190,7 @@ body:has(.app-rail) > main {
   letter-spacing: -0.04em;
 }
 
-.messages-list > header > a {
+.messages-list > header > button {
   width: 42px;
   height: 42px;
   display: grid;
@@ -1200,7 +1200,10 @@ body:has(.app-rail) > main {
   background: var(--amika-citrus);
   color: var(--amika-ink);
   box-shadow: 0 3px 0 var(--amika-ink);
+  cursor: pointer;
 }
+
+.messages-list > header > button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--amika-ink); }
 
 .messages-list > header svg { width: 19px; }
 
@@ -1259,6 +1262,7 @@ body:has(.app-rail) > main {
   font-size: 0.7rem;
   font-weight: 850;
 }
+.messages-avatar > svg { width: 19px; }
 
 .messages-state {
   flex: 1;
@@ -1274,7 +1278,8 @@ body:has(.app-rail) > main {
 .messages-state svg { width: 32px; color: var(--amika-violet-deep); }
 .messages-state strong { color: var(--amika-ink); }
 .messages-state p { margin: 0; font-size: 0.74rem; line-height: 1.5; }
-.messages-state a { color: var(--amika-violet-deep); font-size: 0.75rem; font-weight: 800; }
+.messages-state a,
+.messages-state button { border: 0; background: transparent; color: var(--amika-violet-deep); font: inherit; font-size: 0.75rem; font-weight: 800; text-decoration: underline; cursor: pointer; }
 
 .messages-conversation { position: relative; min-width: 0; height: 100vh; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
 .messages-conversation > header { min-height: 72px; display: flex; align-items: center; gap: 11px; padding: 10px 22px; border-bottom: 2px solid var(--amika-ink); background: var(--amika-paper); }
@@ -1296,6 +1301,7 @@ body:has(.app-rail) > main {
 .message-bubble { max-width: min(70%, 580px); padding: 10px 12px 7px; border: 1.5px solid var(--amika-ink); border-radius: 13px 13px 13px 4px; background: white; box-shadow: 0 3px 0 #d7d7d1; }
 .is-own .message-bubble { border-radius: 13px 13px 4px 13px; background: var(--amika-violet); box-shadow: 0 3px 0 #5148cf; }
 .message-bubble p { margin: 0; font-size: 0.83rem; line-height: 1.45; }
+.message-bubble > strong { display: block; margin-bottom: 3px; color: var(--amika-violet-deep); font-size: 0.64rem; }
 .message-bubble time { display: block; margin-top: 4px; color: var(--amika-muted); font-size: 0.54rem; text-align: right; }
 .is-own .message-bubble time { color: #302d62; }
 
@@ -1315,6 +1321,64 @@ body:has(.app-rail) > main {
 .message-compose svg { width: 19px; }
 .messages-error { position: absolute; left: 20px; right: 20px; bottom: 84px; margin: 0; padding: 10px; border: 1.5px solid #9e2823; border-radius: 8px; background: #ffe3df; color: #721611; font-size: 0.72rem; text-align: center; }
 
+.new-chat-backdrop {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(21 22 30 / 55%);
+}
+
+.new-chat-dialog {
+  width: min(520px, 100%);
+  max-height: min(720px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 2px solid var(--amika-ink);
+  border-radius: 14px;
+  background: white;
+  box-shadow: 8px 9px 0 var(--amika-ink);
+}
+
+.new-chat-dialog > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 22px 22px 15px; }
+.new-chat-dialog > header span { color: var(--amika-violet-deep); font-size: 0.66rem; font-weight: 850; text-transform: uppercase; }
+.new-chat-dialog > header h2 { margin: 2px 0 0; font-size: 1.65rem; letter-spacing: -0.03em; }
+.new-chat-dialog > header button { width: 42px; height: 42px; display: grid; flex: 0 0 auto; place-items: center; border: 1.5px solid var(--amika-ink); border-radius: 10px; background: var(--amika-paper); cursor: pointer; }
+.new-chat-dialog > header button svg { width: 19px; }
+
+.new-chat-search { min-height: 46px; display: flex; align-items: center; gap: 9px; margin: 0 20px 14px; padding: 0 12px; border: 1.5px solid var(--amika-ink); border-radius: 9px; background: var(--amika-paper); }
+.new-chat-search svg { width: 18px; color: var(--amika-violet-deep); }
+.new-chat-search input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; font: inherit; font-size: 0.82rem; }
+.new-chat-search:focus-within { outline: 3px solid var(--amika-citrus); outline-offset: 2px; }
+
+.new-chat-note { display: flex; align-items: center; gap: 7px; margin: 0 20px 12px; padding: 9px 11px; border: 1.5px solid var(--amika-ink); border-radius: 9px; background: var(--amika-violet); font-size: 0.72rem; font-weight: 750; }
+.new-chat-note svg { width: 17px; }
+.new-chat-people { min-height: 180px; max-height: 340px; flex: 1; overflow-y: auto; border-block: 1px solid var(--amika-line); }
+.new-chat-people > button { width: 100%; min-height: 70px; display: grid; grid-template-columns: 44px minmax(0, 1fr) 27px; align-items: center; gap: 11px; padding: 10px 20px; border: 0; border-bottom: 1px solid var(--amika-line); background: white; color: var(--amika-ink); text-align: left; cursor: pointer; }
+.new-chat-people > button:hover { background: #f0f0eb; }
+.new-chat-people > button[aria-pressed="true"] { background: #e4e6ff; }
+.new-chat-people > button > span { min-width: 0; display: grid; gap: 2px; }
+.new-chat-people > button strong { overflow: hidden; font-size: 0.82rem; text-overflow: ellipsis; white-space: nowrap; }
+.new-chat-people > button small { overflow: hidden; color: var(--amika-muted); font-size: 0.7rem; text-overflow: ellipsis; white-space: nowrap; }
+.new-chat-people > button > b { width: 25px; height: 25px; display: grid; place-items: center; border: 1.5px solid var(--amika-ink); border-radius: 7px; background: var(--amika-paper); }
+.new-chat-people > button[aria-pressed="true"] > b { background: var(--amika-citrus); }
+.new-chat-people > button > b svg { width: 15px; }
+.new-chat-status { min-height: 190px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; color: var(--amika-muted); font-size: 0.76rem; text-align: center; }
+.new-chat-status > svg { width: 28px; color: var(--amika-violet-deep); }
+.new-chat-status a { color: var(--amika-violet-deep); font-weight: 800; }
+.new-chat-error { margin: 12px 20px 0; padding: 9px 11px; border: 1.5px solid #9e2823; border-radius: 8px; background: #ffe3df; color: #721611; font-size: 0.72rem; }
+.new-chat-dialog > footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px 20px; }
+.new-chat-dialog > footer > span { color: var(--amika-muted); font-size: 0.7rem; }
+.new-chat-dialog > footer > button { min-height: 46px; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 0 16px; border: 2px solid var(--amika-ink); border-radius: 9px; background: var(--amika-citrus); color: var(--amika-ink); font: inherit; font-size: 0.75rem; font-weight: 850; box-shadow: 0 3px 0 var(--amika-ink); cursor: pointer; }
+.new-chat-dialog > footer > button:disabled { opacity: .45; box-shadow: none; cursor: not-allowed; }
+.new-chat-dialog > footer > button svg { width: 17px; }
+
+.messages-page button:focus-visible,
+.messages-page a:focus-visible { outline: 3px solid var(--amika-citrus); outline-offset: 2px; }
+
 @media (max-width: 820px) {
   .messages-page { display: block; min-height: calc(100vh - 134px); }
   .messages-list { min-height: calc(100vh - 134px); border-right: 0; }
@@ -1325,6 +1389,13 @@ body:has(.app-rail) > main {
   .messages-stream { padding: 16px 13px 24px; }
   .message-compose { padding: 10px 12px 13px; }
   .message-bubble { max-width: 82%; }
+  .new-chat-backdrop { align-items: end; padding: 0; }
+  .new-chat-dialog { width: 100%; max-height: calc(100dvh - 24px); border-radius: 16px 16px 0 0; box-shadow: none; }
+  .new-chat-dialog > header { padding: 20px 16px 14px; }
+  .new-chat-search { margin-inline: 14px; }
+  .new-chat-note { margin-inline: 14px; }
+  .new-chat-people > button { padding-inline: 16px; }
+  .new-chat-dialog > footer { padding: 14px 14px calc(16px + env(safe-area-inset-bottom)); }
 }
 
 .discover-page { min-height: 100vh; background: var(--amika-paper); }
