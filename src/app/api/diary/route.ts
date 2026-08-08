@@ -50,6 +50,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(notes.map((note) => ({
       ...note,
       imageUrl: compactImageUrl(request, 'diary', note.id, note.imageUrl),
+      friends: note.friends.map((friend: any) => {
+        const profileImage = compactImageUrl(
+          request,
+          'friend',
+          friend.id,
+          friend.customProfileImage || friend.profileImage,
+        );
+        return {
+          ...friend,
+          profileImage,
+          customProfileImage: friend.customProfileImage ? profileImage : null,
+        };
+      }),
     })));
   } catch (error) {
     console.error('Error fetching diary notes:', error);
