@@ -1264,16 +1264,18 @@ export const prisma = {
            FROM memories m
            JOIN users u ON u.id = m.userId
            LEFT JOIN friends f ON f.id = m.friendId
-           WHERE m.userId = ?
-              OR (
-                ${visibilitySql} = 'public'
-                AND m.userId IN (
-                  SELECT CASE WHEN requesterId = ? THEN addresseeId ELSE requesterId END
-                  FROM user_connections
-                  WHERE status = 'accepted' AND (requesterId = ? OR addresseeId = ?)
-                )
-              )
-              OR (${DIRECT_AUDIENCE_CAN_VIEW_SQL})
+           WHERE (
+             m.userId = ?
+             OR (
+               ${visibilitySql} = 'public'
+               AND m.userId IN (
+                 SELECT CASE WHEN requesterId = ? THEN addresseeId ELSE requesterId END
+                 FROM user_connections
+                 WHERE status = 'accepted' AND (requesterId = ? OR addresseeId = ?)
+               )
+             )
+             OR (${DIRECT_AUDIENCE_CAN_VIEW_SQL})
+           )
              ${cursorSql}
            ORDER BY ${dateSql} DESC, m.id DESC${limitSql}`;
 
