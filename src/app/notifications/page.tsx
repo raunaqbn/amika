@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { Bell, BookOpen, Check, Heart, LoaderCircle, MessageCircle, X } from 'lucide-react';
 import { FriendRequests } from '@/components/friend-requests';
-import { revalidateNotifications } from '@/hooks/use-data';
+import { revalidateNotifications, useNotificationCount } from '@/hooks/use-data';
 
 type SharedItem = {
   id: string;
@@ -32,6 +32,7 @@ export default function NotificationsPage() {
   const [messages, setMessages] = useState<MessageThread[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState('');
+  const { pendingCount } = useNotificationCount();
 
   const loadNotifications = useCallback(async () => {
     const [itemsResponse, messagesResponse] = await Promise.all([
@@ -57,8 +58,6 @@ export default function NotificationsPage() {
     setProcessing('');
   };
 
-  const total = items.length + messages.reduce((sum, thread) => sum + thread.unreadCount, 0);
-
   return (
     <div className="notifications-page">
       <header className="notifications-hero">
@@ -67,7 +66,7 @@ export default function NotificationsPage() {
           <h1>Notifications</h1>
           <p>Friend requests, shared memories, journal notes, and new messages from your circle.</p>
         </div>
-        <strong>{total}</strong>
+        <strong>{pendingCount}</strong>
       </header>
 
       <main className="notifications-content">

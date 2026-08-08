@@ -46,4 +46,16 @@ test('accepting a tagged memory keeps one sender-owned entry in the recipient ti
   assert.equal(matchingFeedEntries.length, 1);
   assert.equal(matchingFeedEntries[0].userId, sender.id);
   assert.equal(matchingFeedEntries[0].isOwn, false);
+
+  const note = await prisma.diaryNote.create({
+    data: { userId: sender.id, title: 'Shared reflection', content: 'A note for a friend' },
+  });
+  await prisma.sharedItem.create({
+    sharedByUserId: sender.id,
+    sharedWithUserId: recipient.id,
+    itemType: 'note',
+    itemId: note.id,
+  });
+  assert.equal((await prisma.sharedItem.getPendingCount(recipient.id)).sharedItems, 1);
+  assert.equal((await prisma.sharedItem.getPendingCount(recipient.id, 'memory')).sharedItems, 0);
 });

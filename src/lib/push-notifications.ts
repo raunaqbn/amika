@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db';
+import { prisma } from './db.ts';
 
 type PushData = Record<string, string | number | boolean | null>;
 

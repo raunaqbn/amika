@@ -1,10 +1,80 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { generateText } from 'ai';
 import { getModel } from '@/lib/ai';
 import { getUserId } from '@/lib/auth';
 import { compactImageUrl, isMediaImageUrl, mediaImageUrl } from '@/lib/mobile-images';
 import { persistImage } from '@/lib/media-storage';
+import { sendSharedItemNotification } from '@/lib/shared-item-notifications';
+
+type ShareableNote = {
+  id: string;
+  title: string | null;
+  content: string;
+};
+
+async function shareNoteWithTaggedFriends({
+  userId,
+  friendTags,
+  note,
+}: {
+  userId: string;
+  friendTags: unknown[];
+  note: ShareableNote;
+}) {
+  const requestedFriendIds = new Set(friendTags.flatMap((tag) => {
+    if (!tag || typeof tag !== 'object') return [];
+    const candidate = tag as { friendId?: unknown; sharedWithFriend?: unknown };
+    return candidate.sharedWithFriend === true && typeof candidate.friendId === 'string'
+      ? [candidate.friendId]
+      : [];
+  }));
+  if (!requestedFriendIds.size) return;
+
+  const friends = await prisma.friend.findMany({ userId });
+  const recipients = new Map<string, string>();
+  friends.forEach((friend: { id: string; linkedUserId: string | null }) => {
+    if (requestedFriendIds.has(friend.id) && friend.linkedUserId) {
+      recipients.set(friend.linkedUserId, friend.linkedUserId);
+    }
+  });
+
+  const shareResults = await Promise.allSettled([...recipients.values()].map(async (recipientUserId) => ({
+    recipientUserId,
+    sharedItem: await prisma.sharedItem.create({
+      sharedByUserId: userId,
+      sharedWithUserId: recipientUserId,
+      itemType: 'note',
+      itemId: note.id,
+      message: undefined,
+    }),
+  })));
+  const newShares = shareResults.flatMap((result) => {
+    if (result.status === 'fulfilled') return [result.value];
+    if (!(result.reason instanceof Error && result.reason.message === 'Item already shared with this user')) {
+      console.error('Error sharing note with friend:', result.reason);
+    }
+    return [];
+  });
+
+  if (!newShares.length) return;
+  after(async () => {
+    const results = await Promise.allSettled(newShares.map(({ recipientUserId, sharedItem }) => (
+      sendSharedItemNotification({
+        sharedItemId: sharedItem.id,
+        sharedByUserId: userId,
+        sharedWithUserId: recipientUserId,
+        itemType: 'note',
+        itemId: note.id,
+        itemTitle: note.title,
+        itemContent: note.content,
+      })
+    )));
+    results.forEach((result) => {
+      if (result.status === 'rejected') console.error('Shared-note notification failed:', result.reason);
+    });
+  });
+}
 
 async function generateAnalysis(content: string): Promise<string | null> {
   try {
@@ -102,35 +172,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Auto-share with Amika friends if any have sharedWithFriend enabled
-    if (Array.isArray(friendTags) && friendTags.length > 0) {
-      try {
-        // Get all user's friends to find Amika friends
-        const friends = await prisma.friend.findMany({ userId });
-
-        // Share with Amika friends who have sharedWithFriend enabled
-        for (const tag of friendTags) {
-          if (tag.sharedWithFriend) {
-            const friend = friends.find((f: { id: string }) => f.id === tag.friendId);
-            if (friend && friend.linkedUserId) {
-              try {
-                await prisma.sharedItem.create({
-                  sharedByUserId: userId,
-                  sharedWithUserId: friend.linkedUserId,
-                  itemType: 'note',
-                  itemId: note.id,
-                  message: undefined,
-                });
-              } catch (shareError) {
-                // Ignore duplicate share errors
-                console.error('Error sharing note with friend:', shareError);
-              }
-            }
-          }
-        }
-      } catch (shareError) {
-        console.error('Error auto-sharing note:', shareError);
-      }
+    if (Array.isArray(friendTags)) {
+      await shareNoteWithTaggedFriends({ userId, friendTags, note })
+        .catch((shareError) => console.error('Error auto-sharing note:', shareError));
     }
 
     return NextResponse.json({
@@ -189,35 +233,9 @@ export async function PUT(request: NextRequest) {
       },
     });
 
-    // Handle sharing with Amika friends
-    if (Array.isArray(friendTags) && friendTags.length > 0) {
-      try {
-        // Get all user's friends to find Amika friends
-        const friends = await prisma.friend.findMany({ userId });
-
-        // Share with Amika friends who have sharedWithFriend enabled
-        for (const tag of friendTags) {
-          if (tag.sharedWithFriend) {
-            const friend = friends.find((f: { id: string }) => f.id === tag.friendId);
-            if (friend && friend.linkedUserId) {
-              try {
-                await prisma.sharedItem.create({
-                  sharedByUserId: userId,
-                  sharedWithUserId: friend.linkedUserId,
-                  itemType: 'note',
-                  itemId: note.id,
-                  message: undefined,
-                });
-              } catch (shareError) {
-                // Ignore duplicate share errors (already shared)
-                console.error('Error sharing note with friend:', shareError);
-              }
-            }
-          }
-        }
-      } catch (shareError) {
-        console.error('Error auto-sharing note:', shareError);
-      }
+    if (Array.isArray(friendTags)) {
+      await shareNoteWithTaggedFriends({ userId, friendTags, note })
+        .catch((shareError) => console.error('Error auto-sharing note:', shareError));
     }
 
     return NextResponse.json({

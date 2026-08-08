@@ -17,7 +17,7 @@ export function subscribeNotificationCount(listener: (counts: NotificationCounts
 
 export async function refreshNotificationCount() {
   if (activeRequest) return activeRequest;
-  activeRequest = api<NotificationCounts>('/api/shared-items?pendingCount=true&itemType=memory')
+  activeRequest = api<NotificationCounts>('/api/shared-items?pendingCount=true')
     .then((counts) => {
       snapshot = counts;
       listeners.forEach((listener) => listener(counts));

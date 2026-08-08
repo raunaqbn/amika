@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { compactImageUrl } from '@/lib/mobile-images';
 import { respondToSharedItem } from '@/lib/shared-items';
+import { sendSharedItemNotification } from '@/lib/shared-item-notifications';
 
 // GET - Fetch shared items for the authenticated user
 export async function GET(request: Request) {
@@ -74,12 +75,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid item type' }, { status: 400 });
     }
 
+    const item = itemType === 'memory'
+      ? await prisma.memory.findById({ id: itemId, userId: session.user.id })
+      : await prisma.diaryNote.findById({ id: itemId, userId: session.user.id });
+    if (!item) {
+      return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+    }
+
     const sharedItem = await prisma.sharedItem.create({
       sharedByUserId: session.user.id,
       sharedWithUserId,
       itemType,
       itemId,
       message,
+    });
+
+    after(async () => {
+      try {
+        await sendSharedItemNotification({
+          sharedItemId: sharedItem.id,
+          sharedByUserId: session.user.id,
+          sharedWithUserId,
+          itemType,
+          itemId,
+          itemTitle: 'title' in item ? item.title : null,
+          itemContent: item.content,
+          message,
+        });
+      } catch (notificationError) {
+        console.error('Error sending shared-item notification:', notificationError);
+      }
     });
 
     return NextResponse.json(sharedItem);

@@ -1311,6 +1311,29 @@ export const prisma = {
     },
   },
   memory: {
+    findById: async ({ id, userId }: { id: string; userId: string }): Promise<Memory | null> => {
+      await ensureTablesExist();
+      const result = await getClient().execute({
+        sql: `SELECT m.*, ${MEMORY_AUDIENCE_COUNT_SQL} AS audienceCount
+              FROM memories m
+              WHERE m.id = ? AND m.userId = ?`,
+        args: [id, userId],
+      });
+      const row = result.rows[0];
+      if (!row) return null;
+      return {
+        id: row.id as string,
+        userId: row.userId as string,
+        friendId: row.friendId as string | null,
+        content: row.content as string,
+        imageUrl: row.imageUrl as string | null,
+        visibility: (row.visibility as Memory['visibility']) || (Boolean(row.sharedWithFriend) ? 'friends' : 'private'),
+        memoryDate: new Date((row.memoryDate as string) || (row.createdAt as string)),
+        sharedWithFriend: Boolean(row.sharedWithFriend),
+        audienceCount: Number(row.audienceCount || 0),
+        createdAt: new Date(row.createdAt as string),
+      };
+    },
     findMany: async (args?: { userId?: string; limit?: number }) => {
       await ensureTablesExist();
       const client = getClient();
@@ -2098,6 +2121,25 @@ export const prisma = {
   },
 
   diaryNote: {
+    findById: async ({ id, userId }: { id: string; userId: string }): Promise<DiaryNote | null> => {
+      await ensureTablesExist();
+      const result = await getClient().execute({
+        sql: 'SELECT * FROM diary_notes WHERE id = ? AND userId = ?',
+        args: [id, userId],
+      });
+      const row = result.rows[0];
+      if (!row) return null;
+      return {
+        id: row.id as string,
+        userId: row.userId as string,
+        title: row.title as string | null,
+        content: row.content as string,
+        analysis: row.analysis as string | null,
+        imageUrl: row.imageUrl as string | null,
+        createdAt: new Date(row.createdAt as string),
+        updatedAt: new Date(row.updatedAt as string),
+      };
+    },
     findMany: async ({ userId, limit }: { userId: string; limit?: number }) => {
       await ensureTablesExist();
       const client = getClient();

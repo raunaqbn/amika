@@ -65,7 +65,7 @@ export async function registerPushNotifications() {
 
   if (Platform.OS === 'android') {
     await setNotificationChannelAsync('amika', {
-      name: 'Amika memories and messages',
+      name: 'Amika activity and messages',
       importance: AndroidImportance.HIGH,
       vibrationPattern: [0, 180, 90, 180],
       lightColor: '#9EA8F8',
@@ -82,10 +82,17 @@ export async function registerPushNotifications() {
   const projectId = Constants.easConfig?.projectId || Constants.expoConfig?.extra?.eas?.projectId;
   if (!projectId) return null;
   const token = await getExpoPushToken(projectId);
+  const previousToken = await SecureStore.getItemAsync(PUSH_TOKEN_KEY).catch(() => null);
   await api('/api/push-tokens', {
     method: 'POST',
     body: JSON.stringify({ token, platform: Platform.OS }),
   });
+  if (previousToken && previousToken !== token) {
+    await api('/api/push-tokens', {
+      method: 'DELETE',
+      body: JSON.stringify({ token: previousToken }),
+    });
+  }
   await SecureStore.setItemAsync(PUSH_TOKEN_KEY, token);
   return token;
 }

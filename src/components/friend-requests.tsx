@@ -14,7 +14,7 @@ type Connection = {
   addresseeId: string;
   status: 'pending' | 'accepted' | 'rejected';
   createdAt: string;
-  user: {
+  otherUser: {
     id: string;
     name: string;
     email: string;
@@ -98,15 +98,15 @@ export function FriendRequests({ onUpdate }: { onUpdate?: () => void }) {
           >
             <div className="flex items-center gap-3">
               <Avatar className="w-10 h-10">
-                {request.user.profileImage ? (
-                  <AvatarImage src={request.user.profileImage} alt={request.user.name} />
+                {request.otherUser.profileImage ? (
+                  <AvatarImage src={request.otherUser.profileImage} alt={request.otherUser.name} />
                 ) : null}
                 <AvatarFallback className="bg-[#A8C5A8]/20 text-[#A8C5A8]">
-                  {request.user.name.slice(0, 2).toUpperCase()}
+                  {request.otherUser.name.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-medium">{request.user.name}</p>
+                <p className="font-medium">{request.otherUser.name}</p>
                 <p className="text-xs text-muted-foreground">
                   {formatDistanceToNow(new Date(request.createdAt), { addSuffix: true })}
                 </p>

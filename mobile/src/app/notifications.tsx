@@ -3,7 +3,7 @@ import { Alert, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Check, ChevronLeft, ChevronRight, MessageCircle, UserPlus, X } from 'lucide-react-native';
+import { BookHeart, Check, ChevronLeft, ChevronRight, MessageCircle, UserPlus, X } from 'lucide-react-native';
 import { Screen } from '@/components/screen';
 import { Avatar, Button, EmptyState, ErrorState, Spinner } from '@/components/ui';
 import { useAuth } from '@/context/auth';
@@ -43,7 +43,7 @@ export default function NotificationsScreen() {
     setError('');
     try {
       const [nextSharedItems, nextThreads, nextConnections] = await Promise.all([
-        api<SharedItem[]>('/api/shared-items?type=received&status=pending&itemType=memory'),
+        api<SharedItem[]>('/api/shared-items?type=received&status=pending'),
         api<Thread[]>('/api/messages'),
         api<Connection[]>('/api/connections?type=received&status=pending'),
       ]);
@@ -72,9 +72,14 @@ export default function NotificationsScreen() {
       setSharedItems((current) => current.filter((candidate) => candidate.id !== item.id));
       invalidateApiCache('/api/shared-items');
       if (status === 'accepted') {
-        invalidateMemoryFeed();
+        if (item.itemType === 'memory') invalidateMemoryFeed();
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        Alert.alert('Memory saved', 'It’s now part of your memories with this friend.');
+        Alert.alert(
+          item.itemType === 'memory' ? 'Memory saved' : 'Journal note saved',
+          item.itemType === 'memory'
+            ? 'It’s now part of your memories with this friend.'
+            : 'A private copy is now in your journal.',
+        );
       }
       void refreshNotificationCount().catch(() => {});
     } catch (actionError) {
@@ -109,23 +114,25 @@ export default function NotificationsScreen() {
   >
     {loading ? <Spinner color={colors.ink} style={styles.loader} />
       : error ? <ErrorState message={error} onRetry={load} />
-        : !count ? <EmptyState title="Nothing new right now" body="Messages, memories you’re tagged in, and friend requests will gather here." />
+        : !count ? <EmptyState title="Nothing new right now" body="Messages, shared memories and journal notes, and friend requests will gather here." />
           : <>
             {sharedItems.length ? <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Memories with you</Text>
+              <Text style={styles.sectionLabel}>Shared with you</Text>
               {sharedItems.map((item, index) => <View key={item.id} style={[styles.memoryCard, { backgroundColor: index % 2 ? '#FFF2C9' : colors.white }]}>
                 <View style={styles.metaRow}>
                   <Avatar name={item.sharedBy.name} uri={item.sharedBy.profileImage} size={44} color={colors.rose} />
                   <View style={styles.metaCopy}>
-                    <Text style={styles.eventText}><Text style={styles.eventName}>{item.sharedBy.name}</Text> added a memory with you</Text>
+                    <Text style={styles.eventText}><Text style={styles.eventName}>{item.sharedBy.name}</Text> {item.itemType === 'memory' ? 'added a memory with you' : 'shared a journal note with you'}</Text>
                     <Text style={styles.time}>{timeAgo(item.createdAt)}</Text>
                   </View>
+                  {item.itemType === 'note' ? <View style={styles.iconTile}><BookHeart size={19} color={colors.ink} /></View> : null}
                 </View>
                 {item.item?.imageUrl ? <Image source={imageSource(item.item.imageUrl)} style={styles.memoryImage} contentFit="cover" cachePolicy="memory-disk" transition={100} enforceEarlyResizing /> : null}
+                {item.itemType === 'note' && item.item?.title ? <Text style={styles.noteTitle}>{item.item.title}</Text> : null}
                 {item.item?.content ? <Text style={styles.memoryText}>{item.item.content}</Text> : null}
                 <View style={styles.actions}>
-                  <Button label="Save to my memories" tone="citrus" loading={actionId === item.id} onPress={() => void updateSharedItem(item, 'accepted')} style={styles.saveButton} />
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Dismiss memory from ${item.sharedBy.name}`} disabled={actionId === item.id} onPress={() => void updateSharedItem(item, 'rejected')} style={({ pressed }) => [styles.dismissButton, pressed && styles.pressed]}><X size={19} color={colors.muted} /></Pressable>
+                  <Button label={item.itemType === 'memory' ? 'Save to my memories' : 'Save to my journal'} tone="citrus" loading={actionId === item.id} onPress={() => void updateSharedItem(item, 'accepted')} style={styles.saveButton} />
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Dismiss ${item.itemType === 'memory' ? 'memory' : 'journal note'} from ${item.sharedBy.name}`} disabled={actionId === item.id} onPress={() => void updateSharedItem(item, 'rejected')} style={({ pressed }) => [styles.dismissButton, pressed && styles.pressed]}><X size={19} color={colors.muted} /></Pressable>
                 </View>
               </View>)}
             </View> : null}
@@ -182,6 +189,7 @@ const styles = StyleSheet.create({
   eventName: { fontFamily: type.heavy },
   time: { fontFamily: type.medium, color: colors.muted, fontSize: 10, marginTop: 2 },
   memoryImage: { width: '100%', aspectRatio: 4 / 3, borderRadius: 13, backgroundColor: colors.paperDeep, ...border },
+  noteTitle: { fontFamily: type.heavy, color: colors.ink, fontSize: 17, lineHeight: 22 },
   memoryText: { fontFamily: type.regular, color: colors.ink, fontSize: 16, lineHeight: 23 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   saveButton: { flex: 1 },

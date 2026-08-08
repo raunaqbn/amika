@@ -1,10 +1,9 @@
 import { after, NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
-import { sendPushNotification } from '@/lib/push-notifications';
 import { compactImageUrl, isMediaImageUrl, mediaImageUrl } from '@/lib/mobile-images';
 import { persistImage } from '@/lib/media-storage';
-import { sendTaggedMemoryEmail } from '@/lib/email';
+import { sendSharedItemNotification } from '@/lib/shared-item-notifications';
 
 type MemoryVisibility = 'private' | 'friends' | 'public';
 const MAX_DIRECT_AUDIENCE = 10;
@@ -70,31 +69,19 @@ async function shareMemoryWithAudience({
 
   if (!newShares.length) return;
   after(async () => {
-    const author = await prisma.user.findById(userId);
-    await Promise.allSettled(newShares.map(async ({ recipientUserId, sharedItem }) => {
-      const recipient = await prisma.user.findById(recipientUserId);
-      const authorName = author?.name || 'A friend';
-      const tasks: Promise<unknown>[] = [sendPushNotification(
-        recipientUserId,
-        `${authorName} added a memory with you`,
-        content,
-        { type: 'memory_tagged', sharedItemId: sharedItem.id, memoryId },
-      )];
-      if (recipient?.email) {
-        tasks.push(sendTaggedMemoryEmail({
-          recipientEmail: recipient.email,
-          recipientName: recipient.name,
-          authorName,
-          memoryId,
-          memoryText: content,
-          idempotencyKey: `memory-tag-${memoryId}-${recipientUserId}`,
-        }));
-      }
-      const results = await Promise.allSettled(tasks);
-      results.forEach((result) => {
-        if (result.status === 'rejected') console.error('Tagged-memory notification failed:', result.reason);
-      });
-    }));
+    const results = await Promise.allSettled(newShares.map(({ recipientUserId, sharedItem }) => (
+      sendSharedItemNotification({
+        sharedItemId: sharedItem.id,
+        sharedByUserId: userId,
+        sharedWithUserId: recipientUserId,
+        itemType: 'memory',
+        itemId: memoryId,
+        itemContent: content,
+      })
+    )));
+    results.forEach((result) => {
+      if (result.status === 'rejected') console.error('Tagged-memory notification failed:', result.reason);
+    });
   });
 }
 
