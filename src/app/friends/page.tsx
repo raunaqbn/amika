@@ -16,13 +16,16 @@ type Friend = {
   customProfileImage?: string | null;
   linkedUserId?: string | null;
   memoriesCount?: number;
+  lastEngagedAt?: Date | string | null;
 };
 
 export default function FriendsPage() {
   const [query, setQuery] = useState('');
   const { friends, isLoading, refresh } = useFriends();
   const visible = useMemo(
-    () => friends.filter((friend) => friend.name.toLowerCase().includes(query.trim().toLowerCase())),
+    () => friends
+      .filter((friend) => friend.name.toLowerCase().includes(query.trim().toLowerCase()))
+      .sort((a, b) => new Date(b.lastEngagedAt || 0).getTime() - new Date(a.lastEngagedAt || 0).getTime()),
     [friends, query]
   );
 

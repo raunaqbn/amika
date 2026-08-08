@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Camera, MessageCircle, Sparkles, Users } from 'lucide-react';
 import { FeedMemory, MemoryCard } from '@/components/dashboard';
+import { FriendAvatar } from '@/components/friend-avatar';
 import { useAuth } from '@/lib/auth-context';
 
 type Profile = { id: string; name: string; email: string; profileImage: string | null; birthday: string | null };
@@ -53,9 +53,7 @@ export default function AmikaFriendProfilePage() {
       <header className="friend-profile-hero friend-profile-hero--amika">
         <Link href="/friends" aria-label="Back to friends"><ArrowLeft aria-hidden="true" /></Link>
         <div className="friend-profile-hero__identity">
-          <span className="friend-profile-photo">
-            {profile.profileImage ? <Image src={profile.profileImage} alt="" fill className="object-cover" unoptimized /> : profile.name.slice(0, 2).toUpperCase()}
-          </span>
+          <FriendAvatar name={profile.name} profileImage={profile.profileImage} size="lg" expandable />
           <div><span>Friends on Amika</span><h1>{profile.name}</h1></div>
         </div>
         <div className="friend-profile-hero__actions">

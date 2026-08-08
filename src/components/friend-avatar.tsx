@@ -1,8 +1,9 @@
 'use client';
 
 import { Eye, ImagePlus, User, Image as ImageIcon, Camera, FolderOpen, X, RotateCcw } from 'lucide-react';
+import NextImage from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -15,6 +16,7 @@ interface FriendAvatarProps {
   onImageUpload?: (file: File) => void;
   onResetToDefault?: () => void;  // Callback to reset to default image
   linkedUserId?: string | null;
+  expandable?: boolean;
 }
 
 export function FriendAvatar({
@@ -26,6 +28,7 @@ export function FriendAvatar({
   onImageUpload,
   onResetToDefault,
   linkedUserId,
+  expandable = false,
 }: FriendAvatarProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,7 +67,7 @@ export function FriendAvatar({
       reader.readAsDataURL(file);
 
       reader.onload = (event) => {
-        const img = new Image();
+        const img = new window.Image();
         img.src = event.target?.result as string;
 
         img.onload = () => {
@@ -171,17 +174,26 @@ export function FriendAvatar({
     }
   };
 
+  const avatar = (
+    <Avatar className={`${sizeClasses[size]} bg-[#A8C5A8] text-white`}>
+      {displayImage && <AvatarImage src={displayImage} alt={name} />}
+      <AvatarFallback className="bg-[#A8C5A8] text-white">
+        {getInitials(name)}
+      </AvatarFallback>
+    </Avatar>
+  );
+
   return (
     <div className="relative inline-block">
-      <Avatar
-        className={`${sizeClasses[size]} bg-[#A8C5A8] text-white ${editable ? 'cursor-pointer' : ''}`}
-        onClick={editable ? () => setMenuOpen(true) : undefined}
-      >
-        {displayImage && <AvatarImage src={displayImage} alt={name} />}
-        <AvatarFallback className="bg-[#A8C5A8] text-white">
-          {getInitials(name)}
-        </AvatarFallback>
-      </Avatar>
+      {editable ? (
+        <button type="button" className="friend-avatar-button" onClick={() => setMenuOpen(true)} aria-label={`Change picture for ${name}`}>
+          {avatar}
+        </button>
+      ) : expandable && displayImage ? (
+        <button type="button" className="friend-avatar-button friend-avatar-button--expand" onClick={() => setImageViewerOpen(true)} aria-label={`View full picture of ${name}`}>
+          {avatar}
+        </button>
+      ) : avatar}
 
       {/* Hidden file inputs */}
       <input
@@ -309,19 +321,29 @@ export function FriendAvatar({
 
       {/* Image Viewer Dialog */}
       <Dialog open={imageViewerOpen} onOpenChange={setImageViewerOpen}>
-        <DialogContent className="sm:max-w-lg p-0 bg-black/95 border-none" showCloseButton={false}>
-          <div className="relative">
+        <DialogContent
+          className="profile-image-viewer"
+          overlayClassName="profile-image-viewer__overlay"
+          showCloseButton={false}
+        >
+          <DialogTitle className="sr-only">Profile picture of {name}</DialogTitle>
+          <div className="profile-image-viewer__stage">
             <button
+              type="button"
               onClick={() => setImageViewerOpen(false)}
-              className="absolute top-2 right-2 z-10 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+              className="profile-image-viewer__close"
+              aria-label="Close full picture"
             >
-              <X className="w-5 h-5" />
+              <X aria-hidden="true" />
             </button>
             {displayImage && (
-              <img
+              <NextImage
                 src={displayImage}
-                alt={name}
-                className="w-full h-auto max-h-[80vh] object-contain"
+                alt={`Full profile picture of ${name}`}
+                fill
+                sizes="96vw"
+                className="object-contain"
+                unoptimized
               />
             )}
           </div>

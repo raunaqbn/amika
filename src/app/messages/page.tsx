@@ -99,6 +99,7 @@ export default function MessagesPage() {
   const loadingConversationsRef = useRef(new Set<string>());
   const activeConversationRef = useRef('');
   const streamRef = useRef<HTMLDivElement>(null);
+  const streamEndRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
   const needsInitialScrollRef = useRef(true);
 
@@ -113,7 +114,9 @@ export default function MessagesPage() {
         return;
       }
       const data: Thread[] = await response.json();
-      const existingThreads = data.filter((thread) => Boolean(thread.lastMessageAt));
+      const existingThreads = data
+        .filter((thread) => Boolean(thread.lastMessageAt))
+        .sort((a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime());
       setThreads((current) => sameThreads(current, existingThreads) ? current : existingThreads);
       const requestedId = typeof window !== 'undefined'
         ? new URLSearchParams(window.location.search).get('with') || new URLSearchParams(window.location.search).get('thread')
@@ -187,8 +190,12 @@ export default function MessagesPage() {
     const stream = streamRef.current;
     if (!stream || !messages.length) return;
     if (needsInitialScrollRef.current || shouldStickToBottomRef.current) {
-      stream.scrollTop = stream.scrollHeight;
-      needsInitialScrollRef.current = false;
+      const frame = window.requestAnimationFrame(() => {
+        stream.scrollTop = stream.scrollHeight;
+        streamEndRef.current?.scrollIntoView({ block: 'end' });
+        needsInitialScrollRef.current = false;
+      });
+      return () => window.cancelAnimationFrame(frame);
     }
   }, [messages, selectedId]);
 
@@ -393,6 +400,7 @@ export default function MessagesPage() {
                   );
                 })
               )}
+              <div ref={streamEndRef} className="messages-stream__end" aria-hidden="true" />
             </div>
 
             <form className="message-compose" onSubmit={sendMessage}>

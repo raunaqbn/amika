@@ -63,7 +63,7 @@ export default function FriendProfilePage() {
       <header className="friend-profile-hero">
         <Link href="/friends" aria-label="Back to friends"><ArrowLeft aria-hidden="true" /></Link>
         <div className="friend-profile-hero__identity">
-          <FriendAvatar name={friend.name} profileImage={friend.profileImage} customProfileImage={friend.customProfileImage} size="lg" />
+          <FriendAvatar name={friend.name} profileImage={friend.profileImage} customProfileImage={friend.customProfileImage} size="lg" expandable />
           <div><span>In your circle</span><h1>{friend.name}</h1></div>
         </div>
         <div className="friend-profile-hero__actions">

@@ -69,7 +69,6 @@ export async function GET(request: NextRequest) {
       })),
     })),
   ].sort((a, b) => {
-    if (a.unreadCount !== b.unreadCount) return b.unreadCount - a.unreadCount;
     return new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime();
   });
   return messagesResponse(threads);

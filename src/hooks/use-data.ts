@@ -13,6 +13,7 @@ export interface Friend {
   profileImage?: string | null;
   customProfileImage?: string | null;
   memoriesCount?: number;
+  lastEngagedAt?: Date | string | null;
 }
 
 export const CACHE_KEYS = {

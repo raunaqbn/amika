@@ -2673,22 +2673,40 @@ export async function getAuthorizedImage(
 export async function getFriendContextCounts(userId: string) {
   await ensureTablesExist();
   const client = getClient();
-  const [memoryResult, noteResult] = await Promise.all([
+  const [memoryResult, noteResult, messageResult] = await Promise.all([
     client.execute({
-      sql: 'SELECT friendId, COUNT(*) AS total FROM memories WHERE userId = ? AND friendId IS NOT NULL GROUP BY friendId',
+      sql: `SELECT friendId,
+                   COUNT(*) AS total,
+                   MAX(COALESCE(memoryDate, createdAt)) AS lastEngagedAt
+            FROM memories
+            WHERE userId = ? AND friendId IS NOT NULL
+            GROUP BY friendId`,
       args: [userId],
     }),
     client.execute({
-      sql: `SELECT dnt.friendId, COUNT(*) AS total
+      sql: `SELECT dnt.friendId,
+                   COUNT(*) AS total,
+                   MAX(COALESCE(dn.updatedAt, dn.createdAt)) AS lastEngagedAt
             FROM diary_note_tags dnt
             JOIN diary_notes dn ON dn.id = dnt.noteId
             WHERE dn.userId = ?
             GROUP BY dnt.friendId`,
       args: [userId],
     }),
+    client.execute({
+      sql: `SELECT CASE WHEN senderId = ? THEN recipientId ELSE senderId END AS linkedUserId,
+                   MAX(createdAt) AS lastEngagedAt
+            FROM direct_messages
+            WHERE senderId = ? OR recipientId = ?
+            GROUP BY linkedUserId`,
+      args: [userId, userId, userId],
+    }),
   ]);
   return {
     memories: new Map(memoryResult.rows.map((row) => [row.friendId as string, Number(row.total || 0)])),
     notes: new Map(noteResult.rows.map((row) => [row.friendId as string, Number(row.total || 0)])),
+    latestMemory: new Map(memoryResult.rows.map((row) => [row.friendId as string, row.lastEngagedAt as string | null])),
+    latestNote: new Map(noteResult.rows.map((row) => [row.friendId as string, row.lastEngagedAt as string | null])),
+    latestMessage: new Map(messageResult.rows.map((row) => [row.linkedUserId as string, row.lastEngagedAt as string | null])),
   };
 }

@@ -11,6 +11,15 @@ function parseLocalDate(dateString: string | null | undefined): Date | null {
   return new Date(year, month - 1, day, 12, 0, 0);
 }
 
+function latestEngagement(...values: Array<Date | string | null | undefined>) {
+  const timestamps = values
+    .filter((value): value is Date | string => Boolean(value))
+    .map((value) => new Date(value).getTime())
+    .filter(Number.isFinite);
+
+  return timestamps.length ? new Date(Math.max(...timestamps)).toISOString() : null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const userId = await getUserId();
@@ -94,23 +103,32 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Sort by createdAt desc
-    allFriends.sort((a: any, b: any) => {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-
     const contextCounts = await getFriendContextCounts(userId);
 
     // Add the memory and journal context used by the friend-circle UI.
     const friendsWithContext = allFriends.map((friend: any) => {
       const compactProfile = compactImageUrl(request, 'friend', friend.id, friend.customProfileImage || friend.profileImage);
+      const lastEngagedAt = latestEngagement(
+        friend.lastContact,
+        contextCounts.latestMemory.get(friend.id),
+        contextCounts.latestNote.get(friend.id),
+        friend.linkedUserId ? contextCounts.latestMessage.get(friend.linkedUserId) : null,
+      );
       return {
         ...friend,
         profileImage: compactProfile,
         customProfileImage: friend.customProfileImage ? compactProfile : null,
         memoriesCount: contextCounts.memories.get(friend.id) || 0,
         notesCount: contextCounts.notes.get(friend.id) || 0,
+        lastEngagedAt,
       };
+    });
+
+    friendsWithContext.sort((a: any, b: any) => {
+      const engagementDifference = new Date(b.lastEngagedAt || 0).getTime() - new Date(a.lastEngagedAt || 0).getTime();
+      if (engagementDifference) return engagementDifference;
+      const createdDifference = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return createdDifference || a.name.localeCompare(b.name);
     });
 
     return NextResponse.json(friendsWithContext);
