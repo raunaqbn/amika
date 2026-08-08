@@ -108,45 +108,61 @@ function Avatar({ name, src, size = 'md' }: { name: string; src?: string | null;
   );
 }
 
-function MemoryImageViewer({ memory, open, onOpenChange }: { memory: FeedMemory; open: boolean; onOpenChange: (open: boolean) => void }) {
-  if (!memory.imageUrl) return null;
-
+function MemoryDetailViewer({
+  memory,
+  audienceLabel,
+  open,
+  onOpenChange,
+}: {
+  memory: FeedMemory;
+  audienceLabel: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const fullDate = format(new Date(memory.memoryDate), 'MMMM d, yyyy');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="memory-image-viewer"
+        className={`memory-image-viewer ${memory.imageUrl ? '' : 'memory-image-viewer--text-only'}`}
         overlayClassName="memory-image-viewer__overlay"
         preventAutoFocus={false}
         showCloseButton={false}
       >
-        <DialogTitle className="sr-only">Memory photo from {fullDate}</DialogTitle>
+        <DialogTitle className="sr-only">Memory from {fullDate}</DialogTitle>
         <DialogDescription className="sr-only">
-          Full-size photo shared by {memory.author.name}. Press Escape or use the close button to return to the memory.
+          Full memory shared by {memory.author.name}. Press Escape or use the close button to return to the timeline.
         </DialogDescription>
 
-        <div className="memory-image-viewer__stage">
-          <Image
-            src={memory.imageUrl}
-            alt={`Memory shared by ${memory.author.name} on ${fullDate}`}
-            fill
-            sizes="100vw"
-            className="object-contain"
-            unoptimized
-          />
-        </div>
+        {memory.imageUrl ? (
+          <div className="memory-image-viewer__stage">
+            <Image
+              src={memory.imageUrl}
+              alt={`Memory shared by ${memory.author.name} on ${fullDate}`}
+              fill
+              sizes="100vw"
+              className="object-contain"
+              unoptimized
+            />
+          </div>
+        ) : (
+          <div className="memory-image-viewer__stage memory-image-viewer__stage--text" aria-hidden="true">
+            <Sparkles />
+            <time dateTime={memory.memoryDate}>{fullDate}</time>
+          </div>
+        )}
 
         <div className="memory-image-viewer__meta">
           <div>
             <span>{fullDate}</span>
             <strong>{memory.author.name}</strong>
+            <span>{audienceLabel}</span>
           </div>
           {memory.content && <p>{memory.content}</p>}
         </div>
 
         <DialogClose asChild>
-          <button className="memory-image-viewer__close" type="button" aria-label="Close full-size memory photo">
+          <button className="memory-image-viewer__close" type="button" aria-label="Close full memory">
             <X aria-hidden="true" />
           </button>
         </DialogClose>
@@ -163,7 +179,7 @@ export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory
   const [reacting, setReacting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [imageOpen, setImageOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const visibility = VISIBILITY[memory.visibility] || VISIBILITY.private;
   const hasMultipleRecipients = memory.visibility === 'friends' && memory.audienceCount > 1;
   const VisibilityIcon = hasMultipleRecipients ? Users : visibility.icon;
@@ -223,6 +239,12 @@ export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory
 
   return (
     <article className={`memory-post ${featured ? 'memory-post--featured' : ''}`}>
+      <button
+        className="memory-post__open"
+        type="button"
+        onClick={() => setDetailsOpen(true)}
+        aria-label={`Open full memory from ${format(new Date(memory.memoryDate), 'MMMM d, yyyy')}`}
+      />
       <header className="memory-post__header">
         <Link className="memory-post__person" href={memory.isOwn ? '/profile' : `/friends/amika/${memory.author.id}`}>
           <Avatar name={memory.author.name} src={memory.author.profileImage} />
@@ -253,14 +275,14 @@ export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory
         <button
           className="memory-post__image"
           type="button"
-          onClick={() => setImageOpen(true)}
-          aria-label={`Expand memory photo shared by ${memory.author.name}`}
+          onClick={() => setDetailsOpen(true)}
+          aria-label={`Open full memory shared by ${memory.author.name}`}
         >
           <Image
             src={memory.imageUrl}
             alt={`Memory shared by ${memory.author.name}`}
             fill
-            sizes={featured ? '(max-width: 768px) 100vw, 720px' : '(max-width: 768px) 100vw, 420px'}
+            sizes="(max-width: 820px) 100vw, 420px"
             className="object-cover"
             loading={featured ? 'eager' : 'lazy'}
             fetchPriority={featured ? 'high' : 'auto'}
@@ -335,7 +357,12 @@ export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory
         </div>
       )}
 
-      <MemoryImageViewer memory={memory} open={imageOpen} onOpenChange={setImageOpen} />
+      <MemoryDetailViewer
+        memory={memory}
+        audienceLabel={visibilityLabel}
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+      />
     </article>
   );
 }
