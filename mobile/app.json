@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "amika",
-    "jsEngine": "jsc",
     "userInterfaceStyle": "light",
     "backgroundColor": "#F7F2E8",
     "ios": {

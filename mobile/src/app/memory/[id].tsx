@@ -6,7 +6,7 @@ import { Globe2, Heart, Lock, MessageCircle, Send, Trash2, UserRound, Users, X }
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { api, imageSource } from '@/lib/api';
-import { getMemoryFeedSnapshot, removeCachedMemory, updateCachedMemory } from '@/lib/memory-feed';
+import { getCachedMemory, removeCachedMemory, updateCachedMemory } from '@/lib/memory-feed';
 import { Avatar, EmptyState, Spinner } from '@/components/ui';
 import { useAuth } from '@/context/auth';
 import { border, colors, type } from '@/lib/theme';
@@ -17,7 +17,7 @@ export default function MemoryDetail() {
   const router = useRouter(); const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const memory = getMemoryFeedSnapshot().items.find((item) => item.id === id) || null;
+  const memory = getCachedMemory(id);
   const [comments, setComments] = useState<Comment[]>([]); const [reply, setReply] = useState(''); const [sending, setSending] = useState(false); const [deleting, setDeleting] = useState(false); const [reacted, setReacted] = useState(memory?.reactedByMe || false); const [count, setCount] = useState(memory?.reactionCount || 0);
   const loadComments = useCallback(async () => { if (memory) setComments(await api<Comment[]>(`/api/memories/${memory.id}/comments`).catch(() => [])); }, [memory]);
   useEffect(() => { loadComments(); }, [loadComments]);

@@ -127,7 +127,7 @@ export default function NotificationsScreen() {
                   </View>
                   {item.itemType === 'note' ? <View style={styles.iconTile}><BookHeart size={19} color={colors.ink} /></View> : null}
                 </View>
-                {item.item?.imageUrl ? <Image source={imageSource(item.item.imageUrl)} style={styles.memoryImage} contentFit="cover" cachePolicy="memory-disk" transition={100} enforceEarlyResizing /> : null}
+                {item.item?.imageUrl ? <Image source={imageSource(item.item.imageUrl)} style={styles.memoryImage} contentFit="contain" cachePolicy="memory-disk" transition={100} enforceEarlyResizing /> : null}
                 {item.itemType === 'note' && item.item?.title ? <Text style={styles.noteTitle}>{item.item.title}</Text> : null}
                 {item.item?.content ? <Text style={styles.memoryText}>{item.item.content}</Text> : null}
                 <View style={styles.actions}>

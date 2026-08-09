@@ -120,7 +120,7 @@ export function MemoryComposer({ initiallyOpen = false, compact = false, initial
     {open ? <View style={styles.body}>
       <View style={styles.photoRow}>
         {imageUri ? <View style={styles.previewWrap}>
-          <Image source={imageSource(imageUri)} style={styles.preview} contentFit="cover" alt="Selected memory photo" />
+          <Image source={imageSource(imageUri)} style={styles.preview} contentFit="contain" alt="Selected memory photo" />
           <View style={styles.photoActions}>
             <Pressable accessibilityRole="button" accessibilityLabel="Edit selected photo" onPress={() => { if (photoSource) setEditingPhoto({ ...photoSource, recipe: photoRecipe }); }} style={styles.photoAction}><Pencil size={15} color={colors.ink} /><Text style={styles.photoActionText}>Edit</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Remove selected photo" onPress={() => { setImageUri(null); setPhotoSource(null); setPhotoRecipe(DEFAULT_PHOTO_EDIT); }} style={styles.photoAction}><Trash2 size={15} color={colors.ink} /></Pressable>

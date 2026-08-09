@@ -16,6 +16,7 @@ let firstPageGeneration = 0;
 let nextPageRequest: Promise<FeedSnapshot> | null = null;
 let hydratedForToken: string | null | undefined;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
+let detailCache = new Map<string, Memory>();
 
 function scheduleFeedWrite() {
   const token = ownerToken;
@@ -36,6 +37,7 @@ function resetForCurrentUser() {
     firstPageGeneration += 1;
     nextPageRequest = null;
     hydratedForToken = undefined;
+    detailCache = new Map();
     if (persistTimer) {
       clearTimeout(persistTimer);
       persistTimer = null;
@@ -58,6 +60,16 @@ export async function hydrateMemoryFeed() {
 export function getMemoryFeedSnapshot() {
   resetForCurrentUser();
   return snapshot;
+}
+
+export function getCachedMemory(memoryId: string) {
+  resetForCurrentUser();
+  return snapshot.items.find((memory) => memory.id === memoryId) || detailCache.get(memoryId) || null;
+}
+
+export function cacheMemoryDetails(memories: Memory[]) {
+  resetForCurrentUser();
+  memories.forEach((memory) => detailCache.set(memory.id, memory));
 }
 
 export async function loadMemoryFeed(force = false) {
@@ -113,6 +125,8 @@ export function updateCachedMemory(memoryId: string, update: Partial<Memory>) {
     ...snapshot,
     items: snapshot.items.map((memory) => memory.id === memoryId ? { ...memory, ...update } : memory),
   };
+  const detail = detailCache.get(memoryId);
+  if (detail) detailCache.set(memoryId, { ...detail, ...update });
   scheduleFeedWrite();
   return snapshot;
 }
@@ -140,6 +154,7 @@ export function removeCachedMemory(memoryId: string) {
     ...snapshot,
     items: snapshot.items.filter((memory) => memory.id !== memoryId),
   };
+  detailCache.delete(memoryId);
   scheduleFeedWrite();
   return snapshot;
 }
@@ -160,6 +175,7 @@ export async function clearMemoryFeedCache() {
     persistTimer = null;
   }
   snapshot = { items: [], nextCursor: null, updatedAt: 0 };
+  detailCache.clear();
   firstPageGeneration += 1;
   firstPageRequest = null;
   hydratedForToken = undefined;
