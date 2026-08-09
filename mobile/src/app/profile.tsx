@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -13,40 +13,29 @@ import {
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { Camera, ChevronLeft, LogOut, MessageCircle, Plus, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react-native';
+import { Camera, ChevronLeft, ChevronRight, LogOut, MessageCircle, ShieldCheck, Sparkles, Trash2 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/auth';
 import { Avatar, Button, PaperCard, Spinner } from '@/components/ui';
 import { ProfileStories } from '@/components/profile-stories';
 import { API_URL, prepareImageForUpload, uploadImage } from '@/lib/api';
-import { customInterestId, interestLabel, INTEREST_SUGGESTIONS } from '@/lib/interests';
+import { interestLabel } from '@/lib/interests';
 import { border, colors, shadow, type } from '@/lib/theme';
 
 const MAX_STATUS_LENGTH = 139;
-const MAX_INTERESTS = 20;
-
-function sameInterests(left: string[], right: string[]) {
-  return left.length === right.length && left.every((item, index) => item === right[index]);
-}
-
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, signOut, updateProfile } = useAuth();
   const [statusText, setStatusText] = useState(user?.statusText || '');
-  const [interests, setInterests] = useState<string[]>(user?.interests || []);
-  const [customInterest, setCustomInterest] = useState('');
   const [saving, setSaving] = useState(false);
   const [photoSaving, setPhotoSaving] = useState(false);
 
   useEffect(() => {
     setStatusText(user?.statusText || '');
-    setInterests(user?.interests || []);
-  }, [user?.interests, user?.statusText]);
+  }, [user?.statusText]);
 
   const statusLength = [...statusText].length;
-  const dirty = statusText.trim() !== (user?.statusText || '')
-    || !sameInterests(interests, user?.interests || []);
-  const selectedLabels = useMemo(() => new Set(interests.map((item) => interestLabel(item).toLocaleLowerCase())), [interests]);
+  const statusDirty = statusText.trim() !== (user?.statusText || '');
 
   function confirmSignOut() {
     Alert.alert('Sign out of Amika?', 'Your memories will stay safely in your account.', [
@@ -134,49 +123,17 @@ export default function ProfileScreen() {
     ]);
   }
 
-  function toggleInterest(id: string) {
-    setInterests((current) => {
-      const label = interestLabel(id).toLocaleLowerCase();
-      const existing = current.find((item) => interestLabel(item).toLocaleLowerCase() === label);
-      if (existing) return current.filter((item) => item !== existing);
-      if (current.length >= MAX_INTERESTS) {
-        Alert.alert('Interest list full', `Choose up to ${MAX_INTERESTS} interests.`);
-        return current;
-      }
-      return [...current, id];
-    });
-  }
-
-  function addCustomInterest() {
-    const label = customInterest.trim();
-    if (!label) return;
-    if ([...label].length > 50) {
-      Alert.alert('Interest is too long', 'Keep each interest to 50 characters or fewer.');
-      return;
-    }
-    if (selectedLabels.has(label.toLocaleLowerCase())) {
-      setCustomInterest('');
-      return;
-    }
-    if (interests.length >= MAX_INTERESTS) {
-      Alert.alert('Interest list full', `Choose up to ${MAX_INTERESTS} interests.`);
-      return;
-    }
-    setInterests((current) => [...current, customInterestId(label)]);
-    setCustomInterest('');
-  }
-
-  async function saveProfile() {
+  async function saveStatus() {
     if (statusLength > MAX_STATUS_LENGTH) {
       Alert.alert('Status is too long', `Keep it to ${MAX_STATUS_LENGTH} characters or fewer.`);
       return;
     }
     setSaving(true);
     try {
-      await updateProfile({ statusText: statusText.trim() || null, interests });
+      await updateProfile({ statusText: statusText.trim() || null });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
-      Alert.alert('Profile not saved', error instanceof Error ? error.message : 'Please try again.');
+      Alert.alert('Status not saved', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setSaving(false);
     }
@@ -229,7 +186,7 @@ export default function ProfileScreen() {
 
           {user ? <ProfileStories ownerId={user.id} ownerName={user.name} ownerImage={user.profileImage} canPost /> : null}
 
-          <PaperCard style={styles.editor}>
+          <PaperCard style={styles.statusCard}>
             <View style={styles.sectionHeading}>
               <View style={[styles.sectionIcon, { backgroundColor: colors.sage }]}><MessageCircle size={18} color={colors.ink} /></View>
               <View style={styles.sectionCopy}>
@@ -248,67 +205,21 @@ export default function ProfileScreen() {
               style={styles.statusInput}
               value={statusText}
             />
-            <Text style={styles.characterCount}>{statusLength}/{MAX_STATUS_LENGTH}</Text>
-
-            <View style={styles.divider} />
-
-            <View style={styles.sectionHeading}>
-              <View style={[styles.sectionIcon, { backgroundColor: colors.sky }]}><Sparkles size={18} color={colors.ink} /></View>
-              <View style={styles.sectionCopy}>
-                <Text style={styles.sectionTitle}>Your things</Text>
-                <Text style={styles.sectionBody}>Choose what you are into lately.</Text>
-              </View>
+            <View style={styles.statusFooter}>
+              <Text style={styles.characterCount}>{statusLength}/{MAX_STATUS_LENGTH}</Text>
+              <Button label={statusDirty ? 'Save status' : 'Status saved'} tone="citrus" loading={saving} disabled={!statusDirty} onPress={() => void saveStatus()} style={styles.statusSave} />
             </View>
-
-            {interests.length ? (
-              <View style={styles.selectedInterests}>
-                {interests.map((id) => (
-                  <Pressable key={id} accessibilityRole="button" accessibilityLabel={`Remove ${interestLabel(id)}`} onPress={() => toggleInterest(id)} style={styles.selectedChip}>
-                    <Text style={styles.selectedChipText}>{interestLabel(id)}</Text>
-                    <X size={14} color={colors.ink} />
-                  </Pressable>
-                ))}
-              </View>
-            ) : <Text style={styles.emptyInterests}>Nothing added yet—pick a few below.</Text>}
-
-            <Text style={styles.suggestionLabel}>Quick picks</Text>
-            <View style={styles.suggestions}>
-              {INTEREST_SUGGESTIONS.map((item) => {
-                const selected = selectedLabels.has(item.label.toLocaleLowerCase());
-                return (
-                  <Pressable
-                    key={item.id}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: selected }}
-                    onPress={() => toggleInterest(item.id)}
-                    style={[styles.suggestionChip, selected && styles.suggestionChipSelected]}
-                  >
-                    <Text style={styles.suggestionText}>{item.label}</Text>
-                    {selected ? <X size={13} color={colors.ink} /> : <Plus size={13} color={colors.ink} />}
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <View style={styles.customRow}>
-              <TextInput
-                accessibilityLabel="Custom interest"
-                maxLength={50}
-                onChangeText={setCustomInterest}
-                onSubmitEditing={addCustomInterest}
-                placeholder="Add your own"
-                placeholderTextColor="#6F6A64"
-                returnKeyType="done"
-                style={styles.customInput}
-                value={customInterest}
-              />
-              <Pressable accessibilityRole="button" accessibilityLabel="Add custom interest" disabled={!customInterest.trim()} onPress={addCustomInterest} style={[styles.addButton, !customInterest.trim() && styles.disabled]}>
-                <Plus size={20} color={colors.ink} />
-              </Pressable>
-            </View>
-
-            <Button label={dirty ? 'Save profile' : 'Profile saved'} tone="citrus" loading={saving} disabled={!dirty} onPress={() => void saveProfile()} />
           </PaperCard>
+
+          <Pressable accessibilityRole="button" accessibilityLabel="View and edit interests" onPress={() => router.push('/interests')} style={({ pressed }) => [styles.interestsRow, pressed && styles.pressed]}>
+            <View style={styles.interestsIcon}><Sparkles size={20} color={colors.ink} /></View>
+            <View style={styles.interestsCopy}>
+              <Text style={styles.interestsTitle}>Your interests</Text>
+              <Text numberOfLines={1} style={styles.interestsSummary}>{user?.interests?.length ? user.interests.slice(0, 3).map(interestLabel).join(' · ') : 'Add the things you are into lately'}</Text>
+            </View>
+            {user?.interests?.length ? <Text style={styles.interestsCount}>{user.interests.length}</Text> : null}
+            <ChevronRight size={21} color={colors.muted} />
+          </Pressable>
 
           <View style={styles.privacyRow}>
             <View style={styles.privacyIcon}><ShieldCheck size={20} color={colors.ink} /></View>
@@ -352,27 +263,22 @@ const styles = StyleSheet.create({
   photoAction: { minHeight: Platform.select({ android: 48, default: 44 }), paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 14, backgroundColor: colors.white, ...border },
   photoActionText: { fontFamily: type.heavy, color: colors.ink, fontSize: 13 },
   removePhoto: { width: Platform.select({ android: 48, default: 44 }), height: Platform.select({ android: 48, default: 44 }), alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.white, ...border },
-  editor: { gap: 14 },
+  statusCard: { gap: 14 },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   sectionIcon: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center', ...border },
   sectionCopy: { flex: 1 },
   sectionTitle: { fontFamily: type.heavy, color: colors.ink, fontSize: 17 },
   sectionBody: { marginTop: 1, fontFamily: type.regular, color: colors.muted, fontSize: 12, lineHeight: 17 },
   statusInput: { minHeight: 88, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 24, textAlignVertical: 'top', borderRadius: 14, backgroundColor: colors.paper, fontFamily: type.regular, color: colors.ink, fontSize: 16, lineHeight: 22, ...border },
-  characterCount: { alignSelf: 'flex-end', marginTop: -35, marginRight: 11, marginBottom: 6, fontFamily: type.medium, color: '#6F6A64', fontSize: 11 },
-  divider: { height: 1.5, marginVertical: 4, backgroundColor: colors.paperDeep },
-  selectedInterests: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  selectedChip: { minHeight: Platform.select({ android: 48, default: 44 }), paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 12, backgroundColor: colors.sky, ...border },
-  selectedChipText: { fontFamily: type.heavy, color: colors.ink, fontSize: 12 },
-  emptyInterests: { paddingVertical: 3, fontFamily: type.regular, color: colors.muted, fontSize: 13 },
-  suggestionLabel: { marginTop: 2, fontFamily: type.heavy, color: colors.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: .9 },
-  suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  suggestionChip: { minHeight: Platform.select({ android: 48, default: 44 }), paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 12, backgroundColor: colors.paper, borderWidth: 1.5, borderColor: colors.paperDeep },
-  suggestionChipSelected: { backgroundColor: colors.citrus, borderColor: colors.line },
-  suggestionText: { fontFamily: type.medium, color: colors.ink, fontSize: 12 },
-  customRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  customInput: { flex: 1, minHeight: 48, paddingHorizontal: 14, borderRadius: 14, backgroundColor: colors.white, fontFamily: type.regular, color: colors.ink, fontSize: 15, ...border },
-  addButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.sage, ...border },
+  statusFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  characterCount: { fontFamily: type.medium, color: '#6F6A64', fontSize: 11 },
+  statusSave: { minWidth: 138 },
+  interestsRow: { minHeight: 78, flexDirection: 'row', alignItems: 'center', gap: 11, padding: 14, borderRadius: 18, backgroundColor: colors.white, ...border },
+  interestsIcon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.sky, ...border },
+  interestsCopy: { minWidth: 0, flex: 1 },
+  interestsTitle: { fontFamily: type.heavy, color: colors.ink, fontSize: 15 },
+  interestsSummary: { marginTop: 3, fontFamily: type.regular, color: colors.muted, fontSize: 12 },
+  interestsCount: { minWidth: 28, height: 28, textAlign: 'center', lineHeight: 27, overflow: 'hidden', borderRadius: 14, backgroundColor: colors.citrus, fontFamily: type.heavy, color: colors.ink, fontSize: 11, ...border },
   privacyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 3 },
   privacyIcon: { width: 43, height: 43, borderRadius: 14, backgroundColor: colors.sage, alignItems: 'center', justifyContent: 'center', ...border },
   privacyCopy: { flex: 1 },

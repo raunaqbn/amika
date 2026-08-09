@@ -20,6 +20,7 @@ function Navigation() {
       <Stack.Screen name="conversation/[id]" />
       <Stack.Screen name="notifications" />
       <Stack.Screen name="profile" />
+      <Stack.Screen name="interests" />
     </Stack.Protected>
   </Stack></>;
 }
