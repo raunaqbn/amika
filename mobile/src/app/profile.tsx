@@ -17,6 +17,7 @@ import { Camera, ChevronLeft, LogOut, MessageCircle, Plus, ShieldCheck, Sparkles
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/auth';
 import { Avatar, Button, PaperCard, Spinner } from '@/components/ui';
+import { ProfileStories } from '@/components/profile-stories';
 import { API_URL, prepareImageForUpload, uploadImage } from '@/lib/api';
 import { customInterestId, interestLabel, INTEREST_SUGGESTIONS } from '@/lib/interests';
 import { border, colors, shadow, type } from '@/lib/theme';
@@ -225,6 +226,8 @@ export default function ProfileScreen() {
               ) : null}
             </View>
           </View>
+
+          {user ? <ProfileStories ownerId={user.id} ownerName={user.name} ownerImage={user.profileImage} canPost /> : null}
 
           <PaperCard style={styles.editor}>
             <View style={styles.sectionHeading}>

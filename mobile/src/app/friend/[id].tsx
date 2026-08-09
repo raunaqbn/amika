@@ -5,6 +5,7 @@ import { BookOpen, Cake, Camera, ChevronLeft, Heart, MessageCircle, Sparkles } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MemoryCard } from '@/components/memory-card';
 import { Avatar, Button, EmptyState, ErrorState, Spinner } from '@/components/ui';
+import { ProfileStories } from '@/components/profile-stories';
 import { apiCached, getCachedApiData } from '@/lib/api';
 import { getMemoryFeedSnapshot, updateCachedMemory } from '@/lib/memory-feed';
 import { interestLabel } from '@/lib/interests';
@@ -92,6 +93,8 @@ export default function FriendProfileScreen() {
           </Pressable> : null}
         </View>
       </View>
+
+      {friend.linkedUserId ? <ProfileStories ownerId={friend.linkedUserId} ownerName={friend.name} ownerImage={image} /> : null}
 
       <View style={styles.details}>
         <View style={styles.detailRow}><View style={[styles.detailIcon, { backgroundColor: colors.rose }]}><Heart size={18} color={colors.ink} /></View><View style={styles.detailCopy}><Text style={styles.detailLabel}>How you met</Text><Text style={styles.detailValue}>{friend.howWeMet || 'No beginning added yet.'}</Text></View></View>

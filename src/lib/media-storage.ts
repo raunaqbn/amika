@@ -61,7 +61,7 @@ function safeSegment(value: string): string {
 
 export async function persistImage(
   value: string | null | undefined,
-  options: { ownerId: string; kind: 'diary' | 'friend' | 'memory' | 'profile' | 'upload' },
+  options: { ownerId: string; kind: 'diary' | 'friend' | 'memory' | 'profile' | 'story' | 'upload' },
 ): Promise<string | null | undefined> {
   if (value == null || value === '' || blobPathname(value) || /^https?:\/\//i.test(value)) {
     return value;
@@ -76,7 +76,7 @@ export async function persistImage(
 export async function persistImageBytes(
   bytes: Buffer,
   contentType: string,
-  options: { ownerId: string; kind: 'diary' | 'friend' | 'memory' | 'profile' | 'upload' },
+  options: { ownerId: string; kind: 'diary' | 'friend' | 'memory' | 'profile' | 'story' | 'upload' },
 ): Promise<string> {
   const normalizedType = contentType.toLowerCase();
   if (!ALLOWED_IMAGE_TYPES.has(normalizedType)) {

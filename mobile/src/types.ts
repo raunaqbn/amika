@@ -59,6 +59,29 @@ export type Memory = {
   isOwn?: boolean;
 };
 
+export type Story = {
+  id: string;
+  userId: string;
+  content?: string | null;
+  imageUrl: string;
+  visibility: 'public' | 'friends';
+  createdAt: string;
+  expiresAt: string;
+  reactionCount: number;
+  commentCount: number;
+  reactedByMe: boolean;
+  isOwn: boolean;
+};
+
+export type StoryComment = {
+  id: string;
+  storyId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+  author: { id: string; name: string; profileImage?: string | null };
+};
+
 export type Thread = {
   id: string;
   name: string;
