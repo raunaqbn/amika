@@ -1,7 +1,8 @@
 import * as SecureStore from 'expo-secure-store';
-import { File } from 'expo-file-system';
+import { File, UploadType } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { readPersistentCache, removePersistentCache, writePersistentCache } from './cache-storage';
+import { uploadedPathname, uploadPercentage } from './media-upload';
 
 const TOKEN_KEY = 'amika_session_token';
 const API_CACHE_KEY = 'api-v2';
@@ -183,9 +184,11 @@ export async function uploadMemoryMedia(input: {
   if (!clientToken) throw new Error('Amika could not authorize the media upload.');
   const storeId = clientToken.split('_')[3];
   if (!storeId) throw new Error('Amika received an invalid upload token.');
-  input.onProgress?.(0);
-  const uploadResponse = await fetch(`https://vercel.com/api/blob/?pathname=${encodeURIComponent(pathname)}`, {
-    method: 'PUT',
+  const uploadResult = await file.upload(`https://vercel.com/api/blob/?pathname=${encodeURIComponent(pathname)}`, {
+    httpMethod: 'PUT',
+    uploadType: UploadType.BINARY_CONTENT,
+    mimeType,
+    sessionType: 'foreground',
     headers: {
       Authorization: `Bearer ${clientToken}`,
       'x-api-version': '12',
@@ -196,12 +199,13 @@ export async function uploadMemoryMedia(input: {
       'x-content-length': String(file.size),
       'x-content-type': mimeType,
     },
-    body: file,
+    onProgress: ({ bytesSent, totalBytes }) => {
+      input.onProgress?.(uploadPercentage(bytesSent, totalBytes));
+    },
   });
-  const result = await uploadResponse.json().catch(() => null) as { pathname?: string; error?: { message?: string } } | null;
-  if (!uploadResponse.ok || !result?.pathname) throw new Error(result?.error?.message || 'The media upload failed. Please try again.');
+  const storedPathname = uploadedPathname(uploadResult.body, uploadResult.status);
   input.onProgress?.(100);
-  return { pathname: result.pathname };
+  return { pathname: storedPathname };
 }
 
 export async function prepareImageForUpload(uri: string, width: number, height: number) {

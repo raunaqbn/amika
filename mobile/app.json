@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "amika",
     "userInterfaceStyle": "light",
-    "jsEngine": "jsc",
     "backgroundColor": "#F7F2E8",
     "ios": {
       "bundleIdentifier": "app.amika.ios",
