@@ -7,10 +7,11 @@
     "icon": "./assets/images/icon.png",
     "scheme": "amika",
     "userInterfaceStyle": "light",
+    "jsEngine": "jsc",
     "backgroundColor": "#F7F2E8",
     "ios": {
       "bundleIdentifier": "app.amika.ios",
-      "buildNumber": "16",
+      "buildNumber": "17",
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Take photos and videos for your Amika profile and memories.",

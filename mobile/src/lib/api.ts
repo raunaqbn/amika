@@ -211,13 +211,19 @@ export async function uploadMemoryMedia(input: {
 export async function prepareImageForUpload(uri: string, width: number, height: number) {
   const maxDimension = Math.max(width, height);
   const context = ImageManipulator.manipulate(uri);
-  if (maxDimension > 1024) {
-    if (width >= height) context.resize({ width: 1024, height: null });
-    else context.resize({ width: null, height: 1024 });
+  let rendered: Awaited<ReturnType<typeof context.renderAsync>> | null = null;
+  try {
+    if (maxDimension > 1024) {
+      if (width >= height) context.resize({ width: 1024, height: null });
+      else context.resize({ width: null, height: 1024 });
+    }
+    rendered = await context.renderAsync();
+    const result = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.55 });
+    return result.uri;
+  } finally {
+    rendered?.release();
+    context.release();
   }
-  const rendered = await context.renderAsync();
-  const result = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.55 });
-  return result.uri;
 }
 
 export function imageSource(uri?: string | null) {
