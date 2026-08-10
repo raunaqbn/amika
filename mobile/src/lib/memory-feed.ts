@@ -78,7 +78,9 @@ export async function loadMemoryFeed(force = false) {
   if (!force && snapshot.items.length && Date.now() - snapshot.updatedAt < FRESH_FOR_MS) {
     return snapshot;
   }
-  if (firstPageRequest && !force) return firstPageRequest;
+  // Pull-to-refresh can fire again while the refresh control is settling. Keep
+  // the feed request single-flight even when callers explicitly bypass cache.
+  if (firstPageRequest) return firstPageRequest;
 
   const generation = ++firstPageGeneration;
   const request = api<MemoryPage>(`/api/memories?scope=feed&limit=${PAGE_SIZE}`)

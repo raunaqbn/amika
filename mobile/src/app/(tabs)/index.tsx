@@ -25,6 +25,7 @@ export default function HomeScreen() {
   const [visibleMemoryIds, setVisibleMemoryIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState('');
   const loadingMoreRef = useRef(false);
+  const refreshingRef = useRef(false);
 
   const applyFeed = useCallback((feed: ReturnType<typeof getMemoryFeedSnapshot>) => {
     setMemories(feed.items);
@@ -40,7 +41,6 @@ export default function HomeScreen() {
       setError(loadError instanceof Error ? loadError.message : 'Could not load memories.');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, [applyFeed]);
 
@@ -69,9 +69,16 @@ export default function HomeScreen() {
     applyFeed(updateCachedMemory(memoryId, { reactedByMe, reactionCount }));
   }, [applyFeed]);
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback(async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
     setRefreshing(true);
-    void load(true, true);
+    try {
+      await load(true, true);
+    } finally {
+      refreshingRef.current = false;
+      setRefreshing(false);
+    }
   }, [load]);
 
   const memorySaved = useCallback(() => {
@@ -80,8 +87,8 @@ export default function HomeScreen() {
   }, [applyFeed, load]);
 
   const renderMemory = useCallback(({ item }: { item: Memory }) => (
-    <MemoryCard memory={item} onReaction={updateReaction} playbackEnabled={visibleMemoryIds.has(item.id)} />
-  ), [updateReaction, visibleMemoryIds]);
+    <MemoryCard memory={item} onReaction={updateReaction} playbackEnabled={!refreshing && visibleMemoryIds.has(item.id)} />
+  ), [refreshing, updateReaction, visibleMemoryIds]);
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken<Memory>[] }) => {
     setVisibleMemoryIds(new Set(viewableItems.flatMap(({ item }) => item?.id ? [item.id] : [])));
   }).current;
