@@ -18,10 +18,11 @@ function niceDate(value: string) {
 
 type MemoryCardProps = {
   memory: Memory;
+  playbackEnabled?: boolean;
   onReaction?: (memoryId: string, reactedByMe: boolean, reactionCount: number) => void;
 };
 
-export const MemoryCard = memo(function MemoryCard({ memory, onReaction }: MemoryCardProps) {
+export const MemoryCard = memo(function MemoryCard({ memory, onReaction, playbackEnabled = true }: MemoryCardProps) {
   const router = useRouter();
   const reacting = useRef(false);
   const actor = memory.author?.name || 'You';
@@ -55,7 +56,7 @@ export const MemoryCard = memo(function MemoryCard({ memory, onReaction }: Memor
   }, [memory.id, memory.reactedByMe, memory.reactionCount, onReaction]);
   return <PaperCard style={styles.card}><Pressable accessibilityRole="button" accessibilityLabel={`Open memory by ${actor}`} onPress={openMemory}>
     <View style={styles.meta}><Avatar name={actor} uri={memory.author?.profileImage} size={38} /><View style={{ flex: 1 }}><Text style={styles.actor}>{actor}{person ? <Text style={styles.with}> with {person}</Text> : null}</Text><Text style={styles.date}>{niceDate(memory.memoryDate)}</Text></View><View style={styles.visibility}><AudienceIcon size={13} color={colors.ink} /><Text style={styles.visibilityText}>{audienceLabel}</Text></View></View>
-  </Pressable>{media.length ? <MemoryMediaCarousel media={media} height={320} onPressImage={openMemory} /> : <Pressable onPress={openMemory}><View style={styles.textOnly}><Text style={styles.bigQuote}>“</Text><Text style={styles.textOnlyCopy}>{memory.content}</Text></View></Pressable>}
+  </Pressable>{media.length ? <MemoryMediaCarousel media={media} height={320} onPressImage={openMemory} playbackEnabled={playbackEnabled} /> : <Pressable onPress={openMemory}><View style={styles.textOnly}><Text style={styles.bigQuote}>“</Text><Text style={styles.textOnlyCopy}>{memory.content}</Text></View></Pressable>}
     {media.length ? <Pressable onPress={openMemory}><Text style={styles.content}>{memory.content}</Text></Pressable> : null}
   <View style={styles.actions}><Pressable accessibilityLabel={memory.reactedByMe ? 'Remove heart' : 'Heart memory'} onPress={react} style={styles.action}><Heart size={19} color={memory.reactedByMe ? colors.danger : colors.ink} fill={memory.reactedByMe ? colors.danger : 'transparent'} /><Text style={styles.actionText}>{memory.reactionCount || 0}</Text></Pressable><Pressable accessibilityLabel="Open comments" onPress={openMemory} style={styles.action}><MessageCircle size={19} color={colors.ink} /><Text style={styles.actionText}>{memory.commentCount || 0}</Text></Pressable><Text style={styles.tapHint}>Tap to open</Text></View></PaperCard>;
 });

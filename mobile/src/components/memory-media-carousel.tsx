@@ -1,7 +1,8 @@
-import React, { memo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
-import { CircleAlert, Images, Play } from 'lucide-react-native';
+import { useIsFocused } from 'expo-router';
+import { ChevronLeft, ChevronRight, CircleAlert, Images, Play } from 'lucide-react-native';
 import { imageSource, mediaSource } from '@/lib/api';
 import { colors, type } from '@/lib/theme';
 import type { MemoryMedia } from '@/types';
@@ -16,6 +17,14 @@ function VideoSlide({ active, height, item, width }: { active: boolean; height: 
   const [Player, setPlayer] = useState<PlayerComponent | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   async function loadPlayer() {
     if (loading || Player) return;
@@ -23,11 +32,11 @@ function VideoSlide({ active, height, item, width }: { active: boolean; height: 
     setError(false);
     try {
       const module = await import('./memory-video-player');
-      setPlayer(() => module.MemoryVideoPlayer);
+      if (mounted.current) setPlayer(() => module.MemoryVideoPlayer);
     } catch {
-      setError(true);
+      if (mounted.current) setError(true);
     } finally {
-      setLoading(false);
+      if (mounted.current) setLoading(false);
     }
   }
 
@@ -49,33 +58,53 @@ export const MemoryMediaCarousel = memo(function MemoryMediaCarousel({
   media,
   height,
   onPressImage,
+  playbackEnabled = true,
 }: {
   media: MemoryMedia[];
   height: number;
   onPressImage?: () => void;
+  playbackEnabled?: boolean;
 }) {
+  const isFocused = useIsFocused();
+  const scrollRef = useRef<ScrollView>(null);
   const [width, setWidth] = useState(0);
   const [index, setIndex] = useState(0);
+  const videoPlaybackEnabled = playbackEnabled && isFocused;
+  const setCurrentIndex = useCallback((nextIndex: number) => {
+    const bounded = Math.max(0, Math.min(media.length - 1, nextIndex));
+    setIndex(bounded);
+    scrollRef.current?.scrollTo({ x: bounded * width, animated: true });
+  }, [media.length, width]);
   if (!media.length) return null;
   return <View
     style={[styles.frame, { height }]}
     onLayout={(event) => setWidth(Math.round(event.nativeEvent.layout.width))}
   >
     {width ? <ScrollView
+      ref={scrollRef}
       horizontal
       pagingEnabled
       showsHorizontalScrollIndicator={false}
       decelerationRate="fast"
+      scrollEventThrottle={32}
+      onScroll={(event) => {
+        const nextIndex = Math.round(event.nativeEvent.contentOffset.x / width);
+        if (nextIndex !== index) setIndex(nextIndex);
+      }}
       onMomentumScrollEnd={(event) => setIndex(Math.round(event.nativeEvent.contentOffset.x / width))}
     >
       {media.map((item, mediaIndex) => item.type === 'video'
-        ? <VideoSlide active={mediaIndex === index} height={height} item={item} key={`${item.url}-${mediaIndex}`} width={width} />
+        ? <VideoSlide active={videoPlaybackEnabled && mediaIndex === index} height={height} item={item} key={`${item.url}-${mediaIndex}`} width={width} />
         : <Pressable accessibilityRole="imagebutton" accessibilityLabel={`Open photo ${mediaIndex + 1} of ${media.length}`} key={`${item.url}-${mediaIndex}`} onPress={onPressImage}>
-          <Image source={imageSource(item.url)} style={{ width, height }} contentFit="contain" cachePolicy="memory-disk" recyclingKey={item.url} enforceEarlyResizing />
+          {Math.abs(mediaIndex - index) <= 1
+            ? <Image source={imageSource(item.url)} style={{ width, height }} contentFit="contain" cachePolicy="memory-disk" recyclingKey={item.url} enforceEarlyResizing />
+            : <View style={{ width, height, backgroundColor: colors.ink }} />}
         </Pressable>)}
     </ScrollView> : null}
     {media.length > 1 ? <>
       <View pointerEvents="none" style={styles.count}><Images size={13} color={colors.white} /><Text style={styles.countText}>{index + 1}/{media.length}</Text></View>
+      {index > 0 ? <Pressable accessibilityRole="button" accessibilityLabel="Previous media" onPress={() => setCurrentIndex(index - 1)} style={[styles.arrow, styles.arrowLeft]}><ChevronLeft size={19} color={colors.white} /></Pressable> : null}
+      {index < media.length - 1 ? <Pressable accessibilityRole="button" accessibilityLabel="Next media" onPress={() => setCurrentIndex(index + 1)} style={[styles.arrow, styles.arrowRight]}><ChevronRight size={19} color={colors.white} /></Pressable> : null}
       <View pointerEvents="none" style={styles.dots}>{media.map((_, dot) => <View key={dot} style={[styles.dot, dot === index && styles.dotActive]} />)}</View>
     </> : null}
   </View>;
@@ -89,6 +118,9 @@ const styles = StyleSheet.create({
   videoHint: { fontFamily: type.regular, color: 'rgba(255,255,255,.68)', fontSize: 11, textAlign: 'center' },
   count: { position: 'absolute', top: 10, right: 10, minHeight: 28, paddingHorizontal: 9, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(20,20,20,.72)' },
   countText: { fontFamily: type.heavy, color: colors.white, fontSize: 11 },
+  arrow: { position: 'absolute', top: '50%', width: 36, height: 44, marginTop: -22, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(20,20,20,.62)' },
+  arrowLeft: { left: 8 },
+  arrowRight: { right: 8 },
   dots: { position: 'absolute', left: 0, right: 0, bottom: 10, flexDirection: 'row', justifyContent: 'center', gap: 5 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,.48)' },
   dotActive: { width: 16, backgroundColor: colors.white },

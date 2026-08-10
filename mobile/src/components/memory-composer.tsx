@@ -7,6 +7,7 @@ import { useFocusEffect } from 'expo-router';
 import { Camera, ChevronDown, ChevronUp, ImagePlus, Lock, Pencil, Sparkles, Trash2, UserPlus, UserRound, Users, Video } from 'lucide-react-native';
 import { api, apiCached, getCachedApiData, imageSource, prepareImageForUpload, uploadMemoryMedia } from '@/lib/api';
 import { prependCachedMemory } from '@/lib/memory-feed';
+import { fittedMediaDimensions, jpegFileName } from '@/lib/media-processing';
 import { border, colors, shadow, type } from '@/lib/theme';
 import type { Friend, Memory } from '@/types';
 import { Button, Field } from './ui';
@@ -75,23 +76,27 @@ export function MemoryComposer({ initiallyOpen = false, compact = false, initial
           preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
         });
       if (result.canceled) return;
-      const prepared = await Promise.all(result.assets.slice(0, MAX_MEDIA - media.length).map(async (asset): Promise<DraftMedia> => {
+      const prepared: DraftMedia[] = [];
+      for (const asset of result.assets.slice(0, MAX_MEDIA - media.length)) {
         const type = asset.type === 'video' ? 'video' : 'image';
         const uri = type === 'image' ? await prepareImageForUpload(asset.uri, asset.width, asset.height) : asset.uri;
         if (type === 'video' && (asset.fileSize || 0) > 100 * 1024 * 1024) throw new Error('Videos must be 100 MB or smaller.');
-        return {
+        const dimensions = type === 'image'
+          ? fittedMediaDimensions(asset.width, asset.height)
+          : { width: asset.width, height: asset.height };
+        prepared.push({
           id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           type,
           uri,
-          sourceUri: asset.uri,
-          width: asset.width,
-          height: asset.height,
+          sourceUri: type === 'image' ? uri : asset.uri,
+          width: dimensions.width,
+          height: dimensions.height,
           durationMs: asset.duration || undefined,
-          fileName: asset.fileName,
-          mimeType: asset.mimeType,
+          fileName: type === 'image' ? jpegFileName(asset.fileName) : asset.fileName,
+          mimeType: type === 'image' ? 'image/jpeg' : asset.mimeType,
           recipe: DEFAULT_PHOTO_EDIT,
-        };
-      }));
+        });
+      }
       setMedia((current) => [...current, ...prepared].slice(0, MAX_MEDIA));
     } catch (error) {
       Alert.alert('Media not ready', error instanceof Error ? error.message : 'Please choose a different photo or video.');

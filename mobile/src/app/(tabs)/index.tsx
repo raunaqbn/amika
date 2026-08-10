@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, Platform, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Platform, RefreshControl, StyleSheet, Text, View, type ViewToken } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Screen } from '@/components/screen';
 import { MemoryComposer } from '@/components/memory-composer';
@@ -22,6 +22,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(!initialFeed.items.length);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [visibleMemoryIds, setVisibleMemoryIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState('');
   const loadingMoreRef = useRef(false);
 
@@ -79,8 +80,12 @@ export default function HomeScreen() {
   }, [applyFeed, load]);
 
   const renderMemory = useCallback(({ item }: { item: Memory }) => (
-    <MemoryCard memory={item} onReaction={updateReaction} />
-  ), [updateReaction]);
+    <MemoryCard memory={item} onReaction={updateReaction} playbackEnabled={visibleMemoryIds.has(item.id)} />
+  ), [updateReaction, visibleMemoryIds]);
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken<Memory>[] }) => {
+    setVisibleMemoryIds(new Set(viewableItems.flatMap(({ item }) => item?.id ? [item.id] : [])));
+  }).current;
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 45 }).current;
   const listHeader = useMemo(() => <View style={styles.listHeader}><MemoryComposer onSaved={memorySaved} /><DividerLabel>Recently kept</DividerLabel></View>, [memorySaved]);
 
   return <Screen title="Your circle" eyebrow="Amika · Today" scroll={false}>
@@ -108,6 +113,8 @@ export default function HomeScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.ink} />}
       onEndReached={loadMore}
       onEndReachedThreshold={0.45}
+      onViewableItemsChanged={onViewableItemsChanged}
+      viewabilityConfig={viewabilityConfig}
       initialNumToRender={4}
       maxToRenderPerBatch={6}
       updateCellsBatchingPeriod={16}
