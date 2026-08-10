@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow, isSameDay, subYears } from 'date-fns';
 import { useAuth } from '@/lib/auth-context';
+import { upload } from '@vercel/blob/client';
+import { MemoryMediaCarousel, type MemoryMedia } from '@/components/memory-media-carousel';
 import {
   Dialog,
   DialogClose,
@@ -47,6 +49,7 @@ export type FeedMemory = {
   userId: string;
   content: string;
   imageUrl: string | null;
+  media?: MemoryMedia[];
   visibility: Visibility;
   memoryDate: string;
   createdAt: string;
@@ -58,6 +61,10 @@ export type FeedMemory = {
   friend: { id: string; name: string; profileImage: string | null } | null;
   audienceCount: number;
 };
+
+function mediaForMemory(memory: Pick<FeedMemory, 'imageUrl' | 'media'>): MemoryMedia[] {
+  return memory.media?.length ? memory.media : memory.imageUrl ? [{ type: 'image', url: memory.imageUrl }] : [];
+}
 
 type Comment = {
   id: string;
@@ -120,11 +127,12 @@ function MemoryDetailViewer({
   onOpenChange: (open: boolean) => void;
 }) {
   const fullDate = format(new Date(memory.memoryDate), 'MMMM d, yyyy');
+  const media = mediaForMemory(memory);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={`memory-image-viewer ${memory.imageUrl ? '' : 'memory-image-viewer--text-only'}`}
+        className={`memory-image-viewer ${media.length ? '' : 'memory-image-viewer--text-only'}`}
         overlayClassName="memory-image-viewer__overlay"
         preventAutoFocus={false}
         showCloseButton={false}
@@ -134,16 +142,9 @@ function MemoryDetailViewer({
           Full memory shared by {memory.author.name}. Press Escape or use the close button to return to the timeline.
         </DialogDescription>
 
-        {memory.imageUrl ? (
+        {media.length ? (
           <div className="memory-image-viewer__stage">
-            <Image
-              src={memory.imageUrl}
-              alt={`Memory shared by ${memory.author.name} on ${fullDate}`}
-              fill
-              sizes="100vw"
-              className="object-contain"
-              unoptimized
-            />
+            <MemoryMediaCarousel media={media} label={`Memory shared by ${memory.author.name} on ${fullDate}`} detail />
           </div>
         ) : (
           <div className="memory-image-viewer__stage memory-image-viewer__stage--text" aria-hidden="true">
@@ -188,6 +189,7 @@ export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory
     : memory.visibility === 'friends' && memory.friend
       ? `Shared with ${memory.friend.name}`
       : visibility.label;
+  const media = mediaForMemory(memory);
 
   const toggleComments = async () => {
     const next = !commentsOpen;
@@ -271,26 +273,12 @@ export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory
         )}
       </header>
 
-      {memory.imageUrl ? (
-        <button
-          className="memory-post__image"
-          type="button"
-          onClick={() => setDetailsOpen(true)}
-          aria-label={`Open full memory shared by ${memory.author.name}`}
-        >
-          <Image
-            src={memory.imageUrl}
-            alt={`Memory shared by ${memory.author.name}`}
-            fill
-            sizes="(max-width: 820px) 100vw, 420px"
-            className="object-cover"
-            loading={featured ? 'eager' : 'lazy'}
-            fetchPriority={featured ? 'high' : 'auto'}
-            unoptimized
-          />
+      {media.length ? (
+        <div className="memory-post__image">
+          <MemoryMediaCarousel media={media} label={`Memory shared by ${memory.author.name}`} onOpen={() => setDetailsOpen(true)} />
           <span className="memory-post__expand" aria-hidden="true"><Maximize2 /></span>
           <time dateTime={memory.memoryDate}>{format(new Date(memory.memoryDate), 'MMM d')}</time>
-        </button>
+        </div>
       ) : (
         <div className="memory-post__text-only">
           <Sparkles aria-hidden="true" />
@@ -300,7 +288,7 @@ export function MemoryCard({ memory, featured, onRefresh }: { memory: FeedMemory
       )}
 
       <div className="memory-post__body">
-        {memory.imageUrl && <p>{memory.content}</p>}
+        {media.length > 0 && <p>{memory.content}</p>}
         {memory.friend && (memory.isOwn ? (
           <Link className="friend-tag" href={`/friends/${memory.friend.id}`}>with {memory.friend.name}</Link>
         ) : (
@@ -382,9 +370,10 @@ export function Dashboard() {
   const [audienceExpanded, setAudienceExpanded] = useState(false);
   const [visibility, setVisibility] = useState<Visibility>('friends');
   const [memoryDate, setMemoryDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<Array<{ file: File; preview: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const selectedMediaRef = useRef(selectedMedia);
+  selectedMediaRef.current = selectedMedia;
 
   const loadMemories = useCallback(async (cursor?: string) => {
     const loadingOlder = Boolean(cursor);
@@ -426,11 +415,7 @@ export function Dashboard() {
     void loadFriends();
   }, [loadFriends, loadMemories]);
 
-  useEffect(() => {
-    return () => {
-      if (imagePreview) URL.revokeObjectURL(imagePreview);
-    };
-  }, [imagePreview]);
+  useEffect(() => () => selectedMediaRef.current.forEach((item) => URL.revokeObjectURL(item.preview)), []);
 
   const flashback = useMemo(() => {
     const previousYear = subYears(new Date(), 1);
@@ -461,20 +446,17 @@ export function Dashboard() {
     }
   }, [friendId, selectedFriend, visibility]);
 
-  const onImageSelect = (file?: File) => {
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setError('Choose a photo file to add to this memory.');
-      return;
-    }
-    if (file.size > 4 * 1024 * 1024) {
-      setError('This photo is over 4 MB. Choose a smaller one and try again.');
-      return;
-    }
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setSelectedImage(file);
-    setImagePreview(URL.createObjectURL(file));
-    setError('');
+  const onMediaSelect = (files?: FileList | null) => {
+    if (!files?.length) return;
+    const remaining = 10 - selectedMedia.length;
+    const candidates = Array.from(files).slice(0, remaining);
+    const invalid = candidates.find((file) => !file.type.startsWith('image/') && !file.type.startsWith('video/'));
+    const oversized = candidates.find((file) => file.size > (file.type.startsWith('video/') ? 100 : 10) * 1024 * 1024);
+    if (invalid) return setError('Choose photo or video files only.');
+    if (oversized) return setError(oversized.type.startsWith('video/') ? 'Videos must be 100 MB or smaller.' : 'Photos must be 10 MB or smaller.');
+    setSelectedMedia((current) => [...current, ...candidates.map((file) => ({ file, preview: URL.createObjectURL(file) }))]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setError(files.length > remaining ? 'A post can contain up to 10 photos and videos.' : '');
   };
 
   const submitMemory = async (event: FormEvent) => {
@@ -491,14 +473,15 @@ export function Dashboard() {
     setSaving(true);
     setError('');
     try {
-      let imageUrl: string | null = null;
-      if (selectedImage) {
-        const formData = new FormData();
-        formData.append('file', selectedImage);
-        const uploadResponse = await fetch('/api/upload', { method: 'POST', body: formData });
-        if (!uploadResponse.ok) throw new Error('The photo could not be uploaded. Try another file.');
-        imageUrl = (await uploadResponse.json()).url;
-      }
+      if (!user?.id) throw new Error('Your session is still loading. Please try again.');
+      const uploadedMedia = await Promise.all(selectedMedia.map(async ({ file }) => {
+        const result = await upload(`media/${user.id}/${file.name.replace(/[^a-zA-Z0-9._-]/g, '-').slice(-120)}`, file, {
+          access: 'private',
+          handleUploadUrl: '/api/upload/client',
+          contentType: file.type,
+        });
+        return { type: file.type.startsWith('video/') ? 'video' : 'image', pathname: result.pathname };
+      }));
 
       const response = await fetch('/api/memories', {
         method: 'POST',
@@ -507,7 +490,7 @@ export function Dashboard() {
           friendId,
           friendIds: visibility === 'friends' ? directFriendIds : [friendId],
           content: caption.trim(),
-          imageUrl,
+          media: uploadedMedia,
           visibility,
           memoryDate,
         }),
@@ -520,9 +503,8 @@ export function Dashboard() {
       setCaption('');
       setAdditionalFriendIds([]);
       setAudienceExpanded(false);
-      setSelectedImage(null);
-      if (imagePreview) URL.revokeObjectURL(imagePreview);
-      setImagePreview(null);
+      selectedMedia.forEach((item) => URL.revokeObjectURL(item.preview));
+      setSelectedMedia([]);
       await loadMemories();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Your memory was not saved.');
@@ -566,17 +548,19 @@ export function Dashboard() {
           <div className="memory-composer__main">
             <button
               type="button"
-              className={`memory-photo-drop ${imagePreview ? 'has-image' : ''}`}
+              className={`memory-photo-drop ${selectedMedia.length ? 'has-image' : ''}`}
               onClick={() => fileInputRef.current?.click()}
-              aria-label={imagePreview ? 'Change memory photo' : 'Add a photo to this memory'}
+              aria-label="Add photos or videos to this memory"
             >
-              {imagePreview ? (
-                <Image src={imagePreview} alt="Selected memory preview" fill className="object-cover" unoptimized />
+              {selectedMedia.length ? (
+                <span className="memory-photo-drop__previews">{selectedMedia.slice(0, 4).map(({ file, preview }, index) => file.type.startsWith('video/')
+                  ? <video src={preview} muted playsInline preload="metadata" key={preview} aria-label={`Selected video ${index + 1}`} />
+                  : <Image src={preview} alt={`Selected photo ${index + 1}`} fill={false} width={160} height={120} className="object-cover" unoptimized key={preview} />)}</span>
               ) : (
                 <>
                   <ImagePlus aria-hidden="true" />
-                  <strong>Add a photo</strong>
-                  <span>Optional, but lovely</span>
+                  <strong>Add photos or video</strong>
+                  <span>Up to 10 items</span>
                 </>
               )}
             </button>
@@ -584,23 +568,11 @@ export function Dashboard() {
               ref={fileInputRef}
               className="sr-only"
               type="file"
-              accept="image/*"
-              onChange={(event) => onImageSelect(event.target.files?.[0])}
+              accept="image/*,video/*"
+              multiple
+              onChange={(event) => onMediaSelect(event.target.files)}
             />
-            {imagePreview && (
-              <button
-                className="memory-photo-remove"
-                type="button"
-                onClick={() => {
-                  if (imagePreview) URL.revokeObjectURL(imagePreview);
-                  setSelectedImage(null);
-                  setImagePreview(null);
-                }}
-                aria-label="Remove selected photo"
-              >
-                <X aria-hidden="true" />
-              </button>
-            )}
+            {selectedMedia.length > 0 && <div className="memory-photo-selection-actions"><span>{selectedMedia.length}/10</span><button type="button" onClick={() => { selectedMedia.forEach((item) => URL.revokeObjectURL(item.preview)); setSelectedMedia([]); }} aria-label="Remove all selected media"><X aria-hidden="true" /></button></div>}
 
             <div className="memory-composer__copy">
               <label htmlFor="memory-caption">A few words about this moment</label>
@@ -753,9 +725,9 @@ export function Dashboard() {
             </div>
             {flashback ? (
               <Link href="/memories" className="memory-flashback__memory">
-                {flashback.imageUrl && (
+                {mediaForMemory(flashback).find((item) => item.type === 'image') && (
                   <span className="memory-flashback__image">
-                    <Image src={flashback.imageUrl} alt="" fill className="object-cover" unoptimized />
+                    <Image src={mediaForMemory(flashback).find((item) => item.type === 'image')!.url} alt="" fill className="object-cover" unoptimized />
                   </span>
                 )}
                 <strong>{format(new Date(flashback.memoryDate), 'MMMM d, yyyy')}</strong>

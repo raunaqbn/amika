@@ -526,6 +526,23 @@ body:has(.app-rail) > main {
 .memory-photo-drop strong { font-size: 0.82rem; }
 .memory-photo-drop span { font-size: 0.65rem; color: var(--amika-muted); }
 
+.memory-photo-drop__previews {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 2px;
+  background: var(--amika-ink);
+}
+
+.memory-photo-drop__previews img,
+.memory-photo-drop__previews video { width: 100%; height: 100%; object-fit: cover; min-width: 0; min-height: 0; }
+.memory-photo-selection-actions { position: absolute; z-index: 3; top: 7px; left: 7px; display: flex; align-items: center; gap: 5px; }
+.memory-photo-selection-actions > span { min-height: 30px; display: grid; place-items: center; padding: 0 8px; border: 1.5px solid var(--amika-ink); border-radius: 999px; background: var(--amika-citrus); color: var(--amika-ink); font-size: 0.65rem; font-weight: 850; }
+.memory-photo-selection-actions button { width: 30px; height: 30px; display: grid; place-items: center; border: 1.5px solid var(--amika-ink); border-radius: 50%; background: white; cursor: pointer; }
+.memory-photo-selection-actions svg { width: 15px; height: 15px; }
+
 .memory-photo-remove {
   position: absolute;
   top: 7px;
@@ -928,6 +945,21 @@ body:has(.app-rail) > main {
   box-shadow: 2px 3px 0 var(--amika-ink);
 }
 
+.memory-media-carousel { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--amika-ink); }
+.memory-media-carousel__stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; padding: 0; border: 0; background: var(--amika-ink); color: white; cursor: zoom-in; }
+.memory-media-carousel__stage video { width: 100%; height: 100%; object-fit: contain; background: var(--amika-ink); }
+.memory-media-carousel__count { position: absolute; z-index: 4; top: 10px; right: 10px; min-height: 28px; display: flex; align-items: center; gap: 5px; padding: 0 9px; border-radius: 999px; background: rgb(21 22 30 / 76%); color: white; font-size: 0.66rem; font-weight: 850; }
+.memory-media-carousel__count svg { width: 13px; height: 13px; }
+.memory-media-carousel__arrow { position: absolute; z-index: 4; top: 50%; width: 38px; height: 38px; display: grid; place-items: center; transform: translateY(-50%); border: 1.5px solid white; border-radius: 50%; background: rgb(21 22 30 / 70%); color: white; cursor: pointer; }
+.memory-media-carousel__arrow:hover { background: var(--amika-violet-deep); }
+.memory-media-carousel__arrow--left { left: 10px; }
+.memory-media-carousel__arrow--right { right: 10px; }
+.memory-media-carousel__arrow svg { width: 20px; height: 20px; }
+.memory-media-carousel__dots { position: absolute; z-index: 4; left: 50%; bottom: 12px; display: flex; gap: 5px; transform: translateX(-50%); pointer-events: none; }
+.memory-media-carousel__dots span { width: 6px; height: 6px; border-radius: 999px; background: rgb(255 255 255 / 52%); transition: width 120ms ease; }
+.memory-media-carousel__dots span.is-active { width: 18px; background: white; }
+.memory-media-carousel--detail { height: 100%; }
+
 [data-slot="dialog-overlay"].memory-image-viewer__overlay { z-index: 100; background: rgb(21 22 30 / 96%); }
 
 [data-slot="dialog-content"].memory-image-viewer {
@@ -947,6 +979,7 @@ body:has(.app-rail) > main {
 }
 
 .memory-image-viewer__stage { position: relative; min-height: 0; background: var(--amika-ink); }
+.memory-image-viewer__stage > .memory-media-carousel { position: absolute; inset: 0; }
 
 .memory-image-viewer__stage--text {
   display: grid;

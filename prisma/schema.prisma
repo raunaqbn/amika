@@ -80,6 +80,7 @@ model Memory {
   amikaFriendUserId     String?
   content               String
   imageUrl              String?
+  mediaJson             String?
   visibility            String   @default("private")
   memoryDate             DateTime @default(now())
   sharedWithFriend       Boolean  @default(false)

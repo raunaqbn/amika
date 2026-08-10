@@ -148,6 +148,62 @@ export async function uploadImage(uri: string) {
   return { url: `data:${mimeType};base64,${base64}` };
 }
 
+export async function uploadMemoryMedia(input: {
+  uri: string;
+  ownerId: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+  type: 'image' | 'video';
+  onProgress?: (percentage: number) => void;
+}) {
+  const file = new File(input.uri);
+  if (!file.exists) throw new Error('One of the selected files is no longer available. Please choose it again.');
+  const maxBytes = input.type === 'video' ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+  if (file.size > maxBytes) {
+    throw new Error(input.type === 'video' ? 'Videos must be 100 MB or smaller.' : 'Photos must be 10 MB or smaller.');
+  }
+  const rawName = input.fileName || file.name || `${input.type}-${Date.now()}`;
+  const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, '-').slice(-120);
+  const token = await getToken();
+  const pathname = `media/${input.ownerId}/${safeName}`;
+  const mimeType = input.mimeType || file.type || (input.type === 'video' ? 'video/mp4' : 'image/jpeg');
+  const tokenResponse = await fetch(`${API_URL}/api/upload/client`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      type: 'blob.generate-client-token',
+      payload: { pathname, clientPayload: null, multipart: false },
+    }),
+  });
+  if (!tokenResponse.ok) throw new Error('Amika could not start the media upload. Please try again.');
+  const { clientToken } = await tokenResponse.json() as { clientToken?: string };
+  if (!clientToken) throw new Error('Amika could not authorize the media upload.');
+  const storeId = clientToken.split('_')[3];
+  if (!storeId) throw new Error('Amika received an invalid upload token.');
+  input.onProgress?.(0);
+  const uploadResponse = await fetch(`https://vercel.com/api/blob/?pathname=${encodeURIComponent(pathname)}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${clientToken}`,
+      'x-api-version': '12',
+      'x-api-blob-request-attempt': '0',
+      'x-api-blob-request-id': `${storeId}:${Date.now()}:${Math.random().toString(16).slice(2)}`,
+      'x-vercel-blob-access': 'private',
+      'x-vercel-blob-store-id': storeId,
+      'x-content-length': String(file.size),
+      'x-content-type': mimeType,
+    },
+    body: file,
+  });
+  const result = await uploadResponse.json().catch(() => null) as { pathname?: string; error?: { message?: string } } | null;
+  if (!uploadResponse.ok || !result?.pathname) throw new Error(result?.error?.message || 'The media upload failed. Please try again.');
+  input.onProgress?.(100);
+  return { pathname: result.pathname };
+}
+
 export async function prepareImageForUpload(uri: string, width: number, height: number) {
   const maxDimension = Math.max(width, height);
   const context = ImageManipulator.manipulate(uri);
@@ -165,4 +221,11 @@ export function imageSource(uri?: string | null) {
   if (!uri.startsWith(`${API_URL}/api/media/`)) return uri;
   const token = getTokenSnapshot();
   return token ? { uri, headers: { Authorization: `Bearer ${token}` } } : { uri };
+}
+
+export function mediaSource(uri?: string | null) {
+  if (!uri) return null;
+  if (!uri.startsWith(`${API_URL}/api/media/`)) return { uri };
+  const token = getTokenSnapshot();
+  return { uri, headers: token ? { Authorization: `Bearer ${token}` } : undefined };
 }

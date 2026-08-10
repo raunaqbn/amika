@@ -20,12 +20,23 @@ export async function GET(
     return NextResponse.json({ error: 'Unknown image type' }, { status: 404 });
   }
 
-  const value = await getAuthorizedImage(userId, type as 'memory' | 'user' | 'friend' | 'diary' | 'story', id);
+  const rawMediaIndex = request.nextUrl.searchParams.get('index');
+  const mediaIndex = rawMediaIndex === null ? undefined : Number(rawMediaIndex);
+  if (mediaIndex !== undefined && (type !== 'memory' || !Number.isInteger(mediaIndex) || mediaIndex < 0 || mediaIndex > 9)) {
+    return NextResponse.json({ error: 'Unknown media item' }, { status: 404 });
+  }
+
+  const value = await getAuthorizedImage(
+    userId,
+    type as 'memory' | 'user' | 'friend' | 'diary' | 'story',
+    id,
+    mediaIndex,
+  );
   if (!value) return NextResponse.json({ error: 'Image not found' }, { status: 404 });
 
   const pathname = blobPathname(value);
   if (pathname) {
-    const result = await getPrivateImage(pathname, request.headers.get('if-none-match'));
+    const result = await getPrivateImage(pathname, request.headers.get('if-none-match'), request.headers.get('range'));
     if (!result) return NextResponse.json({ error: 'Image not found' }, { status: 404 });
     if (result.statusCode === 304) {
       return new NextResponse(null, {
@@ -37,11 +48,16 @@ export async function GET(
       });
     }
 
+    const contentRange = result.headers.get('content-range');
+    const contentLength = result.headers.get('content-length') || String(result.blob.size);
     return new NextResponse(result.stream, {
+      status: contentRange ? 206 : 200,
       headers: {
         'Cache-Control': 'private, no-cache',
-        'Content-Length': String(result.blob.size),
+        'Content-Length': contentLength,
         'Content-Type': result.blob.contentType,
+        'Accept-Ranges': result.headers.get('accept-ranges') || 'bytes',
+        ...(contentRange ? { 'Content-Range': contentRange } : {}),
         ETag: result.blob.etag,
         'X-Content-Type-Options': 'nosniff',
       },

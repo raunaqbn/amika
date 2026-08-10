@@ -24,107 +24,11 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { border, colors, type } from '@/lib/theme';
+import { PHOTO_FILTERS, type PhotoFilterId } from '@/lib/photo-filters';
 import { Button, Spinner } from './ui';
 
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
-const IDENTITY_MATRIX = [
-  1, 0, 0, 0, 0,
-  0, 1, 0, 0, 0,
-  0, 0, 1, 0, 0,
-  0, 0, 0, 1, 0,
-];
-
-const FILTERS = [
-  { id: 'original', label: 'Original', description: 'True to your photo', matrix: IDENTITY_MATRIX },
-  {
-    id: 'clarendon', label: 'Clarendon', description: 'Crisp, bright, and cool', matrix: [
-      1.26, -0.08, -0.05, 0, 3,
-      -0.04, 1.18, -0.03, 0, 2,
-      -0.03, -0.04, 1.22, 0, 8,
-      0, 0, 0, 1, 0,
-    ],
-  },
-  {
-    id: 'gingham', label: 'Gingham', description: 'Soft, faded warmth', matrix: [
-      0.86, 0.08, 0.04, 0, 12,
-      0.05, 0.88, 0.04, 0, 10,
-      0.05, 0.06, 0.84, 0, 9,
-      0, 0, 0, 1, 0,
-    ],
-  },
-  {
-    id: 'moon', label: 'Moon', description: 'Bold black and white', matrix: [
-      0.27, 0.7, 0.07, 0, -5,
-      0.27, 0.7, 0.07, 0, -5,
-      0.27, 0.7, 0.07, 0, -5,
-      0, 0, 0, 1, 0,
-    ],
-  },
-  {
-    id: 'lark', label: 'Lark', description: 'Airy blues and greens', matrix: [
-      1.04, 0.02, -0.03, 0, 6,
-      -0.02, 1.12, 0.02, 0, 5,
-      -0.03, 0.03, 1.13, 0, 6,
-      0, 0, 0, 1, 0,
-    ],
-  },
-  {
-    id: 'reyes', label: 'Reyes', description: 'Warm, creamy, and faded', matrix: [
-      0.84, 0.08, 0.04, 0, 18,
-      0.05, 0.82, 0.04, 0, 15,
-      0.03, 0.06, 0.76, 0, 12,
-      0, 0, 0, 1, 0,
-    ],
-  },
-  {
-    id: 'juno', label: 'Juno', description: 'Warm color and rich contrast', matrix: [
-      1.2, 0.02, -0.06, 0, 4,
-      -0.03, 1.12, 0, 0, 1,
-      -0.04, -0.02, 1.03, 0, -2,
-      0, 0, 0, 1, 0,
-    ],
-  },
-  {
-    id: 'slumber', label: 'Slumber', description: 'Dreamy amber shadows', matrix: [
-      0.93, 0.08, 0.02, 0, 12,
-      0.04, 0.9, 0.03, 0, 8,
-      0.02, 0.04, 0.8, 0, 4,
-      0, 0, 0, 1, 0,
-    ],
-  },
-  {
-    id: 'crema', label: 'Crema', description: 'Gentle contrast and warmth', matrix: [
-      0.92, 0.06, 0.02, 0, 10,
-      0.03, 0.91, 0.03, 0, 8,
-      0.02, 0.05, 0.86, 0, 5,
-      0, 0, 0, 1, 0,
-    ],
-  },
-  {
-    id: 'ludwig', label: 'Ludwig', description: 'Clean light and warm reds', matrix: [
-      1.13, 0.03, -0.03, 0, 4,
-      0, 1.03, 0, 0, 1,
-      -0.02, 0.02, 0.91, 0, 0,
-      0, 0, 0, 1, 0,
-    ],
-  },
-  {
-    id: 'aden', label: 'Aden', description: 'Pastel color and soft light', matrix: [
-      0.88, 0.08, 0.04, 0, 14,
-      0.04, 0.89, 0.05, 0, 12,
-      0.03, 0.05, 0.92, 0, 13,
-      0, 0, 0, 1, 0,
-    ],
-  },
-  {
-    id: 'perpetua', label: 'Perpetua', description: 'Fresh blue-green lift', matrix: [
-      0.98, 0.02, -0.01, 0, 3,
-      -0.02, 1.08, 0.03, 0, 4,
-      -0.03, 0.04, 1.12, 0, 8,
-      0, 0, 0, 1, 0,
-    ],
-  },
-] as const;
+const FILTERS = PHOTO_FILTERS;
 
 const CROPS = [
   { id: 'original', label: 'Original', ratio: null },
@@ -133,7 +37,7 @@ const CROPS = [
   { id: 'portrait', label: 'Portrait', ratio: 4 / 5 },
 ] as const;
 
-type FilterId = (typeof FILTERS)[number]['id'];
+type FilterId = PhotoFilterId;
 type CropId = (typeof CROPS)[number]['id'];
 
 export type PhotoEditRecipe = {

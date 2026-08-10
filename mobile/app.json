@@ -7,14 +7,15 @@
     "icon": "./assets/images/icon.png",
     "scheme": "amika",
     "userInterfaceStyle": "light",
+    "jsEngine": "jsc",
     "backgroundColor": "#F7F2E8",
     "ios": {
       "bundleIdentifier": "app.amika.ios",
-      "buildNumber": "15",
+      "buildNumber": "16",
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Take photos for your Amika profile and memories.",
-        "NSPhotoLibraryUsageDescription": "Choose photos for your Amika profile and memories.",
+        "NSCameraUsageDescription": "Take photos and videos for your Amika profile and memories.",
+        "NSPhotoLibraryUsageDescription": "Choose photos and videos for your Amika profile and memories.",
         "NSPhotoLibraryAddUsageDescription": "Amika can save a memory photo when you ask it to.",
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -30,7 +31,9 @@
       "predictiveBackGestureEnabled": true,
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.READ_MEDIA_IMAGES"
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -51,9 +54,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Choose photos for your Amika profile and memories.",
-          "cameraPermission": "Take photos for your Amika profile and memories.",
-          "microphonePermission": false
+          "photosPermission": "Choose photos and videos for your Amika profile and memories.",
+          "cameraPermission": "Take photos and videos for your Amika profile and memories.",
+          "microphonePermission": "Record sound with videos you take for Amika memories."
         }
       ],
       [
@@ -70,7 +73,8 @@
           "color": "#9EA8F8",
           "defaultChannel": "amika"
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true,

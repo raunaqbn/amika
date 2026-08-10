@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { BookOpen, Cake, Camera, ChevronLeft, Heart, MessageCircle, Sparkles } from 'lucide-react-native';
+import { BookOpen, Cake, Camera, ChevronLeft, Heart, MessageCircle, Sparkles, Video } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar, Button, EmptyState, ErrorState, Spinner } from '@/components/ui';
 import { ProfileStories } from '@/components/profile-stories';
@@ -22,13 +22,15 @@ function belongsToFriend(memory: Memory, friendId?: string) {
 const FriendMemoryTile = React.memo(function FriendMemoryTile({ memory }: { memory: Memory }) {
   const router = useRouter();
   const date = new Date(memory.memoryDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const firstImage = memory.media?.find((item) => item.type === 'image')?.url || memory.imageUrl;
+  const hasVideo = memory.media?.some((item) => item.type === 'video');
   return <Pressable
     accessibilityRole="button"
     accessibilityLabel={`Open memory from ${date}`}
     onPress={() => router.push({ pathname: '/memory/[id]', params: { id: memory.id } })}
     style={({ pressed }) => [styles.memoryTile, pressed && styles.memoryTilePressed]}
   >
-    {memory.imageUrl ? <Image source={imageSource(memory.imageUrl)} style={styles.memoryTileImage} contentFit="contain" cachePolicy="memory-disk" recyclingKey={memory.id} enforceEarlyResizing /> : <View style={styles.memoryTileText}><Text style={styles.memoryTileQuote}>“</Text><Text numberOfLines={4} style={styles.memoryTileCopy}>{memory.content}</Text></View>}
+    {firstImage ? <Image source={imageSource(firstImage)} style={styles.memoryTileImage} contentFit="contain" cachePolicy="memory-disk" recyclingKey={memory.id} enforceEarlyResizing /> : hasVideo ? <View style={styles.memoryTileVideo}><Video size={30} color={colors.white} /><Text style={styles.memoryTileVideoText}>Video</Text></View> : <View style={styles.memoryTileText}><Text style={styles.memoryTileQuote}>“</Text><Text numberOfLines={4} style={styles.memoryTileCopy}>{memory.content}</Text></View>}
     <View style={styles.memoryTileFooter}><Text style={styles.memoryTileDate}>{date}</Text></View>
   </Pressable>;
 });
@@ -187,6 +189,8 @@ const styles = StyleSheet.create({
   memoryTile: { width: '31.7%', overflow: 'hidden', borderRadius: 14, backgroundColor: colors.white, ...border },
   memoryTilePressed: { transform: [{ translateY: 2 }], opacity: .78 },
   memoryTileImage: { width: '100%', aspectRatio: 1, backgroundColor: colors.paperDeep, borderBottomWidth: 1.5, borderBottomColor: colors.line },
+  memoryTileVideo: { width: '100%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: colors.ink, borderBottomWidth: 1.5, borderBottomColor: colors.line },
+  memoryTileVideoText: { fontFamily: type.heavy, color: colors.white, fontSize: 10, textTransform: 'uppercase', letterSpacing: .7 },
   memoryTileText: { width: '100%', aspectRatio: 1, overflow: 'hidden', justifyContent: 'center', padding: 10, backgroundColor: colors.periwinkle, borderBottomWidth: 1.5, borderBottomColor: colors.line },
   memoryTileQuote: { position: 'absolute', left: 5, top: -15, fontFamily: type.heavy, fontSize: 68, color: 'rgba(32,32,31,.12)' },
   memoryTileCopy: { fontFamily: type.heavy, color: colors.ink, fontSize: 12, lineHeight: 16 },

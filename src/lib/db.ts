@@ -50,6 +50,7 @@ type Memory = {
   friendId: string | null;
   content: string;
   imageUrl: string | null;
+  mediaJson: string | null;
   visibility: 'private' | 'friends' | 'public';
   memoryDate: Date;
   sharedWithFriend: boolean; // Whether to share with linked Amika friend
@@ -315,6 +316,7 @@ async function getSchemaStatus(client: Client) {
         (SELECT customProfileImage FROM friends LIMIT 0) AS friendCustomProfileReady,
         (SELECT linkedUserId FROM friends LIMIT 0) AS friendLinkReady,
         (SELECT imageUrl FROM memories LIMIT 0) AS memoriesReady,
+        (SELECT mediaJson FROM memories LIMIT 0) AS memoryMediaReady,
         (SELECT amikaFriendUserId FROM memories LIMIT 0) AS memoryAmikaFriendReady,
         (SELECT visibility FROM memories LIMIT 0) AS memoryVisibilityReady,
         (SELECT memoryDate FROM memories LIMIT 0) AS memoryDateReady,
@@ -441,6 +443,7 @@ async function initializeTables() {
         amikaFriendUserId TEXT,
         content TEXT NOT NULL,
         imageUrl TEXT,
+        mediaJson TEXT,
         visibility TEXT NOT NULL DEFAULT 'friends',
         memoryDate TEXT,
         sharedWithFriend INTEGER NOT NULL DEFAULT 0,
@@ -674,6 +677,7 @@ async function initializeTables() {
     await addColumn('friends', 'customProfileImage', 'TEXT');
     await addColumn('friends', 'linkedUserId', 'TEXT');
     await addColumn('memories', 'imageUrl', 'TEXT');
+    await addColumn('memories', 'mediaJson', 'TEXT');
     await addColumn('memories', 'amikaFriendUserId', 'TEXT');
     await addColumn('memories', 'visibility', "TEXT NOT NULL DEFAULT 'friends'");
     await addColumn('memories', 'memoryDate', 'TEXT');
@@ -1162,6 +1166,7 @@ export const prisma = {
           friendId: row.friendId as string | null,
           content: row.content as string,
           imageUrl: row.imageUrl as string | null,
+          mediaJson: row.mediaJson as string | null,
           visibility: (row.visibility as Memory['visibility']) || (Boolean(row.sharedWithFriend) ? 'friends' : 'private'),
           memoryDate: new Date((row.memoryDate as string) || (row.createdAt as string)),
           sharedWithFriend: Boolean(row.sharedWithFriend),
@@ -1327,6 +1332,7 @@ export const prisma = {
         friendId: row.friendId as string | null,
         content: row.content as string,
         imageUrl: row.imageUrl as string | null,
+        mediaJson: row.mediaJson as string | null,
         visibility: (row.visibility as Memory['visibility']) || (Boolean(row.sharedWithFriend) ? 'friends' : 'private'),
         memoryDate: new Date((row.memoryDate as string) || (row.createdAt as string)),
         sharedWithFriend: Boolean(row.sharedWithFriend),
@@ -1373,6 +1379,7 @@ export const prisma = {
         friendId: row.friendId as string | null,
         content: row.content as string,
         imageUrl: row.imageUrl as string | null,
+        mediaJson: row.mediaJson as string | null,
         visibility: (row.visibility as Memory['visibility']) || (Boolean(row.sharedWithFriend) ? 'friends' : 'private'),
         memoryDate: new Date((row.memoryDate as string) || (row.createdAt as string)),
         sharedWithFriend: Boolean(row.sharedWithFriend),
@@ -1396,7 +1403,7 @@ export const prisma = {
         ? ` AND (${dateSql} < ? OR (${dateSql} = ? AND m.id < ?))`
         : '';
       const limitSql = limit ? ' LIMIT ?' : '';
-      const feedColumns = `m.id, m.userId, m.friendId, m.content, m.visibility,
+      const feedColumns = `m.id, m.userId, m.friendId, m.content, m.visibility, m.mediaJson,
                            m.memoryDate, m.sharedWithFriend, m.createdAt,
                            (m.imageUrl IS NOT NULL AND m.imageUrl != '') AS hasImage,
                            u.name AS authorName,
@@ -1447,6 +1454,7 @@ export const prisma = {
         friendId: row.friendId as string | null,
         content: row.content as string,
         imageUrl: null,
+        mediaJson: row.mediaJson as string | null,
         hasImage: Boolean(row.hasImage),
         visibility: (row.visibility as Memory['visibility']) || (Boolean(row.sharedWithFriend) ? 'friends' : 'private'),
         memoryDate: new Date((row.memoryDate as string) || (row.createdAt as string)),
@@ -1490,6 +1498,7 @@ export const prisma = {
         friendId: row.friendId as string,
         content: row.content as string,
         imageUrl: row.imageUrl as string | null,
+        mediaJson: row.mediaJson as string | null,
         visibility: (row.visibility as Memory['visibility']) || (Boolean(row.sharedWithFriend) ? 'friends' : 'private'),
         memoryDate: new Date((row.memoryDate as string) || (row.createdAt as string)),
         sharedWithFriend: Boolean(row.sharedWithFriend),
@@ -1513,11 +1522,12 @@ export const prisma = {
         amikaFriendUserId: row.amikaFriendUserId as string,
         content: row.content as string,
         imageUrl: row.imageUrl as string | null,
+        mediaJson: row.mediaJson as string | null,
         sharedWithAmikaFriend: Boolean(row.sharedWithAmikaFriend),
         createdAt: new Date(row.createdAt as string),
       }));
     },
-    create: async ({ data }: { data: { userId: string; friendId?: string | null; content: string; imageUrl?: string | null; visibility?: Memory['visibility']; memoryDate?: Date; sharedWithFriend?: boolean } }) => {
+    create: async ({ data }: { data: { userId: string; friendId?: string | null; content: string; imageUrl?: string | null; mediaJson?: string | null; visibility?: Memory['visibility']; memoryDate?: Date; sharedWithFriend?: boolean } }) => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -1538,6 +1548,7 @@ export const prisma = {
         friendId: data.friendId ?? null,
         content: data.content,
         imageUrl: data.imageUrl ?? null,
+        mediaJson: data.mediaJson ?? null,
         visibility: data.visibility ?? (data.sharedWithFriend ? 'friends' : 'private'),
         memoryDate: data.memoryDate ?? new Date(),
         sharedWithFriend: data.sharedWithFriend ?? (data.visibility === 'friends' || data.visibility === 'public'),
@@ -1546,13 +1557,14 @@ export const prisma = {
       };
 
       await client.execute({
-        sql: 'INSERT INTO memories (id, userId, friendId, content, imageUrl, visibility, memoryDate, sharedWithFriend, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        sql: 'INSERT INTO memories (id, userId, friendId, content, imageUrl, mediaJson, visibility, memoryDate, sharedWithFriend, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         args: [
           memory.id,
           memory.userId,
           memory.friendId,
           memory.content,
           memory.imageUrl,
+          memory.mediaJson,
           memory.visibility,
           memory.memoryDate.toISOString(),
           memory.sharedWithFriend ? 1 : 0,
@@ -1610,7 +1622,7 @@ export const prisma = {
 
       return { success: true };
     },
-    update: async ({ where, data }: { where: { id: string; userId?: string }; data: { friendId?: string | null; content?: string; imageUrl?: string | null; visibility?: Memory['visibility']; memoryDate?: Date; sharedWithFriend?: boolean } }) => {
+    update: async ({ where, data }: { where: { id: string; userId?: string }; data: { friendId?: string | null; content?: string; imageUrl?: string | null; mediaJson?: string | null; visibility?: Memory['visibility']; memoryDate?: Date; sharedWithFriend?: boolean } }) => {
       await ensureTablesExist();
       const client = getClient();
 
@@ -1634,6 +1646,7 @@ export const prisma = {
         friendId: data.friendId !== undefined ? data.friendId : existing.friendId as string | null,
         content: data.content !== undefined ? data.content : existing.content as string,
         imageUrl: data.imageUrl !== undefined ? data.imageUrl : existing.imageUrl as string | null,
+        mediaJson: data.mediaJson !== undefined ? data.mediaJson : existing.mediaJson as string | null,
         visibility: data.visibility ?? ((existing.visibility as Memory['visibility']) || (Boolean(existing.sharedWithFriend) ? 'friends' : 'private')),
         memoryDate: data.memoryDate ?? new Date((existing.memoryDate as string) || (existing.createdAt as string)),
         sharedWithFriend: data.sharedWithFriend !== undefined ? data.sharedWithFriend : Boolean(existing.sharedWithFriend),
@@ -1642,8 +1655,8 @@ export const prisma = {
       };
 
       await client.execute({
-        sql: 'UPDATE memories SET friendId = ?, content = ?, imageUrl = ?, visibility = ?, memoryDate = ?, sharedWithFriend = ? WHERE id = ?',
-        args: [updated.friendId, updated.content, updated.imageUrl, updated.visibility, updated.memoryDate.toISOString(), updated.sharedWithFriend ? 1 : 0, where.id],
+        sql: 'UPDATE memories SET friendId = ?, content = ?, imageUrl = ?, mediaJson = ?, visibility = ?, memoryDate = ?, sharedWithFriend = ? WHERE id = ?',
+        args: [updated.friendId, updated.content, updated.imageUrl, updated.mediaJson, updated.visibility, updated.memoryDate.toISOString(), updated.sharedWithFriend ? 1 : 0, where.id],
       });
 
       return updated;
@@ -2866,6 +2879,7 @@ export async function getAuthorizedImage(
   viewerUserId: string,
   type: 'memory' | 'user' | 'friend' | 'diary' | 'story',
   id: string,
+  mediaIndex?: number,
 ): Promise<string | null> {
   await ensureTablesExist();
   const client = getClient();
@@ -2923,12 +2937,22 @@ export async function getAuthorizedImage(
   }
 
   const result = await client.execute({
-    sql: `SELECT m.imageUrl
+    sql: `SELECT m.imageUrl, m.mediaJson
           FROM memories m
           WHERE m.id = ? AND ${MEMORY_VIEWER_CAN_ACCESS_SQL}`,
     args: [id, viewerUserId, viewerUserId, viewerUserId],
   });
-  return result.rows.length ? (result.rows[0].imageUrl as string | null) : null;
+  if (!result.rows.length) return null;
+  if (mediaIndex !== undefined) {
+    try {
+      const items = JSON.parse((result.rows[0].mediaJson as string | null) || '[]');
+      const selected = Array.isArray(items) ? items[mediaIndex] : null;
+      return typeof selected?.storageRef === 'string' ? selected.storageRef : null;
+    } catch {
+      return null;
+    }
+  }
+  return result.rows[0].imageUrl as string | null;
 }
 
 export async function getFriendContextCounts(userId: string) {

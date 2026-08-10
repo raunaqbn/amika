@@ -3,6 +3,12 @@ import { prisma } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
 import { compactImageUrl, isMediaImageUrl, mediaImageUrl } from '@/lib/mobile-images';
 import { persistImage } from '@/lib/media-storage';
+import {
+  memoryMediaUrl,
+  normalizeIncomingMemoryMedia,
+  parseStoredMemoryMedia,
+  serializeMemoryMedia,
+} from '@/lib/memory-media';
 import { sendSharedItemNotification } from '@/lib/shared-item-notifications';
 
 type MemoryVisibility = 'private' | 'friends' | 'public';
@@ -86,14 +92,23 @@ async function shareMemoryWithAudience({
 }
 
 function compactMemory(request: NextRequest, memory: any) {
-  const { hasImage, ...memoryWithoutFlags } = memory;
+  const { hasImage, mediaJson, ...memoryWithoutFlags } = memory;
   const { hasProfileImage: authorHasImage, ...author } = memory.author || {};
   const { hasProfileImage: friendHasImage, ...friend } = memory.friend || {};
+  const media = parseStoredMemoryMedia(mediaJson).map((item, index) => ({
+    type: item.type,
+    url: memoryMediaUrl(request, memory.id, index),
+    width: item.width,
+    height: item.height,
+    durationMs: item.durationMs,
+  }));
+  const legacyImageUrl = hasImage
+    ? mediaImageUrl(request, 'memory', memory.id)
+    : compactImageUrl(request, 'memory', memory.id, memory.imageUrl);
   return {
     ...memoryWithoutFlags,
-    imageUrl: hasImage
-      ? mediaImageUrl(request, 'memory', memory.id)
-      : compactImageUrl(request, 'memory', memory.id, memory.imageUrl),
+    media: media.length ? media : legacyImageUrl ? [{ type: 'image', url: legacyImageUrl }] : [],
+    imageUrl: media.find((item) => item.type === 'image')?.url || legacyImageUrl,
     author: memory.author ? {
       ...author,
       profileImage: authorHasImage
@@ -160,7 +175,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { friendId, friendIds, content, imageUrl, visibility = 'friends', memoryDate } = body;
+    const { friendId, friendIds, content, imageUrl, media, visibility = 'friends', memoryDate } = body;
     const requestedFriendIds = normalizeFriendIds(friendId, friendIds);
     if (!requestedFriendIds) {
       return NextResponse.json({ error: 'Choose a valid friend audience.' }, { status: 400 });
@@ -192,13 +207,22 @@ export async function POST(request: NextRequest) {
     }
 
     const shareWithTaggedFriend = visibility !== 'private';
+    const normalizedMedia = normalizeIncomingMemoryMedia(media, userId);
+    if (normalizedMedia === null) {
+      return NextResponse.json({ error: 'Choose up to 10 valid photos or videos.' }, { status: 400 });
+    }
+    const legacyImage = media === undefined
+      ? await persistImage(imageUrl || null, { ownerId: userId, kind: 'memory' })
+      : null;
+    const primaryImage = normalizedMedia.find((item) => item.type === 'image')?.storageRef || legacyImage;
 
     const memory = await prisma.memory.create({
       data: {
         userId,
         friendId: primaryFriendId,
         content: content.trim(),
-        imageUrl: await persistImage(imageUrl || null, { ownerId: userId, kind: 'memory' }),
+        imageUrl: primaryImage,
+        mediaJson: serializeMemoryMedia(normalizedMedia),
         visibility,
         memoryDate: memoryDate ? new Date(memoryDate) : new Date(),
         sharedWithFriend: shareWithTaggedFriend,
@@ -210,11 +234,10 @@ export async function POST(request: NextRequest) {
         .catch((shareError) => console.error('Error auto-sharing memory:', shareError));
     }
 
-    return NextResponse.json({
+    return NextResponse.json(compactMemory(request, {
       ...memory,
       audienceCount: visibility === 'friends' ? requestedFriendIds.length : 0,
-      imageUrl: memory.imageUrl ? mediaImageUrl(request, 'memory', memory.id) : null,
-    });
+    }));
   } catch (error) {
     console.error('Error creating memory:', error);
     return NextResponse.json({ error: 'Failed to create memory' }, { status: 500 });
@@ -229,7 +252,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, content, imageUrl, friendId, friendIds, visibility, memoryDate } = body;
+    const { id, content, imageUrl, media, friendId, friendIds, visibility, memoryDate } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Memory ID required' }, { status: 400 });
@@ -270,9 +293,15 @@ export async function PUT(request: NextRequest) {
     const shareWithTaggedFriend = visibility === undefined ? undefined : visibility !== 'private';
 
     // Update the memory
-    const storedImage = isMediaImageUrl(request, 'memory', id, imageUrl)
-      ? undefined
-      : await persistImage(imageUrl, { ownerId: userId, kind: 'memory' });
+    const normalizedMedia = media === undefined ? undefined : normalizeIncomingMemoryMedia(media, userId);
+    if (normalizedMedia === null) {
+      return NextResponse.json({ error: 'Choose up to 10 valid photos or videos.' }, { status: 400 });
+    }
+    const storedImage = normalizedMedia
+      ? normalizedMedia.find((item) => item.type === 'image')?.storageRef || null
+      : isMediaImageUrl(request, 'memory', id, imageUrl)
+        ? undefined
+        : await persistImage(imageUrl, { ownerId: userId, kind: 'memory' });
 
     const updatedMemory = await prisma.memory.update({
       where: { id, userId },
@@ -280,6 +309,7 @@ export async function PUT(request: NextRequest) {
         friendId: hasFriendSelection ? requestedFriendId ?? null : undefined,
         content,
         imageUrl: storedImage,
+        mediaJson: normalizedMedia === undefined ? undefined : serializeMemoryMedia(normalizedMedia),
         visibility,
         memoryDate: memoryDate ? new Date(memoryDate) : undefined,
         sharedWithFriend: shareWithTaggedFriend,
@@ -304,13 +334,12 @@ export async function PUT(request: NextRequest) {
         .catch((shareError) => console.error('Error auto-sharing memory:', shareError));
     }
 
-    return NextResponse.json({
+    return NextResponse.json(compactMemory(request, {
       ...updatedMemory,
       audienceCount: effectiveVisibility === 'friends'
         ? (shouldSyncAudience ? effectiveAudienceFriendIds.length : existingMemory.audienceCount)
         : 0,
-      imageUrl: updatedMemory.imageUrl ? mediaImageUrl(request, 'memory', updatedMemory.id) : null,
-    });
+    }));
   } catch (error) {
     console.error('Error updating memory:', error);
     return NextResponse.json({ error: 'Failed to update memory' }, { status: 500 });

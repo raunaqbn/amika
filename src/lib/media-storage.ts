@@ -112,9 +112,10 @@ export async function persistImageBytes(
   return blobReference(metadata.pathname);
 }
 
-export async function getPrivateImage(pathname: string, ifNoneMatch?: string | null) {
+export async function getPrivateImage(pathname: string, ifNoneMatch?: string | null, range?: string | null) {
   return get(pathname, {
     access: 'private',
     ...(ifNoneMatch ? { ifNoneMatch } : {}),
+    ...(range ? { headers: { Range: range } } : {}),
   });
 }

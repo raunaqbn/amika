@@ -16,11 +16,13 @@ import {
 import { useState, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Trash2, Image as ImageIcon, X, Share2, Eye, EyeOff, Edit, Check } from 'lucide-react';
+import { MemoryMediaCarousel, type MemoryMedia } from '@/components/memory-media-carousel';
 
 interface Memory {
   id: string;
   content: string;
   imageUrl?: string | null;
+  media?: MemoryMedia[];
   sharedWithFriend?: boolean;
   friendIds?: string[];
   createdAt: Date;
@@ -423,14 +425,16 @@ export function MemoryList({ friendId, friendName, linkedUserId, memories, onUpd
               <div className="flex justify-between items-start gap-3">
                 <div className="flex-1 space-y-2">
                   <p className="text-sm text-gray-700">{memory.content}</p>
-                  {memory.imageUrl && (
-                    <img
-                      src={memory.imageUrl}
-                      alt="Memory"
-                      className="w-full max-w-md h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                      onClick={() => setViewerImageUrl(memory.imageUrl!)}
+                  {(memory.media?.length || memory.imageUrl) && <div className="w-full max-w-md h-64 overflow-hidden rounded-lg">
+                    <MemoryMediaCarousel
+                      media={memory.media?.length ? memory.media : [{ type: 'image', url: memory.imageUrl! }]}
+                      label="Memory"
+                      onOpen={() => {
+                        const image = (memory.media || []).find((item) => item.type === 'image')?.url || memory.imageUrl;
+                        if (image) setViewerImageUrl(image);
+                      }}
                     />
-                  )}
+                  </div>}
                   <p className="text-xs text-gray-500">
                     {formatDistanceToNow(new Date(memory.createdAt), { addSuffix: true })}
                   </p>

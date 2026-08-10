@@ -47,6 +47,7 @@ export type Memory = {
   friendId?: string | null;
   content: string;
   imageUrl?: string | null;
+  media?: MemoryMedia[];
   visibility: 'private' | 'friends' | 'public';
   memoryDate: string;
   createdAt: string;
@@ -57,6 +58,14 @@ export type Memory = {
   commentCount?: number;
   reactedByMe?: boolean;
   isOwn?: boolean;
+};
+
+export type MemoryMedia = {
+  type: 'image' | 'video';
+  url: string;
+  width?: number;
+  height?: number;
+  durationMs?: number;
 };
 
 export type Story = {
