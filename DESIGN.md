@@ -7,6 +7,7 @@ colors:
   pebble-moss: "#66705a"
   oat-cream: "#f7eedf"
   warm-white: "#fffaf2"
+  expression-cream: "#fff1df"
   cream-deep: "#f1e4d2"
   flax: "#dccfb9"
   baked-apricot: "#e8b080"
@@ -117,7 +118,7 @@ components:
 
 Apricot Moss turns recording an everyday moment into a calm shared ritual. The system is warm and fresh without reading as a scrapbook: oat-cream space quiets the canvas, baked apricot gathers attention around capture, and moss gives actions a steady, trustworthy center. Photography and the people in each memory carry the emotional detail; the interface stays soft, clear, and unhurried around them.
 
-The signature is the **Pebble Pair**, two abstract organic shapes that suggest closeness without becoming literal characters. Their asymmetry makes the brand friendly and recognizable, while their simple construction lets them work as a tiny wordmark companion, an app icon, a composer detail, or a short moment of delight after a save.
+The signature is the **Pebble Pair**, two abstract organic shapes that suggest closeness without becoming fully literal characters. Their asymmetry, tiny inward-looking expressions, and warm cheeks make the brand friendly and recognizable, while their simple construction lets them work as a tiny wordmark companion, an app icon, a composer detail, or a short moment of delight after a save.
 
 **Key Characteristics:**
 
@@ -157,6 +158,7 @@ The palette feels sun-warmed and grounded. Exact values in the frontmatter are n
 - **Flax:** Card edges, dividers, and quiet control boundaries.
 - **Muted Ink:** Metadata and secondary copy; it remains dark enough for body-sized text.
 - **Cocoa:** Occasional warm-dark supporting accent.
+- **Expression Cream:** Tiny Pebble Pair eyes and smiles; warmer than card white so the face stays soft rather than stark.
 
 **The Warm Center Rule.** Baked Apricot belongs to the memory-capture ritual and a few selected moments. It should not flood every card or action.
 
@@ -212,7 +214,7 @@ Depth is soft and ambient. Warm White cards sit on Oat Cream with flax edges and
 
 Amika uses broad, organic rounded rectangles. Controls are usually 14px, content cards 18px, compact mobile cards 20px, and signature surfaces such as the composer or save confirmation 24px. Pills remain useful for counts and privacy states, but they are not the default container shape.
 
-The Pebble Pair supplies the only intentionally irregular silhouette. Its two rounded shapes use asymmetrical radii and pose changes—lean, cradle, stack, peek, apart, rest, celebrate, and mark—to suggest relationship and mood without faces or limbs.
+The Pebble Pair supplies the only intentionally irregular silhouette. Its two rounded shapes use asymmetrical radii and pose changes—lean, cradle, stack, peek, apart, rest, celebrate, and mark—to suggest relationship and mood. Expressions stay minimal: round eyes look toward one another, tiny smiles stay soft, and warm cheeks keep the pair affectionate without adding limbs or detailed character acting.
 
 Borders are quiet: generally one pixel of Flax or a low-opacity Moss boundary. Focus is more explicit, using Terracotta with a visible two-pixel outline and offset.
 
@@ -256,7 +258,7 @@ The signature composer is progressively disclosed by the plus action rather than
 
 ### Pebble Pair and Save Confirmation
 
-Pebble Pair is an abstract relationship mark, not a talking mascot. Tiny poses may accompany the wordmark; medium poses may support empty states or the composer. After a successful save, the pair performs one restrained reunion: the moss pebble settles in, the clay pebble arcs home, and butter/terracotta/apricot echoes briefly appear. A non-blocking live-status card reads “Memory tucked in,” lasts 2.8 seconds, and sits above the mobile bottom navigation. Under `prefers-reduced-motion: reduce`, all entrance, reunion, halo, and lifecycle animations are removed while the confirmation remains understandable.
+Pebble Pair is an abstract relationship mark, not a talking mascot. Its round eyes look inward toward the other pebble rather than out at the viewer; a tiny smile and one warm cheek per pebble provide just enough emotion. Tiny poses may accompany the wordmark; medium poses may support empty states or the composer. After a successful save, the pair performs one restrained reunion: the moss pebble settles in, the clay pebble arcs home, and butter/terracotta/apricot echoes briefly appear. A non-blocking live-status card reads “Memory tucked in,” lasts 2.8 seconds, and sits above the mobile bottom navigation. Under `prefers-reduced-motion: reduce`, all entrance, reunion, halo, and lifecycle animations are removed while the confirmation remains understandable.
 
 **The Earned Motion Rule.** Mascot motion rewards a completed memory or clarifies state. It does not loop, interrupt input, or compete with photography.
 
@@ -268,7 +270,7 @@ Pebble Pair is an abstract relationship mark, not a talking mascot. Tiny poses m
 - **Do** let memory history lead while keeping one Moss plus action unmistakable and persistent.
 - **Do** show audience and privacy in plain language at the point of saving.
 - **Do** use real memory photos, friend avatars, initials, and honest empty states.
-- **Do** use Pebble Pair poses sparingly and preserve their abstract, faceless character.
+- **Do** use Pebble Pair poses sparingly and preserve their abstract character with minimal inward-looking expressions.
 - **Do** maintain 44px touch targets, visible focus, readable muted copy, semantic status announcements, and reduced-motion behavior.
 
 ### Don't
@@ -276,6 +278,6 @@ Pebble Pair is an abstract relationship mark, not a talking mascot. Tiny poses m
 - **Don't** reintroduce periwinkle, neon accents, hard graphite outlines, offset print shadows, or scrapbook ephemera.
 - **Don't** use gradients, glassmorphism, noisy texture, or decorative collage layers.
 - **Don't** turn every container into a rounded card or every label into a pill.
-- **Don't** make the Pebble Pair literal with eyes, mouths, limbs, speech bubbles, or constant animation.
+- **Don't** add limbs, speech bubbles, detailed facial acting, outward staring, character lore, or constant animation to the Pebble Pair.
 - **Don't** let archive, discovery, engagement, or planning mechanics outrank today's capture ritual.
 - **Don't** fabricate people, memories, testimonials, or usage claims.

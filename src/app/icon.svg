@@ -3,4 +3,8 @@
   <path d="M218 624c-39-154 25-336 169-390 120-45 234 21 240 141 5 96-48 164-106 217-71 63-87 152-52 215-116 15-216-46-251-183Z" fill="#66705A"/>
   <path d="M544 654c2-104 82-182 184-170 98 10 158 94 134 186-24 96-118 146-212 110-64-24-108-68-106-126Z" fill="#D48768"/>
   <path d="M602 666c36 60 84 94 144 100-38 40-96 58-154 36-50-18-84-50-98-90 36 0 72-16 108-46Z" fill="#D6AD5C" opacity=".62"/>
+  <circle cx="360" cy="430" r="20" fill="#FFF1DF"/><circle cx="422" cy="422" r="20" fill="#FFF1DF"/>
+  <path d="M374 476q22 22 46-2" stroke="#FFF1DF" stroke-width="12" stroke-linecap="round" fill="none"/><ellipse cx="450" cy="486" rx="16" ry="11" fill="#E8B080" opacity=".8"/>
+  <circle cx="684" cy="604" r="18" fill="#FFF1DF"/><circle cx="742" cy="598" r="18" fill="#FFF1DF"/>
+  <path d="M696 650q20 20 42-2" stroke="#FFF1DF" stroke-width="11" stroke-linecap="round" fill="none"/><ellipse cx="658" cy="654" rx="16" ry="11" fill="#F2DBA6" opacity=".86"/>
 </svg>

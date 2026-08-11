@@ -37,8 +37,22 @@ export function PebblePair({
       aria-hidden={label ? undefined : true}
       {...props}
     >
-      <span className="pebble-pair__large" />
-      <span className="pebble-pair__small" />
+      <span className="pebble-pair__large">
+        <span className="pebble-pair__face pebble-pair__face--large">
+          <span className="pebble-pair__eye pebble-pair__eye--left" />
+          <span className="pebble-pair__eye pebble-pair__eye--right" />
+          <span className="pebble-pair__smile" />
+          <span className="pebble-pair__cheek" />
+        </span>
+      </span>
+      <span className="pebble-pair__small">
+        <span className="pebble-pair__face pebble-pair__face--small">
+          <span className="pebble-pair__eye pebble-pair__eye--left" />
+          <span className="pebble-pair__eye pebble-pair__eye--right" />
+          <span className="pebble-pair__smile" />
+          <span className="pebble-pair__cheek" />
+        </span>
+      </span>
       <span className="pebble-pair__echo" />
     </span>
   );

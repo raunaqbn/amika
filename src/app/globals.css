@@ -154,6 +154,7 @@
   --amika-ink-soft: #596052;
   --amika-paper: #f7eedf;
   --amika-white: #fffaf2;
+  --amika-expression: #fff1df;
   --amika-violet: #e8b080;
   --amika-violet-deep: #59674d;
   --amika-citrus: #d48768;
@@ -2611,9 +2612,10 @@ body:has(.app-rail) > main { margin-left: 220px; }
 .pebble-pair__large {
   left: 3%;
   bottom: 3%;
-  width: 64%;
-  height: 86%;
-  border-radius: 58% 42% 50% 46% / 66% 52% 48% 34%;
+  width: 65%;
+  height: 76%;
+  overflow: hidden;
+  border-radius: 54% 46% 48% 52% / 60% 54% 46% 40%;
   background: var(--pebble-large);
   transform: rotate(-7deg);
 }
@@ -2621,12 +2623,82 @@ body:has(.app-rail) > main { margin-left: 220px; }
 .pebble-pair__small {
   right: 2%;
   bottom: 3%;
-  width: 43%;
-  height: 54%;
-  border-radius: 52% 48% 46% 54% / 58% 44% 56% 42%;
+  width: 46%;
+  height: 55%;
+  overflow: hidden;
+  border-radius: 51% 49% 47% 53% / 55% 48% 52% 45%;
   background: var(--pebble-small);
   transform: rotate(8deg);
 }
+
+.pebble-pair__face {
+  position: absolute;
+  display: block;
+  color: var(--amika-expression);
+}
+
+.pebble-pair__face--large {
+  top: 34%;
+  left: 24%;
+  width: 48%;
+  height: 34%;
+}
+
+.pebble-pair__face--small {
+  top: 31%;
+  left: 18%;
+  width: 58%;
+  height: 37%;
+}
+
+.pebble-pair__eye {
+  position: absolute;
+  top: 0;
+  display: block;
+  width: 21%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pebble-pair__eye::after {
+  display: none;
+}
+
+.pebble-pair__eye--left { left: 5%; }
+.pebble-pair__eye--right { right: 5%; }
+
+.pebble-pair__smile {
+  position: absolute;
+  top: 52%;
+  left: 31%;
+  display: block;
+  width: 38%;
+  height: 23%;
+  border-bottom: max(1px, calc(var(--pair-width) * 0.022)) solid currentColor;
+  border-radius: 0 0 999px 999px;
+}
+
+.pebble-pair__cheek {
+  position: absolute;
+  right: -4%;
+  top: 50%;
+  display: block;
+  width: 18%;
+  aspect-ratio: 1.5;
+  border-radius: 50%;
+  background: var(--amika-apricot);
+  opacity: 0.7;
+}
+
+.pebble-pair__face--small .pebble-pair__cheek {
+  right: auto;
+  left: -2%;
+  background: var(--amika-butter);
+}
+
+.pebble-pair--xs .pebble-pair__smile,
+.pebble-pair--xs .pebble-pair__cheek { display: none; }
 
 .pebble-pair__echo { display: none; }
 .pebble-pair--cradle .pebble-pair__large { width: 72%; border-radius: 60% 36% 58% 44% / 64% 48% 52% 36%; }

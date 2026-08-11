@@ -45,6 +45,10 @@ export default async function Image() {
               d="M22 95C7 59 22 17 55 9c30-7 51 16 43 44-5 18-18 27-29 38-8 7-10 15-7 24-18 2-33-5-40-20Z"
               fill="#66705A"
             />
+            <circle cx="47" cy="46" r="6" fill="#FFF1DF" />
+            <circle cx="66" cy="44" r="6" fill="#FFF1DF" />
+            <path d="M51 61q7 7 15-1" stroke="#FFF1DF" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+            <ellipse cx="76" cy="63" rx="4.5" ry="3" fill="#E8B080" opacity=".82" />
           </svg>
           <svg
             width="120"
@@ -58,6 +62,10 @@ export default async function Image() {
               d="M20 67C20 37 43 15 73 18c28 3 45 27 38 54-7 28-34 42-61 32-19-7-31-20-30-37Z"
               fill="#D48768"
             />
+            <circle cx="55" cy="51" r="6" fill="#FFF1DF" />
+            <circle cx="75" cy="49" r="6" fill="#FFF1DF" />
+            <path d="M59 67q7 7 15-1" stroke="#FFF1DF" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+            <ellipse cx="47" cy="69" rx="4.5" ry="3" fill="#F2DBA6" opacity=".88" />
           </svg>
         </div>
 

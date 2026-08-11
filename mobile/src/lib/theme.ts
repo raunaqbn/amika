@@ -5,6 +5,7 @@ export const colors = {
   paper: '#F7EEDF',
   paperDeep: '#F1E4D2',
   white: '#FFFAF2',
+  expression: '#FFF1DF',
   moss: '#59674D',
   mossDeep: '#394238',
   apricot: '#E8B080',

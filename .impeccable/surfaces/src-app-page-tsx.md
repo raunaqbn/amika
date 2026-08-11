@@ -39,7 +39,7 @@ Mascot pose reference: `.impeccable/mocks/amika-pebble-pair-pose-system.png`
 | Friend avatars | Existing profile images plus initials fallback | Use quiet Flax rings and accessible link labels. |
 | Audience and privacy | Semantic selects, labels, and fieldset | Keep “Only me,” selected-friend sharing, and “Public” understandable at the save point; public remains opt-in. |
 | Reactions, replies, privacy, and navigation icons | Lucide icon library | Pair meaning-critical icons with text or accessible names; Terracotta may mark active social state. |
-| Pebble Pair identity | Semantic spans/CSS plus SVG brand assets | Use the two abstract, faceless shapes in small wordmark, composer, icon, social image, and earned-feedback roles. |
+| Pebble Pair identity | Semantic spans/CSS plus SVG brand assets | Use the two abstract, inward-looking shapes in small wordmark, composer, icon, social image, and earned-feedback roles; round eyes, tiny smiles, and one warm cheek keep them cute without becoming detailed characters. |
 | Save confirmation | React state and CSS motion | On successful POST, show “Memory tucked in” for 2.8 seconds with a short Pebble Pair reunion; do not block input or pointer events. |
 | Responsive motion safety | CSS media query | Remove page entrance, confirmation, halo, and Pebble Pair animation under `prefers-reduced-motion: reduce`. |
 
@@ -62,7 +62,7 @@ Mascot pose reference: `.impeccable/mocks/amika-pebble-pair-pose-system.png`
 ## Guardrails
 
 - Keep the page cream-led and photography-led. Apricot appears when capture is requested; Moss marks the persistent plus and decisive save actions.
-- Keep Pebble Pair abstract, cute, and sparingly used. No faces, dialogue, looping behavior, or character lore.
+- Keep Pebble Pair abstract, cute, and sparingly used. Expressions stay tiny and relational; no outward staring, limbs, dialogue, looping behavior, or character lore.
 - Use broad organic corners, quiet Flax boundaries, and soft warm shadows. Do not restore hard outlines or offset print shadows.
 - Avoid scrapbook collage, neon/periwinkle accents, gradients, glass, texture overlays, and arbitrary decorative marks.
 - Preserve existing authentication, friendship, privacy, notifications, messages, journal, and memory behavior.
