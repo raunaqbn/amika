@@ -15,7 +15,7 @@ const responseRequests = new Map<string, Promise<unknown>>();
 let hydratedForToken: string | null | undefined;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
-type StoredApiCache = Array<[string, { value: unknown; updatedAt: number }]>;
+type StoredApiCache = [string, { value: unknown; updatedAt: number }][];
 
 function scheduleApiCacheWrite() {
   const token = tokenCache;

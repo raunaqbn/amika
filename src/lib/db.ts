@@ -1760,6 +1760,57 @@ export const prisma = {
   },
 
   story: {
+    findFeed: async ({ viewerId }: { viewerId: string }) => {
+      await ensureTablesExist();
+      const client = getClient();
+      const result = await client.execute({
+        sql: `SELECT s.id, s.userId, s.content, s.visibility, s.createdAt, s.expiresAt,
+                     (s.imageUrl IS NOT NULL AND s.imageUrl != '') AS hasImage,
+                     u.name AS authorName, u.profileImage AS authorProfileImage,
+                     (SELECT COUNT(*) FROM story_reactions sr WHERE sr.storyId = s.id) AS reactionCount,
+                     (SELECT COUNT(*) FROM story_comments sc WHERE sc.storyId = s.id) AS commentCount,
+                     EXISTS(SELECT 1 FROM story_reactions mine WHERE mine.storyId = s.id AND mine.userId = ? AND mine.emoji = 'heart') AS reactedByMe
+              FROM stories s
+              JOIN users u ON u.id = s.userId
+              WHERE s.expiresAt > ?
+                AND (
+                  s.userId = ?
+                  OR EXISTS (
+                    SELECT 1 FROM user_connections uc
+                    WHERE uc.status = 'accepted'
+                      AND ((uc.requesterId = ? AND uc.addresseeId = s.userId)
+                        OR (uc.addresseeId = ? AND uc.requesterId = s.userId))
+                  )
+                )
+                AND (
+                  s.userId = ?
+                  OR s.visibility = 'public'
+                  OR EXISTS (
+                    SELECT 1 FROM user_connections uc
+                    WHERE uc.status = 'accepted'
+                      AND ((uc.requesterId = ? AND uc.addresseeId = s.userId)
+                        OR (uc.addresseeId = ? AND uc.requesterId = s.userId))
+                  )
+                )
+              ORDER BY CASE WHEN s.userId = ? THEN 0 ELSE 1 END, s.createdAt ASC`,
+        args: [viewerId, new Date().toISOString(), viewerId, viewerId, viewerId, viewerId, viewerId, viewerId, viewerId],
+      });
+      return result.rows.map((row: any) => ({
+        id: row.id as string,
+        userId: row.userId as string,
+        content: row.content as string | null,
+        imageUrl: null,
+        hasImage: Boolean(row.hasImage),
+        visibility: row.visibility as Story['visibility'],
+        createdAt: new Date(row.createdAt as string),
+        expiresAt: new Date(row.expiresAt as string),
+        author: { id: row.userId as string, name: row.authorName as string, profileImage: row.authorProfileImage as string | null },
+        reactionCount: Number(row.reactionCount || 0),
+        commentCount: Number(row.commentCount || 0),
+        reactedByMe: Boolean(row.reactedByMe),
+        isOwn: row.userId === viewerId,
+      }));
+    },
     findActive: async ({ ownerId, viewerId }: { ownerId: string; viewerId: string }) => {
       await ensureTablesExist();
       const client = getClient();

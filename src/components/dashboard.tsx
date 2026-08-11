@@ -33,6 +33,8 @@ import {
   DialogDescription,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { MemorySavedCelebration, PebblePair } from '@/components/pebble-pair';
+import { HomeStories } from '@/components/home-stories';
 
 type Visibility = 'private' | 'friends' | 'public';
 
@@ -88,7 +90,7 @@ function DirectionContract() {
       aria-hidden="true"
       dangerouslySetInnerHTML={{
         __html:
-          '<!-- THESIS: Amika is a daily shared memory, not a planning dashboard or performance feed. OWN-WORLD: Graphite shell, periwinkle daily field, citrus action, coral reactions, sky friend tags, precise ink borders, photo contact sheets, and timestamp strips. STORY: Add today’s moment, choose the people and audience, then move directly into the living friendship conversation. FIRST VIEWPORT: Desktop rail at left, full-width daily composer across the main canvas, active friends in its edge, and the first large memory directly below; mobile begins with the same composer and collapses to one chronological stream. FORM: Group Chat Scrapbook, grounded direction five, Daily Contact Sheet staging, seed f06448bd. -->',
+          '<!-- THESIS: Amika makes an everyday memory feel gently held, replacing the social scrapbook with a calm shared ritual. OWN-WORLD: Oat cream fields, baked apricot moments, deep moss actions, terracotta warmth, quiet flax edges, organic cards, and the two-shape Pebble Pair. STORY: Scan friendship history, open the plus action to capture one small moment, choose its people and privacy, then watch it settle into the stream. FIRST VIEWPORT: A warm cream shell opens directly on memory history with a quiet daily prompt, close friends, and one unmistakable plus action. FORM: Apricot Moss, selected Pebble Pair direction, responsive memory stream with a focused add-memory sheet and reunion save animation. -->',
       }}
     />
   );
@@ -363,6 +365,8 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [saveCelebration, setSaveCelebration] = useState(false);
   const [error, setError] = useState('');
   const [caption, setCaption] = useState('');
   const [friendId, setFriendId] = useState('');
@@ -373,6 +377,7 @@ export function Dashboard() {
   const [selectedMedia, setSelectedMedia] = useState<Array<{ file: File; preview: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedMediaRef = useRef(selectedMedia);
+  const celebrationTimerRef = useRef<number | null>(null);
   selectedMediaRef.current = selectedMedia;
 
   const loadMemories = useCallback(async (cursor?: string) => {
@@ -415,7 +420,20 @@ export function Dashboard() {
     void loadFriends();
   }, [loadFriends, loadMemories]);
 
-  useEffect(() => () => selectedMediaRef.current.forEach((item) => URL.revokeObjectURL(item.preview)), []);
+  useEffect(() => {
+    const openComposer = () => setComposerOpen(true);
+    if (new URLSearchParams(window.location.search).get('compose') === '1') {
+      setComposerOpen(true);
+      window.history.replaceState(window.history.state, '', '/');
+    }
+    window.addEventListener('amika:add-memory', openComposer);
+    return () => window.removeEventListener('amika:add-memory', openComposer);
+  }, []);
+
+  useEffect(() => () => {
+    selectedMediaRef.current.forEach((item) => URL.revokeObjectURL(item.preview));
+    if (celebrationTimerRef.current) window.clearTimeout(celebrationTimerRef.current);
+  }, []);
 
   const flashback = useMemo(() => {
     const previousYear = subYears(new Date(), 1);
@@ -505,6 +523,11 @@ export function Dashboard() {
       setAudienceExpanded(false);
       selectedMedia.forEach((item) => URL.revokeObjectURL(item.preview));
       setSelectedMedia([]);
+      setComposerOpen(false);
+      window.history.replaceState(window.history.state, '', '/');
+      setSaveCelebration(true);
+      if (celebrationTimerRef.current) window.clearTimeout(celebrationTimerRef.current);
+      celebrationTimerRef.current = window.setTimeout(() => setSaveCelebration(false), 2800);
       await loadMemories();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Your memory was not saved.');
@@ -516,11 +539,15 @@ export function Dashboard() {
   return (
     <div className="memory-app-page">
       <DirectionContract />
-      <header className="memory-daily-band">
-        <div className="memory-daily-band__intro">
+      {saveCelebration && <MemorySavedCelebration friendName={selectedFriend?.name} />}
+      <header className="memory-home-header">
+        <div className="memory-home-header__copy">
           <span>{format(new Date(), 'EEEE')}</span>
-          <strong>{format(new Date(), 'MMMM d, yyyy')}</strong>
+          <h1>{format(new Date(), 'MMMM d, yyyy')}</h1>
           <p>What is one small moment from today worth remembering?</p>
+        </div>
+        <div className="memory-home-header__people">
+          <span>Your people</span>
           <div className="memory-friend-strip" aria-label="Friends in your circle">
             {friends.slice(0, 5).map((friend) => (
               <Link key={friend.id} href={`/friends/${friend.id}`} title={friend.name}>
@@ -532,12 +559,31 @@ export function Dashboard() {
             </Link>
           </div>
         </div>
+      </header>
 
-        <form className="memory-composer" onSubmit={submitMemory}>
+      <HomeStories />
+
+      <Dialog open={composerOpen} onOpenChange={(open) => { if (!saving) { setComposerOpen(open); if (!open) window.history.replaceState(window.history.state, '', '/'); } }}>
+        <DialogContent
+          className="memory-composer-dialog"
+          overlayClassName="memory-composer-dialog__overlay"
+          preventAutoFocus={false}
+          showCloseButton={false}
+        >
+          <DialogDescription className="sr-only">
+            Add photos or video, describe the moment, choose a friend, date, and audience, then save it to your memories.
+          </DialogDescription>
+          <form className="memory-composer" onSubmit={submitMemory}>
+          <PebblePair className="memory-composer__pebbles" pose="cradle" size="lg" />
+          <DialogClose asChild>
+            <button className="memory-composer__close" type="button" aria-label="Close add memory" disabled={saving}>
+              <X aria-hidden="true" />
+            </button>
+          </DialogClose>
           <div className="memory-composer__heading">
             <div>
               <span>Daily drop</span>
-              <h1>Today&apos;s memory</h1>
+              <DialogTitle className="memory-composer__title">Today&apos;s memory</DialogTitle>
             </div>
             <span className="memory-composer__privacy">
               {visibility === 'private' ? <LockKeyhole aria-hidden="true" /> : visibility === 'public' ? <Globe2 aria-hidden="true" /> : <UserRound aria-hidden="true" />}
@@ -671,8 +717,9 @@ export function Dashboard() {
             </div>
           )}
           {error && <p className="memory-composer__error" role="alert">{error}</p>}
-        </form>
-      </header>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <div className="memory-feed-layout">
         <main className="memory-feed" aria-busy={loading || loadingMore}>
@@ -689,8 +736,8 @@ export function Dashboard() {
           ) : memories.length === 0 ? (
             <div className="memory-feed__empty">
               <Sparkles aria-hidden="true" />
-              <h3>Your first memory starts above.</h3>
-              <p>Add the tiny moment you would otherwise forget. It does not need to be a milestone.</p>
+              <h3>Your first memory can be tiny.</h3>
+              <p>Use the plus button whenever you are ready to keep a moment.</p>
             </div>
           ) : (
             <>

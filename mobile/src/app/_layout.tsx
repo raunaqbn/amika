@@ -1,12 +1,25 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Stack } from 'expo-router';
+import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/context/auth';
 import { PushNotificationRegistration } from '@/components/push-notification-registration';
 import { Spinner } from '@/components/ui';
 import { colors } from '@/lib/theme';
+
+const amikaTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: colors.moss,
+    background: colors.paper,
+    card: colors.white,
+    text: colors.mossDeep,
+    border: colors.flax,
+    notification: colors.terracotta,
+  },
+};
 
 function Navigation() {
   const { user, loading } = useAuth();
@@ -26,7 +39,7 @@ function Navigation() {
 }
 
 export default function RootLayout() {
-  return <SafeAreaProvider><AuthProvider><StatusBar style="dark" /><Navigation /></AuthProvider></SafeAreaProvider>;
+  return <SafeAreaProvider><ThemeProvider value={amikaTheme}><AuthProvider><StatusBar style="dark" /><Navigation /></AuthProvider></ThemeProvider></SafeAreaProvider>;
 }
 
 const styles = StyleSheet.create({ loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.paper } });

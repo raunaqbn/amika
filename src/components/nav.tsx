@@ -2,25 +2,26 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   Bell,
   BookOpen,
-  Compass,
   Home,
   LogOut,
   MessageCircle,
+  PlusCircle,
   User,
   Users,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useNotificationCount } from '@/hooks/use-data';
+import { PebblePair } from '@/components/pebble-pair';
 
 const primaryLinks = [
   { href: '/', icon: Home, label: 'Home' },
   { href: '/friends', icon: Users, label: 'Friends' },
-  { href: '/explore', icon: Compass, label: 'Discover' },
+  { href: '/?compose=1', icon: PlusCircle, label: 'Add', add: true },
   { href: '/messages', icon: MessageCircle, label: 'Messages' },
   { href: '/diary', icon: BookOpen, label: 'Journal' },
 ];
@@ -51,18 +52,23 @@ export function Nav() {
   if (pathname === '/signin' || pathname === '/signup' || (!loading && !user)) return null;
   if (!user) return null;
 
-  const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.startsWith(href);
+  const isActive = (href: string, add?: boolean) => add ? false : href === '/' ? pathname === '/' : pathname.startsWith(href);
+  const openComposer = (event: MouseEvent<HTMLAnchorElement>, add?: boolean) => {
+    if (!add || pathname !== '/') return;
+    event.preventDefault();
+    window.dispatchEvent(new CustomEvent('amika:add-memory'));
+  };
 
   return (
     <>
       <aside className="app-rail" aria-label="Primary navigation">
-        <Link className="app-wordmark" href="/" aria-label="Amika home">amika</Link>
+        <Link className="app-wordmark" href="/" aria-label="Amika home">amika <PebblePair pose="lean" size="xs" /></Link>
 
         <nav className="app-rail__nav">
           {primaryLinks.map((item) => {
             const Icon = item.icon;
             return (
-              <Link key={item.href} href={item.href} className={isActive(item.href) ? 'is-active' : ''} aria-current={isActive(item.href) ? 'page' : undefined}>
+              <Link key={item.href} href={item.href} onClick={(event) => openComposer(event, item.add)} className={`${isActive(item.href, item.add) ? 'is-active' : ''} ${item.add ? 'is-add' : ''}`} aria-current={isActive(item.href, item.add) ? 'page' : undefined}>
                 <Icon aria-hidden="true" />
                 <span>{item.label}</span>
               </Link>
@@ -99,7 +105,7 @@ export function Nav() {
       </aside>
 
       <header className="mobile-app-bar">
-        <Link className="app-wordmark" href="/">amika</Link>
+        <Link className="app-wordmark" href="/">amika <PebblePair pose="lean" size="xs" /></Link>
         <div>
           <Link href="/notifications" aria-label={`${pendingCount} notifications`}>
             <Bell aria-hidden="true" />
@@ -119,7 +125,7 @@ export function Nav() {
         {primaryLinks.map((item) => {
           const Icon = item.icon;
           return (
-            <Link key={item.href} href={item.href} className={isActive(item.href) ? 'is-active' : ''} aria-current={isActive(item.href) ? 'page' : undefined}>
+            <Link key={item.href} href={item.href} onClick={(event) => openComposer(event, item.add)} className={`${isActive(item.href, item.add) ? 'is-active' : ''} ${item.add ? 'is-add' : ''}`} aria-current={isActive(item.href, item.add) ? 'page' : undefined}>
               <Icon aria-hidden="true" />
               <span>{item.label}</span>
             </Link>

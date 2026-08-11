@@ -1,40 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" fill="none">
-  <defs>
-    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#B5D1B5"/>
-      <stop offset="100%" style="stop-color:#8FB88F"/>
-    </linearGradient>
-  </defs>
-
-  <!-- Background (Apple adds its own rounding) -->
-  <rect width="180" height="180" fill="url(#bgGradient)"/>
-
-  <!-- Two overlapping hearts representing friendship & connection -->
-  <g transform="translate(90, 100)">
-    <!-- Left heart (white/cream) -->
-    <path d="M-60 -40
-             C-60 -72, -28 -84, 0 -56
-             C28 -84, 60 -72, 60 -40
-             C60 8, 0 60, 0 60
-             C0 60, -60 8, -60 -40
-             Z"
-          fill="#FFFBF5"
-          transform="translate(-16, -4) rotate(-12) scale(0.45)"
-          opacity="0.95"/>
-
-    <!-- Right heart (rose pink) - overlapping -->
-    <path d="M-60 -40
-             C-60 -72, -28 -84, 0 -56
-             C28 -84, 60 -72, 60 -40
-             C60 8, 0 60, 0 60
-             C0 60, -60 8, -60 -40
-             Z"
-          fill="#D4A5A5"
-          transform="translate(16, -4) rotate(12) scale(0.45)"
-          opacity="0.9"/>
-  </g>
-
-  <!-- Small sparkle accent -->
-  <circle cx="134" cy="48" r="4" fill="rgba(255,255,255,0.6)"/>
-  <circle cx="142" cy="40" r="2" fill="rgba(255,255,255,0.4)"/>
+  <rect width="180" height="180" fill="#F7EEDF"/>
+  <path d="M39 110c-7-27 4-59 30-68 21-8 41 3 42 24 1 17-8 29-19 38-12 12-15 27-9 39-20 2-38-8-44-33Z" fill="#66705A"/>
+  <path d="M96 115c0-18 14-32 32-30 17 2 28 17 24 33-5 17-21 25-38 19-11-4-19-12-18-22Z" fill="#D48768"/>
+  <path d="M106 117c6 10 15 16 25 17-7 7-17 10-27 6-9-3-15-8-17-15 6 0 12-3 19-8Z" fill="#D6AD5C" opacity=".62"/>
 </svg>

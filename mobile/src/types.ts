@@ -80,6 +80,7 @@ export type Story = {
   commentCount: number;
   reactedByMe: boolean;
   isOwn: boolean;
+  author?: { id: string; name: string; profileImage?: string | null };
 };
 
 export type StoryComment = {
@@ -141,5 +142,5 @@ export type JournalNote = {
   imageUrl?: string | null;
   analysis?: string | null;
   createdAt: string;
-  friends?: Array<{ id: string; name: string }>;
+  friends?: { id: string; name: string }[];
 };

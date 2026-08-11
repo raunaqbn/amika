@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Images } from 'lucide-react';
 
 export type MemoryMedia = {
@@ -11,6 +11,23 @@ export type MemoryMedia = {
   height?: number;
   durationMs?: number;
 };
+
+function AutoVideo({ src, label, controls }: { src: string; label: string; controls: boolean }) {
+  const ref = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.45) void video.play().catch(() => {});
+      else video.pause();
+    }, { threshold: [0, 0.45, 0.8] });
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, [src]);
+
+  return <video ref={ref} src={src} autoPlay muted loop playsInline controls={controls} preload="metadata" aria-label={label} />;
+}
 
 export function MemoryMediaCarousel({ media, label, onOpen, detail = false }: {
   media: MemoryMedia[];
@@ -28,7 +45,7 @@ export function MemoryMediaCarousel({ media, label, onOpen, detail = false }: {
     {active.type === 'image' ? <button type="button" className="memory-media-carousel__stage" onClick={onOpen} aria-label={`Open ${label}, photo ${index + 1} of ${media.length}`}>
       <Image src={active.url} alt={label} fill sizes={detail ? '100vw' : '(max-width: 820px) 100vw, 420px'} className="object-contain" unoptimized />
     </button> : <div className="memory-media-carousel__stage">
-      <video src={active.url} controls playsInline preload="metadata" aria-label={`${label}, video ${index + 1} of ${media.length}`} />
+      <AutoVideo src={active.url} controls={detail} label={`${label}, video ${index + 1} of ${media.length}`} />
     </div>}
     {media.length > 1 && <>
       <span className="memory-media-carousel__count"><Images aria-hidden="true" />{index + 1}/{media.length}</span>

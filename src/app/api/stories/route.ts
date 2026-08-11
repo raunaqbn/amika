@@ -10,8 +10,11 @@ export async function GET(request: NextRequest) {
   const viewerId = await getUserId();
   if (!viewerId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const ownerId = new URL(request.url).searchParams.get('userId') || viewerId;
-  const stories = await prisma.story.findActive({ ownerId, viewerId });
+  const params = new URL(request.url).searchParams;
+  const ownerId = params.get('userId');
+  const stories = params.get('scope') === 'feed'
+    ? await prisma.story.findFeed({ viewerId })
+    : await prisma.story.findActive({ ownerId: ownerId || viewerId, viewerId });
   return NextResponse.json(stories.map((story) => ({
     ...story,
     imageUrl: story.hasImage ? mediaImageUrl(request, 'story', story.id) : null,

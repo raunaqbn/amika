@@ -1,17 +1,33 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Tabs } from 'expo-router';
-import { BookHeart, Home, MessageCircle, Plus, Users } from 'lucide-react-native';
-import { border, colors, type } from '@/lib/theme';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { colors } from '@/lib/theme';
 import { useNotificationCount } from '@/hooks/use-notification-count';
 
-const icons = { index: Home, friends: Users, add: Plus, messages: MessageCircle, journal: BookHeart };
+const contentStyle = { backgroundColor: colors.paper };
 
 export default function TabsLayout() {
   const { chatNotifications } = useNotificationCount(true);
-  return <Tabs screenOptions={({ route }) => ({ headerShown: false, tabBarActiveTintColor: colors.ink, tabBarInactiveTintColor: colors.muted, tabBarLabelStyle: styles.label, tabBarStyle: styles.bar, tabBarItemStyle: styles.item, tabBarIcon: ({ color, focused }) => { const Icon = icons[route.name as keyof typeof icons]; return route.name === 'add' ? <View style={styles.add}><Icon size={25} color={colors.ink} strokeWidth={2.5} /></View> : <Icon size={22} color={color} fill={focused && route.name === 'index' ? colors.citrus : 'transparent'} />; } })}>
-    <Tabs.Screen name="index" options={{ title: 'Home' }} /><Tabs.Screen name="friends" options={{ title: 'Friends' }} /><Tabs.Screen name="add" options={{ title: 'Add' }} /><Tabs.Screen name="messages" options={{ title: 'Messages', tabBarBadge: chatNotifications || undefined, tabBarBadgeStyle: styles.tabBadge }} /><Tabs.Screen name="journal" options={{ title: 'Journal' }} />
-  </Tabs>;
+  return <NativeTabs tintColor={colors.moss} labelStyle={{ color: colors.mossDeep }}>
+    <NativeTabs.Trigger name="index" contentStyle={contentStyle} disableTransparentOnScrollEdge>
+      <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} md={{ default: 'home', selected: 'home_filled' }} />
+      <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+    </NativeTabs.Trigger>
+    <NativeTabs.Trigger name="friends" contentStyle={contentStyle} disableTransparentOnScrollEdge>
+      <NativeTabs.Trigger.Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} md={{ default: 'group', selected: 'group' }} />
+      <NativeTabs.Trigger.Label>Friends</NativeTabs.Trigger.Label>
+    </NativeTabs.Trigger>
+    <NativeTabs.Trigger name="add" contentStyle={contentStyle} disableTransparentOnScrollEdge>
+      <NativeTabs.Trigger.Icon sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }} md={{ default: 'add_circle', selected: 'add_circle' }} />
+      <NativeTabs.Trigger.Label>Add</NativeTabs.Trigger.Label>
+    </NativeTabs.Trigger>
+    <NativeTabs.Trigger name="messages" contentStyle={contentStyle} disableTransparentOnScrollEdge>
+      <NativeTabs.Trigger.Icon sf={{ default: 'message', selected: 'message.fill' }} md={{ default: 'chat_bubble', selected: 'chat_bubble' }} />
+      <NativeTabs.Trigger.Label>Messages</NativeTabs.Trigger.Label>
+      {chatNotifications ? <NativeTabs.Trigger.Badge>{chatNotifications > 9 ? '9+' : String(chatNotifications)}</NativeTabs.Trigger.Badge> : null}
+    </NativeTabs.Trigger>
+    <NativeTabs.Trigger name="journal" contentStyle={contentStyle} disableTransparentOnScrollEdge>
+      <NativeTabs.Trigger.Icon sf={{ default: 'book.closed', selected: 'book.closed.fill' }} md={{ default: 'book', selected: 'book' }} />
+      <NativeTabs.Trigger.Label>Journal</NativeTabs.Trigger.Label>
+    </NativeTabs.Trigger>
+  </NativeTabs>;
 }
-
-const styles = StyleSheet.create({ bar: { backgroundColor: colors.white, borderTopWidth: 1.5, borderTopColor: colors.line, height: 82, paddingTop: 8 }, item: { paddingTop: 2 }, label: { fontFamily: type.heavy, fontSize: 10 }, tabBadge: { minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.citrus, color: colors.ink, fontFamily: type.heavy, fontSize: 9, borderWidth: 1, borderColor: colors.line }, add: { width: 47, height: 47, marginTop: -20, borderRadius: 15, backgroundColor: colors.citrus, alignItems: 'center', justifyContent: 'center', ...border }, });

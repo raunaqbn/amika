@@ -8,12 +8,13 @@ import { colors, type } from '@/lib/theme';
 import type { MemoryMedia } from '@/types';
 
 type PlayerComponent = React.ComponentType<{
+  contentFit: 'contain' | 'cover';
   height: number;
   source: ReturnType<typeof mediaSource>;
   width: number;
 }>;
 
-function VideoSlide({ active, height, item, width }: { active: boolean; height: number; item: MemoryMedia; width: number }) {
+function VideoSlide({ active, contentFit, height, item, width }: { active: boolean; contentFit: 'contain' | 'cover'; height: number; item: MemoryMedia; width: number }) {
   const [Player, setPlayer] = useState<PlayerComponent | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -26,7 +27,7 @@ function VideoSlide({ active, height, item, width }: { active: boolean; height: 
     };
   }, []);
 
-  async function loadPlayer() {
+  const loadPlayer = useCallback(async () => {
     if (loading || Player) return;
     setLoading(true);
     setError(false);
@@ -38,30 +39,36 @@ function VideoSlide({ active, height, item, width }: { active: boolean; height: 
     } finally {
       if (mounted.current) setLoading(false);
     }
-  }
+  }, [loading, Player]);
 
-  if (Player && active) return <Player height={height} source={mediaSource(item.url)} width={width} />;
+  useEffect(() => {
+    if (active && !Player && !loading) void loadPlayer();
+  }, [active, loadPlayer, loading, Player]);
+
+  if (Player && active) return <Player contentFit={contentFit} height={height} source={mediaSource(item.url)} width={width} />;
   return <Pressable
     accessibilityRole="button"
-    accessibilityLabel={error ? 'Video unavailable' : 'Play video'}
+    accessibilityLabel={error ? 'Video unavailable' : active ? 'Loading video' : 'Video paused offscreen'}
     disabled={loading}
     onPress={() => void loadPlayer()}
     style={[styles.videoPlaceholder, { width, height }]}
   >
     <View style={styles.playButton}>{error ? <CircleAlert size={24} color={colors.white} /> : <Play size={25} color={colors.white} fill={colors.white} />}</View>
-    <Text style={styles.videoTitle}>{error ? 'Video unavailable' : loading ? 'Opening video…' : 'Tap to play'}</Text>
-    <Text style={styles.videoHint}>{error ? 'Try again after updating Amika.' : 'Video stays paused until you choose it.'}</Text>
+    <Text style={styles.videoTitle}>{error ? 'Video unavailable' : loading ? 'Starting video…' : 'Video'}</Text>
+    <Text style={styles.videoHint}>{error ? 'Try again after updating Amika.' : 'Plays automatically while this post is visible.'}</Text>
   </Pressable>;
 }
 
 export const MemoryMediaCarousel = memo(function MemoryMediaCarousel({
   media,
   height,
+  detail = false,
   onPressImage,
   playbackEnabled = true,
 }: {
   media: MemoryMedia[];
   height: number;
+  detail?: boolean;
   onPressImage?: () => void;
   playbackEnabled?: boolean;
 }) {
@@ -94,10 +101,10 @@ export const MemoryMediaCarousel = memo(function MemoryMediaCarousel({
       onMomentumScrollEnd={(event) => setIndex(Math.round(event.nativeEvent.contentOffset.x / width))}
     >
       {media.map((item, mediaIndex) => item.type === 'video'
-        ? <VideoSlide active={videoPlaybackEnabled && mediaIndex === index} height={height} item={item} key={`${item.url}-${mediaIndex}`} width={width} />
+        ? <VideoSlide active={videoPlaybackEnabled && mediaIndex === index} contentFit={detail ? 'contain' : 'cover'} height={height} item={item} key={`${item.url}-${mediaIndex}`} width={width} />
         : <Pressable accessibilityRole="imagebutton" accessibilityLabel={`Open photo ${mediaIndex + 1} of ${media.length}`} key={`${item.url}-${mediaIndex}`} onPress={onPressImage}>
           {Math.abs(mediaIndex - index) <= 1
-            ? <Image source={imageSource(item.url)} style={{ width, height }} contentFit="contain" cachePolicy="memory-disk" recyclingKey={item.url} enforceEarlyResizing />
+            ? <Image source={imageSource(item.url)} style={{ width, height }} contentFit={detail ? 'contain' : 'cover'} cachePolicy="memory-disk" recyclingKey={item.url} enforceEarlyResizing />
             : <View style={{ width, height, backgroundColor: colors.ink }} />}
         </Pressable>)}
     </ScrollView> : null}

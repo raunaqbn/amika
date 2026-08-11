@@ -5,7 +5,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import { formatDistanceToNow } from 'date-fns';
 import { ChevronLeft, ChevronRight, Globe2, Heart, ImagePlus, LoaderCircle, LockKeyhole, Plus, Send, Trash2, X } from 'lucide-react';
 
-type Story = {
+export type Story = {
   id: string;
   userId: string;
   content: string | null;
@@ -17,6 +17,7 @@ type Story = {
   commentCount: number;
   reactedByMe: boolean;
   isOwn: boolean;
+  author?: { id: string; name: string; profileImage: string | null };
 };
 
 type StoryComment = {
@@ -178,7 +179,7 @@ export function ProfileStories({
   );
 }
 
-function StoryViewer({ story, ownerName, ownerImage, position, total, onClose, onPrevious, onNext, onRefresh, onDeleted }: {
+export function StoryViewer({ story, ownerName, ownerImage, position, total, onClose, onPrevious, onNext, onRefresh, onDeleted }: {
   story: Story; ownerName: string; ownerImage?: string | null; position: number; total: number;
   onClose: () => void; onPrevious: () => void; onNext: () => void; onRefresh: () => Promise<void>; onDeleted: () => void;
 }) {

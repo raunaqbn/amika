@@ -1,19 +1,26 @@
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 export const colors = {
-  ink: '#20201F',
-  paper: '#F7F2E8',
-  paperDeep: '#EEE7D9',
-  white: '#FFFCF6',
-  periwinkle: '#9EA8F8',
-  periwinkleDark: '#6470CF',
-  citrus: '#FFD44D',
-  rose: '#F6A8A0',
-  sage: '#A8CDAE',
-  sky: '#A9D7F2',
-  muted: '#746F68',
-  danger: '#B94343',
-  line: '#292826',
+  ink: '#394238',
+  paper: '#F7EEDF',
+  paperDeep: '#F1E4D2',
+  white: '#FFFAF2',
+  moss: '#59674D',
+  mossDeep: '#394238',
+  apricot: '#E8B080',
+  apricotSoft: '#F3D5BE',
+  terracotta: '#BF7057',
+  butter: '#F2DBA6',
+  flax: '#DCCFB9',
+  periwinkle: '#E8B080',
+  periwinkleDark: '#8F513F',
+  citrus: '#E8B080',
+  rose: '#D98B76',
+  sage: '#DDE5D8',
+  sky: '#DCE8DB',
+  muted: '#625C52',
+  danger: '#A7493D',
+  line: '#DCCFB9',
 };
 
 export const type = {
@@ -23,19 +30,19 @@ export const type = {
 };
 
 export const shadow = {
-  shadowColor: colors.ink,
-  shadowOffset: { width: 4, height: 4 },
-  shadowOpacity: 1,
-  shadowRadius: 0,
-  elevation: 5,
+  shadowColor: '#594B39',
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: .11,
+  shadowRadius: 18,
+  elevation: 4,
 };
 
-export const border = { borderWidth: 1.5, borderColor: colors.line };
+export const border = { borderWidth: StyleSheet.hairlineWidth, borderColor: colors.flax };
 
 export const directionContract = {
   thesis: 'Daily memory capture for real friendships—not a generic social feed or planning dashboard.',
-  world: 'Graphite ink, warm paper, periwinkle and citrus, crisp borders, hard print shadows, Avenir.',
-  story: 'Capture today, choose the people and privacy, then save it into a shared friendship stream.',
-  firstViewport: 'A periwinkle folded memory packet leads into a chronological tactile feed and five tabs.',
-  form: 'Pocket Accordion; grounded structure candidate 6; seed 2e7d7b8a.',
+  world: 'Oat cream, baked apricot, deep moss, terracotta warmth, quiet flax edges, and the abstract Pebble Pair.',
+  story: 'Open fresh stories from your circle, keep one small memory, choose its people and privacy, then watch the Pebble Pair bring it home.',
+  firstViewport: 'Stories lead a warm cream home feed; a native five-tab bar keeps Add Memory in the center.',
+  form: 'Apricot Moss with native iOS Liquid Glass navigation and soft, organic memory surfaces.',
 } as const;

@@ -1,47 +1,38 @@
 ---
-name: Amika Memory System
-description: A bright, tactile social scrapbook for capturing daily memories with close friends.
+name: Amika Apricot Moss
+description: A warm, calm memory ritual held by cream, apricot, moss, and the Pebble Pair.
 colors:
-  graphite-ink: "#15161e"
-  graphite-soft: "#30313d"
-  paper: "#f7f7f2"
-  white: "#ffffff"
-  periwinkle: "#7b74ff"
-  periwinkle-deep: "#5b50ed"
-  citrus: "#dfff4f"
-  coral: "#ff7163"
-  sky: "#79dcfa"
-  pencil-line: "#c9c9c2"
-  muted-ink: "#65666f"
-  mobile-graphite: "#20201F"
-  mobile-paper: "#F7F2E8"
-  mobile-paper-deep: "#EEE7D9"
-  mobile-white: "#FFFCF6"
-  mobile-periwinkle: "#9EA8F8"
-  mobile-periwinkle-deep: "#6470CF"
-  mobile-citrus: "#FFD44D"
-  mobile-rose: "#F6A8A0"
-  mobile-sage: "#A8CDAE"
-  mobile-sky: "#A9D7F2"
-  mobile-muted: "#746F68"
-  mobile-danger: "#B94343"
-  mobile-line: "#292826"
+  moss-deep: "#394238"
+  moss: "#59674d"
+  pebble-moss: "#66705a"
+  oat-cream: "#f7eedf"
+  warm-white: "#fffaf2"
+  cream-deep: "#f1e4d2"
+  flax: "#dccfb9"
+  baked-apricot: "#e8b080"
+  apricot-soft: "#f3cfad"
+  pebble-clay: "#d48768"
+  terracotta: "#bf7057"
+  butter: "#d6ad5c"
+  cocoa: "#675044"
+  muted-ink: "#625c52"
+  danger: "#a7493d"
 typography:
   display:
     fontFamily: '"Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif'
-    fontSize: "clamp(3rem, 7vw, 6.4rem)"
+    fontSize: "clamp(3.2rem, 7vw, 7rem)"
     fontWeight: 800
     lineHeight: 0.9
     letterSpacing: "-0.04em"
   headline:
     fontFamily: '"Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif'
-    fontSize: "clamp(1.5rem, 2.4vw, 2.8rem)"
+    fontSize: "clamp(1.5rem, 2.4vw, 2.4rem)"
     fontWeight: 800
     lineHeight: 1
     letterSpacing: "-0.035em"
   title:
     fontFamily: '"Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif'
-    fontSize: "1.15rem"
+    fontSize: "1.22rem"
     fontWeight: 800
     lineHeight: 1.1
     letterSpacing: "-0.025em"
@@ -53,302 +44,238 @@ typography:
     letterSpacing: "normal"
   label:
     fontFamily: '"Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif'
-    fontSize: "0.75rem"
-    fontWeight: 850
+    fontSize: "0.72rem"
+    fontWeight: 750
     lineHeight: 1.2
-    letterSpacing: "0.04em"
+    letterSpacing: "0.015em"
 rounded:
-  tag: "5px"
-  control: "8px"
-  field: "10px"
-  card: "12px"
-  surface: "14px"
+  control: "14px"
+  card: "18px"
+  mobile-card: "20px"
+  signature: "24px"
   pill: "999px"
-  mobile-control: "14px"
-  mobile-card: "18px"
-  mobile-packet: "20px"
-  mobile-pill: "22px"
 spacing:
-  xs: "6px"
+  xs: "5px"
   sm: "8px"
   md: "14px"
   lg: "18px"
-  xl: "28px"
-  2xl: "54px"
-  mobile-row: "10px"
-  mobile-screen: "16px"
-  mobile-section: "15px"
+  xl: "24px"
+  2xl: "30px"
+  section: "64px"
 components:
   button-primary:
-    backgroundColor: "{colors.citrus}"
-    textColor: "{colors.graphite-ink}"
+    backgroundColor: "{colors.moss}"
+    textColor: "{colors.warm-white}"
     typography: "{typography.label}"
     rounded: "{rounded.control}"
     padding: "0 18px"
     height: "44px"
   button-secondary:
-    backgroundColor: "{colors.white}"
-    textColor: "{colors.graphite-ink}"
+    backgroundColor: "{colors.warm-white}"
+    textColor: "{colors.moss-deep}"
     typography: "{typography.label}"
     rounded: "{rounded.control}"
-    padding: "0 12px"
+    padding: "0 14px"
     height: "44px"
   input:
-    backgroundColor: "{colors.white}"
-    textColor: "{colors.graphite-ink}"
+    backgroundColor: "{colors.warm-white}"
+    textColor: "{colors.moss-deep}"
     typography: "{typography.body}"
-    rounded: "{rounded.field}"
+    rounded: "{rounded.control}"
     padding: "0 14px"
     height: "48px"
-  chip:
-    backgroundColor: "{colors.sky}"
-    textColor: "{colors.graphite-ink}"
-    typography: "{typography.label}"
-    rounded: "{rounded.tag}"
-    padding: "5px 7px"
   card:
-    backgroundColor: "{colors.white}"
-    textColor: "{colors.graphite-ink}"
+    backgroundColor: "{colors.warm-white}"
+    textColor: "{colors.moss-deep}"
     rounded: "{rounded.card}"
-    padding: "14px"
+    padding: "18px"
+  composer:
+    backgroundColor: "{colors.baked-apricot}"
+    textColor: "{colors.moss-deep}"
+    rounded: "{rounded.signature}"
+    padding: "24px"
   nav-active:
-    backgroundColor: "{colors.periwinkle}"
-    textColor: "{colors.graphite-ink}"
+    backgroundColor: "{colors.cream-deep}"
+    textColor: "{colors.moss}"
     typography: "{typography.body}"
-    rounded: "{rounded.field}"
+    rounded: "{rounded.control}"
     padding: "0 12px"
-    height: "46px"
-  mobile-memory-submit:
-    backgroundColor: "{colors.mobile-graphite}"
-    textColor: "{colors.mobile-white}"
-    rounded: "{rounded.mobile-control}"
-    padding: "0 18px"
     height: "48px"
-  mobile-field:
-    backgroundColor: "{colors.mobile-white}"
-    textColor: "{colors.mobile-graphite}"
-    rounded: "{rounded.mobile-control}"
-    padding: "0 15px"
-    height: "50px"
-  mobile-memory-card:
-    backgroundColor: "{colors.mobile-white}"
-    textColor: "{colors.mobile-graphite}"
-    rounded: "{rounded.mobile-card}"
-    padding: "16px"
-  mobile-add-tab:
-    backgroundColor: "{colors.mobile-citrus}"
-    textColor: "{colors.mobile-graphite}"
-    rounded: "{rounded.mobile-control}"
-    height: "47px"
-    width: "47px"
-  mobile-notification-bell:
-    backgroundColor: "{colors.mobile-white}"
-    textColor: "{colors.mobile-graphite}"
-    rounded: "{rounded.mobile-control}"
-    height: "42px"
-    width: "42px"
-  mobile-notification-badge:
-    backgroundColor: "{colors.mobile-citrus}"
-    textColor: "{colors.mobile-graphite}"
-    rounded: "{rounded.mobile-pill}"
-    height: "20px"
+  save-celebration:
+    backgroundColor: "{colors.warm-white}"
+    textColor: "{colors.moss-deep}"
+    rounded: "{rounded.signature}"
+    padding: "24px"
+    width: "min(92vw, 390px)"
 ---
 
-# Design System: Amika Memory System
+# Design System: Amika Apricot Moss
 
 ## Overview
 
-**Creative North Star: "Daily Contact Sheet"**
+**Creative North Star: "A Memory Gently Held"**
 
-Amika should feel like opening a contact sheet assembled by a close group chat: immediate, candid, colorful, and visibly handled. The interface uses strong ink outlines, paper-toned space, and offset print-like shadows so daily moments feel collected rather than optimized. The personality is energetic without becoming noisy; large editorial headings establish place, while compact social details keep the feed intimate and useful.
+Apricot Moss turns recording an everyday moment into a calm shared ritual. The system is warm and fresh without reading as a scrapbook: oat-cream space quiets the canvas, baked apricot gathers attention around capture, and moss gives actions a steady, trustworthy center. Photography and the people in each memory carry the emotional detail; the interface stays soft, clear, and unhurried around them.
 
-The broader direction is a **Group Chat Scrapbook**. Periwinkle creates a recognizable social world, citrus marks the next warm action, and coral or sky distinguish major collections without introducing a corporate dashboard palette. Images, names, dates, replies, and clear privacy cues stay closer to the eye than metrics.
-
-The native iOS and Android expression is **Pocket Accordion**, the grounded structure selected as candidate 6 with seed `2e7d7b8a`. It keeps the Daily Contact Sheet identity while adapting the first viewport into a folded periwinkle packet above one chronological, tactile feed and a five-tab shell. The packet unfolds the whole capture story in place: capture today, choose a friend and privacy, then save the moment into the friendship stream. This is a daily-memory product for real friendships—not a generic social feed, logistics tool, or planning dashboard.
+The signature is the **Pebble Pair**, two abstract organic shapes that suggest closeness without becoming literal characters. Their asymmetry makes the brand friendly and recognizable, while their simple construction lets them work as a tiny wordmark companion, an app icon, a composer detail, or a short moment of delight after a save.
 
 **Key Characteristics:**
 
-- Tactile paper surfaces with dark structural outlines
-- Saturated color fields used as chapter markers, not decoration dust
-- Tight, heavy typography with oversized section statements
-- Offset shadows that evoke stacked prints and pinned notes
-- Dense social context balanced by generous page-level breathing room
-- Responsive navigation that becomes an installed-app-style bottom bar
-- A folded daily-memory packet that expands into the complete native capture ritual
-- Safe-area-aware native screens with one clear vertical reading path
+- Warm cream canvas with apricot, moss, terracotta, butter, and flax accents
+- Quiet tonal layering, soft borders, and broad organic corners
+- Clear hierarchy with short, tightly set headings and relaxed supporting copy
+- One capture-first story: moment, people and privacy, then shared history
+- Real photos and friend identity as the richest visual material
+- Pebble Pair poses used as a restrained brand language, not decorative clutter
+- Responsive shell with a left rail on desktop and fixed app navigation on mobile
 
 ## Colors
 
-The palette pairs near-black graphite and warm paper with friendly, print-bright accents.
+The palette feels sun-warmed and grounded. Exact values in the frontmatter are normative.
 
 ### Primary
 
-- **Graphite Ink** (`#15161e`): The dominant text, outline, rail, and structural shadow color. It keeps the bright palette grounded and makes interaction boundaries unmistakable.
-- **Periwinkle Thread** (`#7b74ff`): The main social identity color for active navigation, daily capture bands, text-only memories, and connected-friend contexts.
-- **Deep Periwinkle** (`#5b50ed`): Link, icon, and small-label emphasis where the lighter periwinkle needs more contrast on paper.
+- **Deep Moss:** Primary text, strong headings, dark authentication surfaces, and the structural half of the brand.
+- **Moss:** Primary actions, links, selected states, and the larger Pebble Pair shape.
+- **Oat Cream:** Default application canvas and the visual pause between memories.
 
 ### Secondary
 
-- **Citrus Note** (`#dfff4f`): The decisive action color for posting, sending, accepting, and compact count badges. Use it for the next meaningful action, not every available action.
-- **Coral Archive** (`#ff7163`): A warm chapter color for archive and historical-memory contexts.
+- **Baked Apricot:** The daily composer, high-warmth moments, and the main capture cue.
+- **Terracotta:** Active mobile navigation, reactions, notification badges, focus emphasis, and the smaller warm accent.
+- **Pebble Clay:** The smaller Pebble Pair shape and a slightly earthier warm accent than the composer.
 
 ### Tertiary
 
-- **Sky Snapshot** (`#79dcfa`): Friend tags, avatars, featured-card shadows, and personal connection surfaces.
+- **Butter:** Flashbacks, small celebratory echoes, and friendly supporting callouts.
+- **Apricot Soft:** Text-only memories, selected sharing rows, profile highlights, and low-intensity warm fields.
 
 ### Neutral
 
-- **Paper** (`#f7f7f2`): The default page canvas and quiet field surface.
-- **White Print** (`#ffffff`): Cards, inputs, and foreground panels that need separation from Paper.
-- **Graphite Soft** (`#30313d`): Secondary dark copy when full Graphite Ink would feel too severe.
-- **Muted Ink** (`#65666f`): Metadata, timestamps, supporting copy, and inactive actions.
-- **Pencil Line** (`#c9c9c2`): Internal dividers; it does not replace the dark outer outlines that define interactive objects.
+- **Warm White:** Foreground cards, fields, navigation, and the save-confirmation surface.
+- **Cream Deep:** Hover and recessed states that need distinction without becoming gray.
+- **Flax:** Card edges, dividers, and quiet control boundaries.
+- **Muted Ink:** Metadata and secondary copy; it remains dark enough for body-sized text.
+- **Cocoa:** Occasional warm-dark supporting accent.
 
-### Native Tonal Adaptation
+**The Warm Center Rule.** Baked Apricot belongs to the memory-capture ritual and a few selected moments. It should not flood every card or action.
 
-- **Mobile Graphite** (`#20201F`) and **Mobile Line** (`#292826`): The native structural ink pair, tuned slightly warmer for full-screen mobile use.
-- **Mobile Paper** (`#F7F2E8`), **Mobile Deep Paper** (`#EEE7D9`), and **Mobile White Print** (`#FFFCF6`): The warmer native canvas, recessed field, and foreground-card layers.
-- **Mobile Periwinkle** (`#9EA8F8`) and **Mobile Deep Periwinkle** (`#6470CF`): The folded daily packet, text-only memories, and small social emphasis.
-- **Mobile Citrus** (`#FFD44D`): The center Add destination, selected controls, avatars, and the locally decisive action.
-- **Mobile Rose** (`#F6A8A0`), **Mobile Sage** (`#A8CDAE`), and **Mobile Sky** (`#A9D7F2`): Supporting friendship, journal, empty-state, and category accents.
-- **Mobile Muted** (`#746F68`) and **Mobile Danger** (`#B94343`): Native metadata and destructive or reacted states.
+**The Moss Action Rule.** Use Moss for the clearest next action. A cluster should not contain several equally weighted moss buttons.
 
-**The Warm Action Rule.** Citrus identifies the most consequential friendly action in a local area; multiple citrus buttons competing in one cluster dilute its meaning.
-
-**The Color Field Rule.** Periwinkle, coral, citrus, and sky appear as meaningful bands, cards, tags, or shadows. Do not scatter them as arbitrary decorative dots.
+**The Earth, Not Autumn Rule.** Keep the field luminous with Oat Cream and Warm White. The palette should feel warm and fuzzy, never brown, rustic, or seasonal.
 
 ## Typography
 
 **Display Font:** Avenir Next (with Avenir, Segoe UI, system-ui, sans-serif fallbacks)
 
 **Body Font:** Avenir Next (with Avenir, Segoe UI, system-ui, sans-serif fallbacks)
-**Label Font:** Avenir Next, using compact heavy uppercase styling
 
-**Character:** One geometric-humanist family creates a conversational, native-app feel. Personality comes from dramatic scale changes, tight display tracking, and compact high-weight labels rather than a decorative font pairing.
-
-**Native platform adaptation:** iOS ships the licensed platform-installed Avenir family (`Avenir`, `Avenir-Medium`, and `Avenir-Heavy`). Android intentionally uses its platform sans families (`sans-serif` and `sans-serif-medium`) so the app remains native, legible, and license-safe while preserving weight, scale, and spacing. This is an approved platform adaptation, not a brand change.
+**Character:** One geometric-humanist family keeps Amika contemporary and conversational. Personality comes from short, tightly tracked headings beside readable body copy rather than from decorative display fonts.
 
 ### Hierarchy
 
-- **Display** (800, `clamp(3rem, 7vw, 6.4rem)`, 0.9): Page and collection statements. Keep it to short phrases and approximately 10–13 characters per line where composition allows.
-- **Headline** (800, `clamp(1.5rem, 2.4vw, 2.8rem)`, 1): Feed, section, and composer headings.
-- **Title** (800, `1.15rem`, 1.1): Friend tiles and named content groups.
-- **Body** (600, `0.86rem`, 1.45): Captions, messages, helper copy, and card prose. Longer explanatory copy should remain near 55–60 characters per line.
-- **Label** (850, `0.75rem`, `0.04em`, uppercase): Eyebrows, privacy states, filter roles, and short metadata categories.
+- **Display** (800, responsive up to `7rem`, 0.9): Landing and major collection statements; keep phrases short.
+- **Headline** (800, responsive up to `2.4rem`, 1): Feed, composer, and section headings.
+- **Title** (800, `1.22rem`, 1.1): Confirmation cards, named groups, and compact feature headings.
+- **Body** (600, `0.86rem`, 1.45): Memory captions, descriptions, messages, and helper copy; target roughly 55–72 characters per line.
+- **Label** (750, `0.72rem`, `0.015em`): Dates, privacy, compact metadata, and actions. Sentence case is preferred; uppercase is reserved for true category eyebrows.
 
-**The Compression Rule.** Display type is large, heavy, tightly tracked, and brief; body text returns immediately to calm, readable spacing.
+**The Gentle Contrast Rule.** Pair one strong heading with quieter supporting copy. Do not stack several oversized or all-caps levels in the same card.
 
 ## Layout
 
-Desktop application pages reserve a fixed 216px left rail. Primary content uses broad editorial bands followed by centered content regions: the home feed is capped at 1420px, while collection pages typically use 1320px. The home contact sheet pairs a fluid two-column memory grid with a 300px activity rail; a featured memory can span both feed columns.
+The authenticated desktop shell reserves a 220px fixed left rail. The home first viewport opens directly on friendship history. A compact cream header holds the date, daily prompt, and close-friend context, while one fixed Moss plus action provides the clear entry point for capture.
 
-Spacing is intentionally bimodal. Controls and social metadata use a compact 6–18px rhythm, while page sections and hero bands breathe at 28–54px or responsive `clamp()` values. This contrast keeps information dense without making the overall page feel cramped.
+Memories flow immediately into the established feed and supporting activity rail. Capture complexity stays hidden until requested; opening the plus action reveals the complete composer, followed by audience and privacy, save confirmation, and the newly settled memory. The interface uses a compact 5–24px rhythm inside controls and cards, while major regions breathe at 30–64px.
 
-At 1120px, the home side rail moves below the feed. At 820px, the desktop rail disappears, the top bar and five-item bottom navigation appear, multi-column feed layouts collapse, and content receives 14–18px side padding. Smaller collection grids collapse between 560px and 620px. Touch controls remain at least 44px high; bottom content accounts for the fixed mobile navigation and safe-area inset.
+At 1120px, supporting feed content reflows. At 820px, the desktop rail disappears, a 66px top bar and fixed bottom navigation take over, and multi-column memory content becomes one stream with 14px side padding. The composer becomes a bottom sheet and both it and the fixed plus action account for the bottom bar and safe-area inset.
 
-The native app is a single-column Pocket Accordion composition. Each screen owns the top safe area, content scrolls beneath a compact header, and the bottom tab bar reserves 82px plus the device inset so controls never collide with a home indicator or system chrome. The first viewport always establishes the daily folded packet before the chronological feed. Home, Friends, Add, Messages, and Journal are the only primary destinations; the center Add control rises slightly from the bar as a 47px citrus square with 14px corners.
+**The Quiet Feed, Clear Action Rule.** The first authenticated viewport prioritizes memory history while keeping one unmistakable plus action available at all times. The capture form never occupies the feed until the user asks for it.
 
-**The Contact Sheet Rule.** Use deliberate grid rhythm and occasional spanning cards to express a collected history; avoid uniform dashboard tile matrices where every object has equal visual weight.
+**The Breathing Stream Rule.** Keep cards orderly and comfortably spaced. Avoid dense dashboard tile matrices or collage-like overlap.
 
 ## Elevation & Depth
 
-Depth is structural and print-like, not ambient. Surfaces use crisp, unblurred offset shadows paired with visible 1.5–2px graphite borders. Standard cards rest on a subtle neutral offset; featured memories and friend tiles may exchange that neutral offset for sky. Major composer and callout panels use a larger graphite offset. Shadows communicate stacked material and interaction, never floating glass.
+Depth is soft and ambient. Warm White cards sit on Oat Cream with flax edges and low-opacity warm shadows; the Apricot composer receives a broader haze only while open above a restrained Moss-tinted focus veil. There are no hard black outlines, offset print shadows, glass decoration, or gradients in the Apricot Moss world.
 
 ### Shadow Vocabulary
 
-- **Quiet Print** (`0 5px 0 #d5d5ce`): Default memory and friend cards.
-- **Pressed Action** (`0 4px 0 #15161e`): Primary buttons and compact action controls; active state compresses to a 1px offset.
-- **Featured Snapshot** (`7px 8px 0 #79dcfa`): Featured memory cards and selected scrapbook material.
-- **Pinned Panel** (`6px 7px 0 #15161e` to `9px 10px 0 #15161e`): Composer, flashback, and major note panels.
-- **Native Hard Print** (`4px 4px 0 #20201F`, with Android elevation 5): Folded packet and card depth in React Native; the offset remains fully opaque with zero blur.
+- **Card Rest** (`0 12px 30px rgb(89 75 57 / 8%)`): Default cards and bounded content panels.
+- **Featured Rest** (`0 16px 38px rgb(89 75 57 / 10%)`): The first memory or deliberately emphasized card.
+- **Composer Warmth** (`0 20px 50px rgb(95 71 49 / 12%)`): The daily capture surface.
+- **Primary Action** (`0 8px 18px rgb(57 66 56 / 16%)`): Moss buttons; compress the shadow on press.
+- **Save Lift** (`0 30px 80px rgb(65 57 45 / 20%)`): The temporary save-confirmation card only.
 
-**The Hard Shadow Rule.** Shadows have zero blur. If a surface needs softer separation, use Paper versus White and Pencil Line dividers instead of adding ambient blur.
-
-**The Flat-at-Rest Rule.** Internal rows and utility areas remain flat; stronger offsets are reserved for cards, decisive controls, and signature panels.
+**The Soft-at-Rest Rule.** Tonal separation and flax edges do most of the work. Use a stronger shadow only for the fixed plus action, the open composer, or the transient save moment.
 
 ## Shapes
 
-Amika uses gently rounded rectangles with visible ink boundaries. Compact tags use 5px corners, actions use 8px, fields use 9–10px, cards use 12px, and signature surfaces use 14px. Pills are reserved for privacy, filters, and counts. Avatars and friend-count emblems are circular and often carry a dark outline.
+Amika uses broad, organic rounded rectangles. Controls are usually 14px, content cards 18px, compact mobile cards 20px, and signature surfaces such as the composer or save confirmation 24px. Pills remain useful for counts and privacy states, but they are not the default container shape.
 
-The native adaptation increases control and surface radii for thumb-scale comfort without becoming soft or inflated: controls and fields use 14px, memory cards use 18px, the folded packet uses 20px, and selectable friend chips use a 22px pill. All retain a 1.5px Mobile Line boundary.
+The Pebble Pair supplies the only intentionally irregular silhouette. Its two rounded shapes use asymmetrical radii and pose changes—lean, cradle, stack, peek, apart, rest, celebrate, and mark—to suggest relationship and mood without faces or limbs.
 
-Corners should feel cut from paper rather than inflated. Borders are normally 1.5px for cards and fields and 2px for primary actions or major panels. Dashed 1.5–2px outlines indicate an empty state or photo drop target.
+Borders are quiet: generally one pixel of Flax or a low-opacity Moss boundary. Focus is more explicit, using Terracotta with a visible two-pixel outline and offset.
 
-**The Honest Edge Rule.** Interactive boundaries are visible. Avoid borderless pale cards whose edges depend only on a shadow.
+**The Organic, Not Blobby Rule.** Use clean rounded containers for interface structure. Reserve irregular forms for the Pebble Pair and rare brand accents.
 
 ## Components
 
 ### Buttons
 
-- **Shape:** Compact paper-cut corners (8–10px) with a 2px Graphite Ink border.
-- **Primary:** Citrus Note with Graphite Ink text, a 44px minimum height, heavy compact labeling, and a hard 4px lower offset.
-- **Hover / Focus:** Hover brightens the citrus or shifts a neutral surface. Keyboard focus uses a visible outline with offset; press states move down 3px while compressing the shadow.
-- **Secondary:** White Print with Graphite Ink border and text. Periwinkle is appropriate for socially connective secondary actions such as adding a friend.
-- **Icon:** Square or circular, at least 36–44px when used alone. Use transparent icon actions only inside an already bounded card or row.
+- **Shape:** Calm rounded controls (14px) with a 44px minimum height.
+- **Primary:** Moss background with Warm White text and a low ambient shadow.
+- **Hover / Focus:** Hover darkens Moss slightly; press moves down 2px and tightens the shadow. Keyboard focus uses a visible Terracotta outline with offset.
+- **Secondary:** Warm White with a Flax edge and Deep Moss copy; avoid adding shadow unless the control needs clear elevation.
 
 ### Chips
 
-- **Style:** Friend tags use Sky Snapshot, a dark blue-green 1px border, and 5px corners. Privacy and filter controls use pill geometry with a Graphite Ink outline.
-- **State:** Selected filters switch to Periwinkle Thread and gain a compact hard shadow. Unselected filters remain White Print.
+- **Style:** Friend tags use a pale sage field with a muted moss edge. Privacy indicators use translucent Warm White on Apricot or a simple rounded field on neutral surfaces.
+- **State:** Selected audience rows use Apricot Soft. Labels stay plain-language and identify who can see a memory.
 
 ### Cards / Containers
 
-- **Corner Style:** 12px for memory cards; 14px for composer, flashback, and empty-state surfaces.
-- **Background:** White Print on Paper, with Periwinkle Thread for text-only memories and signature social panels.
-- **Shadow Strategy:** Quiet Print by default; Featured Snapshot only for content granted intentional emphasis.
-- **Border:** 1.5px Graphite Ink, increasing to 2px for featured or signature surfaces.
-- **Internal Padding:** 13–18px for standard card zones; 18–30px for signature panels.
+- **Corner Style:** 18px by default; 16–20px on compact responsive variants.
+- **Background:** Warm White on Oat Cream, Apricot Soft for text-only memories, and Butter for flashback callouts.
+- **Shadow Strategy:** Card Rest at default and Featured Rest only when hierarchy warrants it.
+- **Border:** One pixel of Flax or a semantic earth-toned edge.
+- **Internal Padding:** Usually 14–24px, increasing for sparse or signature panels.
 
 ### Inputs / Fields
 
-- **Style:** White Print or Paper fill, 1.5px Graphite Ink border, 9–10px corners, and a 44–48px minimum height. Multiline memory fields use generous 14px inset spacing.
-- **Focus:** Border or focus outline shifts to Citrus Note against dark surfaces while retaining a clear shape boundary.
-- **Error / Disabled:** Errors use a pale coral field with a dark red outline and text. Disabled controls reduce opacity and remove the action shadow without changing layout.
+- **Style:** Warm White or translucent Warm White, a quiet Flax/Moss boundary, 14px corners, and a 44–48px minimum height.
+- **Focus:** A clear Terracotta outline; never rely on color fill alone.
+- **Error / Disabled:** Errors use muted red copy and a pale clay-red field. Disabled controls preserve layout and readable labels while removing action emphasis.
 
 ### Navigation
 
-Desktop navigation is a dark fixed rail with a bold lowercase wordmark, simple line icons, and compact labels. The active destination becomes a Periwinkle Thread block with Graphite Ink text and a 5px dark-violet offset. Hover moves a row 2px to the right. On mobile, navigation becomes a dark top app bar plus a five-item bottom bar; the active item uses a compact Periwinkle Thread field without introducing a separate floating dock.
-
-The native shell uses exactly five persistent destinations—Home, Friends, Add, Messages, and Journal—inside a White Print bar with a 1.5px Mobile Line top edge. Labels use compact heavy platform type at 10px. The center Add destination is a 47px Mobile Citrus control, lifted 20px into the content edge; screens and overlays must account for both the bar and device safe-area inset.
+Desktop navigation is a fixed Warm White rail with Deep Moss identity, quiet icon-and-label rows, and a Cream Deep active field. The tiny leaning Pebble Pair sits beside the wordmark. A circular Moss plus action floats above content at the lower-right. At 820px and below, navigation becomes a Warm White top bar plus fixed five-item bottom bar; the plus action sits safely above it and Terracotta identifies the active destination.
 
 ### Memory Composer
 
-The signature composer is a Paper panel sitting directly on the Periwinkle daily band. It combines a dashed photo target, a large plain-language caption field, explicit friend/date/privacy controls, and one Citrus action. Its strong graphite offset makes the daily ritual the clearest object in the first viewport.
+The signature composer is progressively disclosed by the plus action rather than permanently occupying the home header. On desktop it opens as a focused, centered 24px Baked Apricot surface; on mobile it becomes a bottom sheet. It contains one uninterrupted capture flow: media, a few words, friend, date, visibility, and one Moss save action. A cradling Pebble Pair rests at its edge. Translucent warm-white controls keep the form legible without breaking the color field into a grid of white cards. Closing preserves an unfinished draft; successful save closes the sheet and returns focus before the mascot confirmation appears.
 
-On native, this becomes the folded **Pocket Accordion** packet. Its 92px periwinkle header remains visible whether collapsed or expanded, a citrus spark tile and plain-language prompt identify the ritual, and a 42px folded edge summarizes the available actions. Expanding reveals camera/library controls, a multiline moment field, friend chips, Friends versus Only Me privacy choices, and one 48px graphite save action. The packet uses 20px corners, a 1.5px Mobile Line boundary, and the Native Hard Print shadow.
+### Pebble Pair and Save Confirmation
 
-### Memory Contact Sheet
+Pebble Pair is an abstract relationship mark, not a talking mascot. Tiny poses may accompany the wordmark; medium poses may support empty states or the composer. After a successful save, the pair performs one restrained reunion: the moss pebble settles in, the clay pebble arcs home, and butter/terracotta/apricot echoes briefly appear. A non-blocking live-status card reads “Memory tucked in,” lasts 2.8 seconds, and sits above the mobile bottom navigation. Under `prefers-reduced-motion: reduce`, all entrance, reunion, halo, and lifecycle animations are removed while the confirmation remains understandable.
 
-Memory cards preserve a consistent author header, dated image or periwinkle text field, caption and friend tag, then lightweight social actions. Featured cards span the grid and use a sky offset, but the information model remains identical so emphasis never changes behavior.
-
-Native memory cards retain the same information order in a single stream. They use an 18px Mobile White Print surface, 1.5px line, and hard 4px offset; media keeps a 4:3 contact-sheet ratio while text-only memories become a minimum 160px periwinkle field. Tapping anywhere on the memory opens a full-screen safe-area-aware viewer: the complete image is shown with `contain`, followed by date, audience, caption, reactions, replies, and a keyboard-safe reply field. The full picture is never trapped in the feed crop.
-
-### Notifications
-
-The native header bell is a reusable 42px Mobile White Print control with 14px corners and a 1.5px Mobile Line edge. When unread activity exists, the bell fills Mobile Periwinkle and a 20px Mobile Citrus badge overlaps its upper-right edge; counts above nine display `9+`. The same citrus, ink-edged count treatment appears on unread message rows and the Messages tab so urgency stays recognizable without adding a new warning color.
-
-The notification center groups only actionable friendship activity under compact uppercase section labels: **Shared with you**, **Messages**, and **Friend requests**. A shared-memory or journal-note card preserves its author, time, optional 4:3 image, and full text, then makes **Save to my memories** or **Save to my journal** the single citrus action; dismiss remains a separate 48px White Print icon control. Saving provides success haptics and confirmation, removes the pending card, refreshes counts, and makes the item available in its destination. Message pushes deep-link to the relevant conversation; other pushes open the notification center. Foreground notifications may use the platform banner, list, sound, and app badge, but they must keep the in-app bell, Messages badge, and app-icon count synchronized.
+**The Earned Motion Rule.** Mascot motion rewards a completed memory or clarifies state. It does not loop, interrupt input, or compete with photography.
 
 ## Do's and Don'ts
 
-### Do:
+### Do
 
-- **Do** let Graphite Ink outlines and Paper/White layering carry most of the interface structure.
-- **Do** reserve Citrus Note for the next meaningful action in a component group.
-- **Do** use large, short headings to name a place, then return to compact social typography.
-- **Do** keep privacy, friend, and date context visible at the moment a memory is captured or read.
-- **Do** pair hard shadows with visible borders and clear press states.
-- **Do** collapse complex grids into a single readable column on mobile and preserve 44px touch targets.
-- **Do** keep the folded daily packet above the native feed and make its friend and privacy choices explicit before saving.
-- **Do** protect headers, full-screen memory media, reply controls, and the five-tab bar with device safe-area insets.
+- **Do** keep Oat Cream visible around Warm White cards so the app feels light and held.
+- **Do** let memory history lead while keeping one Moss plus action unmistakable and persistent.
+- **Do** show audience and privacy in plain language at the point of saving.
+- **Do** use real memory photos, friend avatars, initials, and honest empty states.
+- **Do** use Pebble Pair poses sparingly and preserve their abstract, faceless character.
+- **Do** maintain 44px touch targets, visible focus, readable muted copy, semantic status announcements, and reduced-motion behavior.
 
-### Don't:
+### Don't
 
-- **Don't** turn the palette into confetti; every accent field should communicate chapter, state, person, or action.
-- **Don't** use blurred glass, translucent dashboard cards, gradient washes, or soft ambient shadows.
-- **Don't** fill a screen with equally weighted tiles; the daily ritual and meaningful memories need hierarchy.
-- **Don't** use pills for ordinary buttons, cards, or inputs; reserve them for filters, privacy, and counts.
-- **Don't** let follower metrics, performance language, or planning-oriented controls outrank people and moments.
-- **Don't** hide focus, press, disabled, empty, or privacy states to preserve a static composition.
-- **Don't** introduce trips, itineraries, events, calendars, destinations, or other planning surfaces into web or native navigation.
-- **Don't** substitute a generic floating social dock for the shipped Home, Friends, Add, Messages, and Journal shell.
+- **Don't** reintroduce periwinkle, neon accents, hard graphite outlines, offset print shadows, or scrapbook ephemera.
+- **Don't** use gradients, glassmorphism, noisy texture, or decorative collage layers.
+- **Don't** turn every container into a rounded card or every label into a pill.
+- **Don't** make the Pebble Pair literal with eyes, mouths, limbs, speech bubbles, or constant animation.
+- **Don't** let archive, discovery, engagement, or planning mechanics outrank today's capture ritual.
+- **Don't** fabricate people, memories, testimonials, or usage claims.

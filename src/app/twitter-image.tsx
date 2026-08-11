@@ -2,7 +2,7 @@ import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
 
-export const alt = 'Amika - Nurture Your Friendships';
+export const alt = 'Amika — Keep the days you almost forgot';
 export const size = {
   width: 1200,
   height: 630,
@@ -14,7 +14,7 @@ export default async function Image() {
     (
       <div
         style={{
-          background: 'linear-gradient(135deg, #B5D1B5 0%, #8FB88F 100%)',
+          background: '#F7EEDF',
           width: '100%',
           height: '100%',
           display: 'flex',
@@ -24,7 +24,7 @@ export default async function Image() {
           position: 'relative',
         }}
       >
-        {/* Hearts icon */}
+        {/* Pebble Pair */}
         <div
           style={{
             display: 'flex',
@@ -33,34 +33,30 @@ export default async function Image() {
             marginBottom: 30,
           }}
         >
-          {/* Left heart */}
           <svg
             width="120"
             height="120"
             viewBox="0 0 120 120"
             style={{
-              transform: 'rotate(-12deg) translateX(20px)',
-              opacity: 0.95,
+              transform: 'translateX(16px)',
             }}
           >
             <path
-              d="M60 100 C20 60, 20 20, 60 40 C100 20, 100 60, 60 100"
-              fill="#FFFBF5"
+              d="M22 95C7 59 22 17 55 9c30-7 51 16 43 44-5 18-18 27-29 38-8 7-10 15-7 24-18 2-33-5-40-20Z"
+              fill="#66705A"
             />
           </svg>
-          {/* Right heart */}
           <svg
             width="120"
             height="120"
             viewBox="0 0 120 120"
             style={{
-              transform: 'rotate(12deg) translateX(-20px)',
-              opacity: 0.9,
+              transform: 'translateX(-16px) translateY(18px)',
             }}
           >
             <path
-              d="M60 100 C20 60, 20 20, 60 40 C100 20, 100 60, 60 100"
-              fill="#D4A5A5"
+              d="M20 67C20 37 43 15 73 18c28 3 45 27 38 54-7 28-34 42-61 32-19-7-31-20-30-37Z"
+              fill="#D48768"
             />
           </svg>
         </div>
@@ -70,8 +66,7 @@ export default async function Image() {
           style={{
             fontSize: 72,
             fontWeight: 700,
-            color: '#FFFBF5',
-            textShadow: '2px 2px 4px rgba(0,0,0,0.1)',
+            color: '#394238',
             marginBottom: 16,
           }}
         >
@@ -82,12 +77,10 @@ export default async function Image() {
         <div
           style={{
             fontSize: 32,
-            color: '#FFFBF5',
-            opacity: 0.9,
-            textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
+            color: '#675F53',
           }}
         >
-          Nurture Your Friendships
+          Keep the days you almost forgot
         </div>
 
         {/* Sparkle accents */}

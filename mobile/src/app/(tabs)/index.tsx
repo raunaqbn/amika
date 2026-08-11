@@ -2,8 +2,8 @@ import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { FlatList, Platform, RefreshControl, StyleSheet, Text, View, type ViewToken } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Screen } from '@/components/screen';
-import { MemoryComposer } from '@/components/memory-composer';
 import { MemoryCard } from '@/components/memory-card';
+import { HomeStories } from '@/components/home-stories';
 import { DividerLabel, EmptyState, ErrorState, Spinner } from '@/components/ui';
 import {
   getMemoryFeedSnapshot,
@@ -81,11 +81,6 @@ export default function HomeScreen() {
     }
   }, [load]);
 
-  const memorySaved = useCallback(() => {
-    applyFeed(getMemoryFeedSnapshot());
-    void load(true, true);
-  }, [applyFeed, load]);
-
   const renderMemory = useCallback(({ item }: { item: Memory }) => (
     <MemoryCard memory={item} onReaction={updateReaction} playbackEnabled={!refreshing && visibleMemoryIds.has(item.id)} />
   ), [refreshing, updateReaction, visibleMemoryIds]);
@@ -93,9 +88,9 @@ export default function HomeScreen() {
     setVisibleMemoryIds(new Set(viewableItems.flatMap(({ item }) => item?.id ? [item.id] : [])));
   }).current;
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 45 }).current;
-  const listHeader = useMemo(() => <View style={styles.listHeader}><MemoryComposer onSaved={memorySaved} /><DividerLabel>Recently kept</DividerLabel></View>, [memorySaved]);
+  const listHeader = useMemo(() => <View style={styles.listHeader}><HomeStories /><DividerLabel>Recent memories</DividerLabel></View>, []);
 
-  return <Screen title="Your circle" eyebrow="Amika · Today" scroll={false}>
+  return <Screen title="Home" eyebrow="Your circle · Today" scroll={false}>
     <FlatList
       data={memories}
       renderItem={renderMemory}

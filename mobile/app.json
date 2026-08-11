@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "amika",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#F7F2E8",
+    "backgroundColor": "#F7EEDF",
     "ios": {
       "bundleIdentifier": "app.amika.ios",
       "buildNumber": "19",
@@ -22,9 +22,8 @@
     "android": {
       "package": "app.amika.android",
       "adaptiveIcon": {
-        "backgroundColor": "#9EA8F8",
+        "backgroundColor": "#F3D5BE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": true,
@@ -44,7 +43,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F7F2E8",
+          "backgroundColor": "#F7EEDF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 130
         }
@@ -68,7 +67,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/notification-icon.png",
-          "color": "#9EA8F8",
+          "color": "#59674D",
           "defaultChannel": "amika"
         }
       ],
@@ -81,10 +80,10 @@
     "extra": {
       "directionContract": {
         "thesis": "Daily memory capture for real friendships—not a generic social feed or planning dashboard.",
-        "world": "Graphite ink, warm paper, periwinkle and citrus, crisp borders, hard print shadows, Avenir.",
-        "story": "Capture today, choose the people and privacy, then save it into a shared friendship stream.",
-        "firstViewport": "A periwinkle folded memory packet leads into a chronological tactile feed and five tabs.",
-        "form": "Pocket Accordion; grounded structure candidate 6; seed 2e7d7b8a."
+        "world": "Oat cream, baked apricot, deep moss, terracotta warmth, quiet flax edges, and the abstract Pebble Pair.",
+        "story": "Open fresh stories from your circle, keep one small memory, choose its people and privacy, then watch the Pebble Pair bring it home.",
+        "firstViewport": "Stories lead a warm cream home feed; a native five-tab bar keeps Add Memory in the center.",
+        "form": "Apricot Moss with native iOS Liquid Glass navigation and soft, organic memory surfaces."
       },
       "router": {},
       "eas": {

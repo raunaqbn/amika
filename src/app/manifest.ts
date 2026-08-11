@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'A memory-first social app for saving and sharing everyday moments with friends.',
     start_url: '/',
     display: 'standalone',
-    background_color: '#F7F7F2',
-    theme_color: '#15161E',
+    background_color: '#F7EEDF',
+    theme_color: '#F7EEDF',
     orientation: 'portrait-primary',
     categories: ['lifestyle', 'social'],
     icons: [

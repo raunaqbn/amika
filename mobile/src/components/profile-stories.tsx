@@ -188,7 +188,7 @@ export function ProfileStories({ ownerId, ownerName, ownerImage, canPost = false
   </View>;
 }
 
-function StoryViewer({ story, ownerName, ownerImage, position, total, onClose, onMove, onRefresh, onDeleted }: {
+export function StoryViewer({ story, ownerName, ownerImage, position, total, onClose, onMove, onRefresh, onDeleted }: {
   story: Story;
   ownerName: string;
   ownerImage?: string | null;

@@ -5,7 +5,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { SWRProvider } from "@/lib/swr-config";
 
 export const viewport: Viewport = {
-  themeColor: "#15161E",
+  themeColor: "#F7EEDF",
   width: "device-width",
   initialScale: 1,
 };
