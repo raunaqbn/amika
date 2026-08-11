@@ -11,6 +11,9 @@ test('Every named filter has a unique, valid matrix and preserves alpha', () => 
   for (const filter of PHOTO_FILTERS) {
     assert.equal(filter.matrix.length, 20);
     assert.ok(filter.matrix.every(Number.isFinite));
+    assert.ok(Math.abs(filter.matrix[4]) < 1);
+    assert.ok(Math.abs(filter.matrix[9]) < 1);
+    assert.ok(Math.abs(filter.matrix[14]) < 1);
     assert.equal(applyColorMatrix(filter.matrix, [72, 134, 219, 203])[3], 203);
     matrices.add(filter.matrix.map((value) => value.toFixed(6)).join(','));
   }

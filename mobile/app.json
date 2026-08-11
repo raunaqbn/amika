@@ -10,7 +10,7 @@
     "backgroundColor": "#F7F2E8",
     "ios": {
       "bundleIdentifier": "app.amika.ios",
-      "buildNumber": "18",
+      "buildNumber": "19",
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Take photos and videos for your Amika profile and memories.",

@@ -25,7 +25,10 @@ function brightness(value: number): Matrix {
 }
 
 function contrast(value: number): Matrix {
-  const offset = 128 * (1 - value);
+  // Skia evaluates color matrices in normalized 0...1 color space. Keeping
+  // the translation column normalized avoids clipping the whole image to
+  // black or white when a preset also changes contrast.
+  const offset = 0.5 * (1 - value);
   return [value, 0, 0, 0, offset, 0, value, 0, 0, offset, 0, 0, value, 0, offset, 0, 0, 0, 1, 0];
 }
 
@@ -43,7 +46,7 @@ function saturation(value: number): Matrix {
 }
 
 function channelMix(red: number, green: number, blue: number, redLift = 0, greenLift = 0, blueLift = 0): Matrix {
-  return [red, 0, 0, 0, redLift, 0, green, 0, 0, greenLift, 0, 0, blue, 0, blueLift, 0, 0, 0, 1, 0];
+  return [red, 0, 0, 0, redLift / 255, 0, green, 0, 0, greenLift / 255, 0, 0, blue, 0, blueLift / 255, 0, 0, 0, 1, 0];
 }
 
 type FilterRecipe = {
@@ -85,11 +88,12 @@ export const PHOTO_FILTERS = [
 export type PhotoFilterId = (typeof PHOTO_FILTERS)[number]['id'];
 
 export function applyColorMatrix(matrix: Matrix, rgba: readonly [number, number, number, number]) {
-  return [0, 1, 2, 3].map((row) => Math.max(0, Math.min(255,
-    matrix[row * 5] * rgba[0]
-      + matrix[row * 5 + 1] * rgba[1]
-      + matrix[row * 5 + 2] * rgba[2]
-      + matrix[row * 5 + 3] * rgba[3]
+  const normalized = rgba.map((value) => value / 255);
+  return [0, 1, 2, 3].map((row) => 255 * Math.max(0, Math.min(1,
+    matrix[row * 5] * normalized[0]
+      + matrix[row * 5 + 1] * normalized[1]
+      + matrix[row * 5 + 2] * normalized[2]
+      + matrix[row * 5 + 3] * normalized[3]
       + matrix[row * 5 + 4],
   ))) as [number, number, number, number];
 }
