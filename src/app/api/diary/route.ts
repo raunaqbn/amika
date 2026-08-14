@@ -80,20 +80,20 @@ async function generateAnalysis(content: string): Promise<string | null> {
   try {
     const { text } = await generateText({
       model: getModel() as any,
-      prompt: `You are a compassionate therapist providing reflective analysis on a diary entry.
+      prompt: `You are a gentle, non-clinical journaling companion reflecting on a diary entry only because the writer explicitly requested a saved reflection.
 
-Analyze the following diary entry and provide a thoughtful, empathetic reflection that:
-- Acknowledges the emotions and experiences shared
-- Offers insights into patterns, thoughts, or feelings
-- Suggests positive perspectives or areas for growth
-- Validates their feelings while being supportive
+Respond in a way that:
+- Briefly acknowledges the feelings or experience actually present
+- Keeps the writer's own meaning central
+- Offers one tentative observation, never a diagnosis or forced positive reframe
+- Does not give clinical advice or invent facts
 
-Keep your reflection concise (2-3 paragraphs) and warm in tone, as if speaking directly to the person.
+Keep the reflection concise (one short paragraph) and warm in tone.
 
 Diary Entry:
 ${content}
 
-Provide your therapeutic reflection:`,
+Provide the optional journal reflection:`,
       temperature: 0.7,
     });
 
@@ -148,14 +148,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, content, imageUrl, friendIds, friendTags } = body;
+    const { title, content, imageUrl, friendIds, friendTags, requestReflection, savedReflection } = body;
 
     if (!content || typeof content !== 'string' || !content.trim()) {
       return NextResponse.json({ error: 'Content is required' }, { status: 400 });
     }
 
-    // Generate AI analysis
-    const analysis = await generateAnalysis(content);
+    // Reflection is opt-in. Saving private writing must never invoke a model by itself.
+    const preservedReflection = typeof savedReflection === 'string' && savedReflection.trim()
+      ? savedReflection.trim().slice(0, 4_000)
+      : null;
+    const analysis = preservedReflection || (requestReflection === true ? await generateAnalysis(content) : null);
 
     // Support both legacy friendIds and new friendTags with sharing
     const note = await prisma.diaryNote.create({
@@ -195,7 +198,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, title, content, imageUrl, friendIds, friendTags } = body;
+    const { id, title, content, imageUrl, friendIds, friendTags, requestReflection, savedReflection } = body;
 
     if (!id || typeof id !== 'string') {
       return NextResponse.json({ error: 'Note ID is required' }, { status: 400 });
@@ -209,11 +212,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Note not found' }, { status: 404 });
     }
 
-    let analysis = undefined;
+    let analysis: string | null | undefined = undefined;
 
-    // Only regenerate analysis if content has changed
+    // A changed entry cannot keep a stale reflection. New reflections remain explicit opt-ins.
     if (content && content !== existingNote.content) {
-      analysis = await generateAnalysis(content);
+      const preservedReflection = typeof savedReflection === 'string' && savedReflection.trim()
+        ? savedReflection.trim().slice(0, 4_000)
+        : null;
+      analysis = preservedReflection || (requestReflection === true ? await generateAnalysis(content) : null);
     }
 
     const storedImage = isMediaImageUrl(request, 'diary', id, imageUrl)

@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useNotificationCount } from '@/hooks/use-data';
-import { PebblePair } from '@/components/pebble-pair';
+import { MemorySeedling } from '@/components/memory-seedling';
 
 const primaryLinks = [
   { href: '/', icon: Home, label: 'Home' },
@@ -62,7 +62,7 @@ export function Nav() {
   return (
     <>
       <aside className="app-rail" aria-label="Primary navigation">
-        <Link className="app-wordmark" href="/" aria-label="Amika home">amika <PebblePair pose="lean" size="xs" /></Link>
+        <Link className="app-wordmark" href="/" aria-label="Amika home">amika <MemorySeedling pose="mark" size="xs" /></Link>
 
         <nav className="app-rail__nav">
           {primaryLinks.map((item) => {
@@ -105,7 +105,7 @@ export function Nav() {
       </aside>
 
       <header className="mobile-app-bar">
-        <Link className="app-wordmark" href="/">amika <PebblePair pose="lean" size="xs" /></Link>
+        <Link className="app-wordmark" href="/">amika <MemorySeedling pose="mark" size="xs" /></Link>
         <div>
           <Link href="/notifications" aria-label={`${pendingCount} notifications`}>
             <Bell aria-hidden="true" />

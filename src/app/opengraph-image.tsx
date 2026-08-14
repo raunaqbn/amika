@@ -24,7 +24,7 @@ export default async function Image() {
           position: 'relative',
         }}
       >
-        {/* Pebble Pair */}
+        {/* Memory Seedling */}
         <div
           style={{
             display: 'flex',
@@ -33,39 +33,13 @@ export default async function Image() {
             marginBottom: 30,
           }}
         >
-          <svg
-            width="120"
-            height="120"
-            viewBox="0 0 120 120"
-            style={{
-              transform: 'translateX(16px)',
-            }}
-          >
-            <path
-              d="M22 95C7 59 22 17 55 9c30-7 51 16 43 44-5 18-18 27-29 38-8 7-10 15-7 24-18 2-33-5-40-20Z"
-              fill="#66705A"
-            />
-            <circle cx="47" cy="46" r="6" fill="#FFF1DF" />
-            <circle cx="66" cy="44" r="6" fill="#FFF1DF" />
-            <path d="M51 61q7 7 15-1" stroke="#FFF1DF" strokeWidth="3.5" strokeLinecap="round" fill="none" />
-            <ellipse cx="76" cy="63" rx="4.5" ry="3" fill="#E8B080" opacity=".82" />
-          </svg>
-          <svg
-            width="120"
-            height="120"
-            viewBox="0 0 120 120"
-            style={{
-              transform: 'translateX(-16px) translateY(18px)',
-            }}
-          >
-            <path
-              d="M20 67C20 37 43 15 73 18c28 3 45 27 38 54-7 28-34 42-61 32-19-7-31-20-30-37Z"
-              fill="#D48768"
-            />
-            <circle cx="55" cy="51" r="6" fill="#FFF1DF" />
-            <circle cx="75" cy="49" r="6" fill="#FFF1DF" />
-            <path d="M59 67q7 7 15-1" stroke="#FFF1DF" strokeWidth="3.5" strokeLinecap="round" fill="none" />
-            <ellipse cx="47" cy="69" rx="4.5" ry="3" fill="#F2DBA6" opacity=".88" />
+          <svg width="170" height="170" viewBox="0 0 120 120">
+            <path d="M62 36c4-17 20-26 36-20-1 18-14 31-33 28Z" fill="#59674D" />
+            <path d="M60 39c-2 8-2 15 0 22" stroke="#394238" strokeWidth="4" strokeLinecap="round" />
+            <path d="M20 76c0-23 18-35 40-35 24 0 41 12 41 36 0 23-18 35-41 35S20 99 20 76Z" fill="#D48768" />
+            <circle cx="48" cy="78" r="3.3" fill="#394238" />
+            <circle cx="72" cy="78" r="3.3" fill="#394238" />
+            <path d="M52 88q8 7 16 0" stroke="#394238" strokeWidth="3.2" strokeLinecap="round" fill="none" />
           </svg>
         </div>
 

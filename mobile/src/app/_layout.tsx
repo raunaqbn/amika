@@ -34,6 +34,7 @@ function Navigation() {
       <Stack.Screen name="notifications" />
       <Stack.Screen name="profile" />
       <Stack.Screen name="interests" />
+      <Stack.Screen name="journal/write" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
     </Stack.Protected>
   </Stack></>;
 }

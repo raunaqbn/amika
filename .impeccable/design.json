@@ -1,325 +1,160 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-07T08:37:14Z",
-  "title": "Design System: Amika Memory System",
+  "generatedAt": "2026-08-14T00:00:00Z",
+  "title": "Design System: Amika Apricot Moss",
   "extensions": {
     "colorMeta": {
-      "graphite-ink": {
-        "role": "primary",
-        "displayName": "Graphite Ink",
-        "canonical": "#15161e",
-        "tonalRamp": ["#07080c", "#15161e", "#30313d", "#52535e", "#777883", "#a2a3aa", "#d0d0d4", "#f3f3f4"]
-      },
-      "graphite-soft": {
-        "role": "neutral",
-        "displayName": "Graphite Soft",
-        "canonical": "#30313d",
-        "tonalRamp": ["#101117", "#22232c", "#30313d", "#50515c", "#747580", "#a0a0a8", "#d0d0d4", "#f3f3f4"]
-      },
-      "paper": {
-        "role": "neutral",
-        "displayName": "Paper",
-        "canonical": "#f7f7f2",
-        "tonalRamp": ["#292a24", "#494a42", "#6c6d63", "#92938a", "#b9bab1", "#dedfd7", "#f0f0ea", "#fafaf7"]
-      },
-      "white": {
-        "role": "neutral",
-        "displayName": "White Print",
-        "canonical": "#ffffff",
-        "tonalRamp": ["#262626", "#474747", "#696969", "#8d8d8d", "#b2b2b2", "#d7d7d7", "#ededed", "#ffffff"]
-      },
-      "periwinkle": {
-        "role": "primary",
-        "displayName": "Periwinkle Thread",
-        "canonical": "#7b74ff",
-        "tonalRamp": ["#1f195f", "#30279a", "#453bc8", "#5b50ed", "#7b74ff", "#a39eff", "#cfccff", "#efeeff"]
-      },
-      "periwinkle-deep": {
-        "role": "primary",
-        "displayName": "Deep Periwinkle",
-        "canonical": "#5b50ed",
-        "tonalRamp": ["#171346", "#282178", "#3931aa", "#4b41d3", "#5b50ed", "#8d85f5", "#c1bcfa", "#eceaff"]
-      },
-      "citrus": {
-        "role": "secondary",
-        "displayName": "Citrus Note",
-        "canonical": "#dfff4f",
-        "tonalRamp": ["#30380b", "#52610f", "#7a9019", "#a6c328", "#cbe83b", "#dfff4f", "#edff94", "#f7ffd1"]
-      },
-      "coral": {
-        "role": "secondary",
-        "displayName": "Coral Archive",
-        "canonical": "#ff7163",
-        "tonalRamp": ["#4a1715", "#7c2824", "#ad3a34", "#d5524a", "#ff7163", "#ff9a91", "#ffc7c2", "#ffe9e7"]
-      },
-      "sky": {
-        "role": "tertiary",
-        "displayName": "Sky Snapshot",
-        "canonical": "#79dcfa",
-        "tonalRamp": ["#123b48", "#19596c", "#227991", "#39a2be", "#59c3df", "#79dcfa", "#afeafb", "#e2f8ff"]
-      },
-      "pencil-line": {
-        "role": "neutral",
-        "displayName": "Pencil Line",
-        "canonical": "#c9c9c2",
-        "tonalRamp": ["#282823", "#494943", "#6b6b64", "#8f8f87", "#b1b1aa", "#c9c9c2", "#e1e1dc", "#f5f5f1"]
-      },
-      "muted-ink": {
-        "role": "neutral",
-        "displayName": "Muted Ink",
-        "canonical": "#65666f",
-        "tonalRamp": ["#17181d", "#2b2c33", "#42434b", "#565760", "#65666f", "#92939b", "#c1c1c6", "#ededf0"]
-      }
+      "moss-deep": { "role": "primary", "displayName": "Deep Moss", "canonical": "#394238", "tonalRamp": ["#141713", "#263026", "#394238", "#596052", "#7a8175", "#a1a69d", "#ced1ca", "#f2f4ef"] },
+      "moss": { "role": "primary", "displayName": "Moss", "canonical": "#59674d", "tonalRamp": ["#171d14", "#2c3827", "#465540", "#59674d", "#7b886f", "#a1aa99", "#ccd1c6", "#f1f3ed"] },
+      "seedling-body": { "role": "secondary", "displayName": "Seedling Body", "canonical": "#d48768", "tonalRamp": ["#3d1d15", "#633226", "#8b4d39", "#b56b51", "#d48768", "#e5aa94", "#f2d2c6", "#fbefea"] },
+      "oat-cream": { "role": "neutral", "displayName": "Oat Cream", "canonical": "#f7eedf", "tonalRamp": ["#302a22", "#51483b", "#756957", "#998c78", "#bcae99", "#dccfbc", "#eee3d2", "#fbf5eb"] },
+      "warm-white": { "role": "neutral", "displayName": "Warm White", "canonical": "#fffaf2", "tonalRamp": ["#312e29", "#534e46", "#756f65", "#999287", "#bdb6ab", "#ded7cd", "#f1ebe3", "#fffaf2"] },
+      "expression-cream": { "role": "neutral", "displayName": "Expression Cream", "canonical": "#fff1df", "tonalRamp": ["#352a20", "#574536", "#7b624e", "#9f8067", "#c2a084", "#e2c4a8", "#f3ddc6", "#fff1df"] },
+      "cream-deep": { "role": "neutral", "displayName": "Cream Deep", "canonical": "#f1e4d2", "tonalRamp": ["#30291f", "#514638", "#736554", "#978573", "#b8a692", "#d8c7b4", "#e9d9c7", "#f8efe3"] },
+      "flax": { "role": "neutral", "displayName": "Flax", "canonical": "#dccfb9", "tonalRamp": ["#312a20", "#514638", "#736452", "#96846e", "#b7a58e", "#d4c4ad", "#e6dac8", "#f6efe5"] },
+      "baked-apricot": { "role": "secondary", "displayName": "Baked Apricot", "canonical": "#e8b080", "tonalRamp": ["#3b2617", "#634027", "#8b5e3b", "#b57f59", "#d69d70", "#e8b080", "#f4d5b9", "#fceee2"] },
+      "apricot-soft": { "role": "secondary", "displayName": "Apricot Soft", "canonical": "#f3cfad", "tonalRamp": ["#3a281b", "#60452f", "#876448", "#ae8463", "#d0a680", "#e7c39e", "#f3cfad", "#fceede"] },
+      "terracotta": { "role": "secondary", "displayName": "Terracotta", "canonical": "#bf7057", "tonalRamp": ["#3a1b13", "#612f24", "#884636", "#aa604a", "#bf7057", "#d79782", "#e9c0b1", "#f8e7e1"] },
+      "terracotta-deep": { "role": "secondary", "displayName": "Deep Terracotta", "canonical": "#874b39", "tonalRamp": ["#2d150f", "#4b251c", "#6a392b", "#874b39", "#a96a55", "#ca907d", "#e5bbae", "#f7e7e1"] },
+      "butter": { "role": "tertiary", "displayName": "Butter", "canonical": "#d6ad5c", "tonalRamp": ["#382b0f", "#5c481a", "#826727", "#aa8839", "#d6ad5c", "#e4c785", "#f1dfb8", "#fbf3df"] },
+      "cocoa": { "role": "neutral", "displayName": "Cocoa", "canonical": "#675044", "tonalRamp": ["#1d1512", "#352923", "#503e35", "#675044", "#887064", "#aa9387", "#d0c0b7", "#f2e9e4"] },
+      "muted-ink": { "role": "neutral", "displayName": "Muted Ink", "canonical": "#625c52", "tonalRamp": ["#191713", "#302c27", "#49443c", "#625c52", "#827b70", "#a49e95", "#cec9c2", "#f1eeea"] },
+      "danger": { "role": "secondary", "displayName": "Danger", "canonical": "#a7493d", "tonalRamp": ["#35110d", "#5a211b", "#80352d", "#a7493d", "#c86b5f", "#df958b", "#efc1bb", "#fae8e5"] }
     },
     "typographyMeta": {
-      "display": {
-        "displayName": "Display",
-        "purpose": "Short page and collection statements with dramatic scale and tight tracking."
-      },
-      "headline": {
-        "displayName": "Headline",
-        "purpose": "Feed, section, and composer headings."
-      },
-      "title": {
-        "displayName": "Title",
-        "purpose": "Friend tiles and named content groups."
-      },
-      "body": {
-        "displayName": "Body",
-        "purpose": "Captions, messages, helper copy, and card prose."
-      },
-      "label": {
-        "displayName": "Compact Label",
-        "purpose": "Uppercase eyebrows, privacy states, filters, and metadata categories."
-      }
+      "display": { "displayName": "Display", "purpose": "Short landing and collection statements with dramatic scale." },
+      "headline": { "displayName": "Headline", "purpose": "Feed, journal, composer, and section headings." },
+      "title": { "displayName": "Title", "purpose": "Confirmation cards and named content groups." },
+      "body": { "displayName": "Body", "purpose": "Memory captions, journal writing, messages, helper copy, and card prose." },
+      "label": { "displayName": "Label", "purpose": "Dates, privacy, draft status, actions, and compact metadata." }
     },
     "shadows": [
-      {
-        "name": "quiet-print",
-        "value": "0 5px 0 #d5d5ce",
-        "purpose": "Default memory and friend cards."
-      },
-      {
-        "name": "pressed-action",
-        "value": "0 4px 0 #15161e",
-        "purpose": "Primary buttons and compact action controls."
-      },
-      {
-        "name": "featured-snapshot",
-        "value": "7px 8px 0 #79dcfa",
-        "purpose": "Featured memory cards and selected scrapbook material."
-      },
-      {
-        "name": "pinned-panel",
-        "value": "9px 10px 0 #15161e",
-        "purpose": "Composer and other dominant ritual panels."
-      },
-      {
-        "name": "native-hard-print",
-        "value": "4px 4px 0 #20201F; Android elevation 5",
-        "purpose": "Folded Pocket Accordion packet and native memory-card depth; fully opaque and zero blur."
-      }
+      { "name": "card-rest", "value": "0 12px 30px rgb(89 75 57 / 8%)", "purpose": "Default cards, journal fields, and bounded content panels." },
+      { "name": "featured-rest", "value": "0 16px 38px rgb(89 75 57 / 10%)", "purpose": "The first memory or deliberately emphasized card." },
+      { "name": "composer-warmth", "value": "0 20px 50px rgb(95 71 49 / 12%)", "purpose": "The open daily capture surface." },
+      { "name": "primary-action", "value": "0 8px 18px rgb(57 66 56 / 16%)", "purpose": "Moss actions and the journal invitation." },
+      { "name": "save-lift", "value": "0 30px 80px rgb(65 57 45 / 20%)", "purpose": "The transient memory-save confirmation only." }
     ],
     "motion": [
-      {
-        "name": "state-standard",
-        "value": "160ms ease",
-        "purpose": "Navigation, card hover, and simple color or position changes."
-      },
-      {
-        "name": "press-snappy",
-        "value": "100ms ease",
-        "purpose": "Button translation and hard-shadow compression."
-      },
-      {
-        "name": "daily-reveal",
-        "value": "540ms cubic-bezier(0.16, 1, 0.3, 1)",
-        "purpose": "One-time reveal of the daily capture band."
-      },
-      {
-        "name": "native-press",
-        "value": "translateY(2px) with light platform haptic feedback",
-        "purpose": "Thumb-scale confirmation on native actions without introducing ambient motion."
-      }
+      { "name": "state-standard", "value": "160ms ease", "purpose": "Navigation, journal rows, disclosure rotation, hover, and pressed state." },
+      { "name": "seedling-settle", "value": "900ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Body settles after a completed memory." },
+      { "name": "seedling-unfurl", "value": "980ms 110ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Leaf unfurls after a completed memory." },
+      { "name": "memory-home", "value": "1080ms 160ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Butter memory orb comes home to the Seedling." },
+      { "name": "save-lifecycle", "value": "2800ms ease", "purpose": "Non-blocking save status appears, holds, and fades." },
+      { "name": "reduced-motion", "value": "none", "purpose": "Remove page entrance, mascot, halo, spinner, hover translation, and disclosure animation while preserving status copy." }
     ],
     "breakpoints": [
-      {
-        "name": "wide-feed",
-        "value": "1120px"
-      },
-      {
-        "name": "app-mobile",
-        "value": "820px"
-      },
-      {
-        "name": "profile-stack",
-        "value": "620px"
-      },
-      {
-        "name": "single-card",
-        "value": "560px"
-      }
+      { "name": "wide-feed", "value": "1120px" },
+      { "name": "journal-rail-collapse", "value": "900px" },
+      { "name": "app-mobile", "value": "820px" },
+      { "name": "journal-mobile", "value": "620px" }
     ]
   },
   "components": [
     {
-      "name": "Primary Memory Action",
+      "name": "Primary Moss Action",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The one warm, decisive action in a local component group.",
-      "html": "<button class=\"ds-btn-primary\" type=\"button\">ADD MEMORY</button>",
-      "css": ".ds-btn-primary { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 18px; border: 2px solid var(--amika-ink, #15161e); border-radius: 8px; background: var(--amika-citrus, #dfff4f); color: var(--amika-ink, #15161e); font: 850 0.78rem/1.2 \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; letter-spacing: 0.02em; box-shadow: 0 4px 0 var(--amika-ink, #15161e); cursor: pointer; transition: transform 100ms ease, box-shadow 100ms ease, background-color 150ms ease; } .ds-btn-primary:hover { background: #ecff8c; } .ds-btn-primary:focus-visible { outline: 3px solid var(--amika-periwinkle, #7b74ff); outline-offset: 3px; } .ds-btn-primary:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--amika-ink, #15161e); }"
+      "description": "The one clear next action in a local group.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Finish &amp; keep entry</button>",
+      "css": ".ds-btn-primary { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0 18px; border: 0; border-radius: 14px; background: var(--amika-moss, #59674d); color: var(--amika-white, #fffaf2); font: 750 .76rem/1.2 \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; box-shadow: 0 8px 18px rgb(57 66 56 / 16%); cursor: pointer; transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease; } .ds-btn-primary:hover { background: #4d5b42; transform: translateY(-1px); } .ds-btn-primary:focus-visible { outline: 3px solid rgb(191 112 87 / 42%); outline-offset: 3px; } .ds-btn-primary:active { transform: translateY(2px); box-shadow: 0 3px 9px rgb(57 66 56 / 18%); } .ds-btn-primary:disabled { opacity: .45; cursor: default; }"
     },
     {
-      "name": "Secondary Paper Action",
-      "kind": "button",
-      "refersTo": "button-secondary",
-      "description": "A bounded neutral action that does not compete with the citrus primary.",
-      "html": "<button class=\"ds-btn-secondary\" type=\"button\">VIEW PROFILE</button>",
-      "css": ".ds-btn-secondary { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0 12px; border: 2px solid var(--amika-ink, #15161e); border-radius: 8px; background: var(--amika-white, #ffffff); color: var(--amika-ink, #15161e); font: 850 0.7rem/1.2 \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; box-shadow: 0 3px 0 var(--amika-ink, #15161e); cursor: pointer; transition: transform 100ms ease, background-color 160ms ease; } .ds-btn-secondary:hover { background: var(--amika-paper, #f7f7f2); transform: translateY(-1px); } .ds-btn-secondary:focus-visible { outline: 3px solid var(--amika-sky, #79dcfa); outline-offset: 3px; } .ds-btn-secondary:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--amika-ink, #15161e); }"
-    },
-    {
-      "name": "Memory Field",
+      "name": "Warm White Field",
       "kind": "input",
       "refersTo": "input",
-      "description": "A clearly bounded field for plain-language memory captions.",
-      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">WHAT DO YOU WANT TO REMEMBER?</span><textarea class=\"ds-field-input\" placeholder=\"The tiny thing that made today yours…\"></textarea></label>",
-      "css": ".ds-field { display: grid; gap: 6px; color: var(--amika-ink, #15161e); font-family: \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; } .ds-field-label { font-size: 0.7rem; font-weight: 850; letter-spacing: 0.04em; } .ds-field-input { min-height: 108px; resize: vertical; padding: 14px 14px 28px; border: 1.5px solid var(--amika-ink, #15161e); border-radius: 10px; background: var(--amika-white, #ffffff); color: var(--amika-ink, #15161e); font: 600 0.95rem/1.45 \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; } .ds-field-input::placeholder { color: var(--amika-muted, #65666f); } .ds-field-input:hover { background: #fbfbf8; } .ds-field-input:focus-visible { outline: 3px solid var(--amika-periwinkle, #7b74ff); outline-offset: 2px; }"
-    },
-    {
-      "name": "Selected Filter Chip",
-      "kind": "chip",
-      "refersTo": "chip",
-      "description": "A compact active filter with pill geometry and a hard selected state.",
-      "html": "<button class=\"ds-chip-selected\" type=\"button\" aria-pressed=\"true\">FRIENDS</button>",
-      "css": ".ds-chip-selected { min-height: 38px; padding: 0 11px; border: 1.5px solid var(--amika-ink, #15161e); border-radius: 999px; background: var(--amika-periwinkle, #7b74ff); color: var(--amika-ink, #15161e); font: 750 0.68rem/1 \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; box-shadow: 0 3px 0 var(--amika-ink, #15161e); cursor: pointer; transition: transform 100ms ease; } .ds-chip-selected:hover { transform: translateY(-1px); } .ds-chip-selected:focus-visible { outline: 3px solid var(--amika-citrus, #dfff4f); outline-offset: 3px; } .ds-chip-selected:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--amika-ink, #15161e); }"
+      "description": "A quiet, readable field for memory and journal writing.",
+      "html": "<label class=\"ds-field\"><span>A few honest words</span><textarea placeholder=\"Write what is true before trying to make it tidy…\"></textarea></label>",
+      "css": ".ds-field { display: grid; gap: 8px; color: var(--amika-moss-deep, #394238); font-family: \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; } .ds-field > span { color: #874b39; font-size: .72rem; font-weight: 800; } .ds-field textarea { min-height: 170px; resize: vertical; padding: 18px; border: 1px solid var(--amika-flax, #dccfb9); border-radius: 16px; background: var(--amika-white, #fffaf2); color: var(--amika-moss-deep, #394238); font: 600 1rem/1.65 \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; } .ds-field textarea::placeholder { color: #8b8173; } .ds-field textarea:focus-visible { outline: 3px solid rgb(191 112 87 / 42%); outline-offset: 3px; }"
     },
     {
       "name": "Active Rail Destination",
       "kind": "nav",
       "refersTo": "nav-active",
-      "description": "The periwinkle active state inside the graphite desktop rail.",
-      "html": "<nav class=\"ds-nav-shell\" aria-label=\"Preview navigation\"><a class=\"ds-nav-active\" href=\"#\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><path d=\"M3 11.5 12 4l9 7.5\"></path><path d=\"M5.5 10.5V20h13v-9.5\"></path><path d=\"M9.5 20v-6h5v6\"></path></svg><span>Home</span></a></nav>",
-      "css": ".ds-nav-shell { width: 190px; padding: 8px; background: var(--amika-ink, #15161e); } .ds-nav-active { min-height: 46px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; background: var(--amika-periwinkle, #7b74ff); color: var(--amika-ink, #15161e); font: 600 0.94rem/1 \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; text-decoration: none; box-shadow: 0 5px 0 #3d35ba; transition: transform 160ms ease, background-color 160ms ease; } .ds-nav-active svg { width: 20px; height: 20px; } .ds-nav-active:hover { transform: translateX(2px); background: #8a84ff; } .ds-nav-active:focus-visible { outline: 3px solid var(--amika-citrus, #dfff4f); outline-offset: 3px; }"
+      "description": "A quiet Cream Deep selection inside the Warm White desktop rail.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Preview navigation\"><a href=\"#\" aria-current=\"page\">Journal</a></nav>",
+      "css": ".ds-nav { width: 190px; padding: 8px; background: var(--amika-white, #fffaf2); font-family: \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; } .ds-nav a { min-height: 48px; display: flex; align-items: center; padding: 0 12px; border-radius: 14px; background: var(--amika-cream-deep, #f1e4d2); color: var(--amika-moss, #59674d); font-size: .94rem; font-weight: 650; text-decoration: none; transition: transform 160ms ease, background-color 160ms ease; } .ds-nav a:hover { transform: translateX(2px); } .ds-nav a:focus-visible { outline: 3px solid rgb(191 112 87 / 42%); outline-offset: 2px; }"
     },
     {
-      "name": "Memory Contact Card",
+      "name": "Memory Card",
       "kind": "card",
       "refersTo": "card",
-      "description": "The core social object with author, dated moment, caption, friend tag, and lightweight actions.",
-      "html": "<article class=\"ds-memory-card\"><header class=\"ds-memory-head\"><span class=\"ds-memory-avatar\">RN</span><div><strong>Raunaq</strong><small>TODAY · FRIENDS</small></div></header><div class=\"ds-memory-moment\"><span>WED 05</span><p>Golden hour, no plan, and the long way home.</p></div><div class=\"ds-memory-caption\"><p>The ordinary walk that turned into the best part of the day.</p><b>with Maya</b></div><footer class=\"ds-memory-actions\"><button type=\"button\">♡ 12</button><button type=\"button\">↳ 3 replies</button></footer></article>",
-      "css": ".ds-memory-card { max-width: 520px; overflow: hidden; border: 1.5px solid var(--amika-ink, #15161e); border-radius: 12px; background: var(--amika-white, #ffffff); color: var(--amika-ink, #15161e); font-family: \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; box-shadow: 0 5px 0 #d5d5ce; transition: transform 160ms ease, box-shadow 160ms ease; } .ds-memory-card:hover { transform: translateY(-2px); box-shadow: 7px 8px 0 var(--amika-sky, #79dcfa); } .ds-memory-card:focus-within { outline: 3px solid var(--amika-periwinkle, #7b74ff); outline-offset: 3px; } .ds-memory-head { min-height: 58px; display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--amika-line, #c9c9c2); } .ds-memory-avatar { width: 40px; height: 40px; display: grid; place-items: center; border: 2px solid var(--amika-ink, #15161e); border-radius: 50%; background: var(--amika-sky, #79dcfa); font-size: 0.68rem; font-weight: 800; } .ds-memory-head div { display: grid; gap: 2px; } .ds-memory-head strong { font-size: 0.82rem; } .ds-memory-head small { color: var(--amika-muted, #65666f); font-size: 0.6rem; font-weight: 800; } .ds-memory-moment { min-height: 190px; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; border-bottom: 1.5px solid var(--amika-ink, #15161e); background: var(--amika-periwinkle, #7b74ff); } .ds-memory-moment span { width: max-content; padding: 5px 7px; border: 1.5px solid var(--amika-ink, #15161e); border-radius: 5px; background: var(--amika-citrus, #dfff4f); font-size: 0.62rem; font-weight: 850; box-shadow: 2px 3px 0 var(--amika-ink, #15161e); } .ds-memory-moment p { max-width: 22ch; margin: 18px 0 0; font-size: 1.6rem; font-weight: 760; line-height: 1.06; letter-spacing: -0.035em; } .ds-memory-caption { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 13px 14px; } .ds-memory-caption p { margin: 0; font-size: 0.86rem; line-height: 1.45; } .ds-memory-caption b { flex: 0 0 auto; padding: 5px 7px; border: 1px solid #18627a; border-radius: 5px; background: var(--amika-sky, #79dcfa); color: #0d4051; font-size: 0.64rem; } .ds-memory-actions { display: flex; gap: 4px; padding: 7px 9px; border-top: 1px solid var(--amika-line, #c9c9c2); } .ds-memory-actions button { min-height: 36px; padding: 0 8px; border: 0; background: transparent; color: var(--amika-muted, #65666f); font: 750 0.68rem/1 \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; cursor: pointer; } .ds-memory-actions button:hover { background: var(--amika-paper, #f7f7f2); color: var(--amika-ink, #15161e); } .ds-memory-actions button:focus-visible { outline: 3px solid var(--amika-periwinkle, #7b74ff); outline-offset: 1px; }"
+      "description": "A warm foreground surface where real people and moments carry the detail.",
+      "html": "<article class=\"ds-card\"><small>FRIDAY, AUGUST 14</small><h3>The long way home</h3><p>An ordinary walk that became the best part of the day.</p></article>",
+      "css": ".ds-card { max-width: 420px; padding: 18px; border: 1px solid var(--amika-flax, #dccfb9); border-radius: 18px; background: var(--amika-white, #fffaf2); color: var(--amika-moss-deep, #394238); font-family: \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; box-shadow: 0 12px 30px rgb(89 75 57 / 8%); } .ds-card small { color: #874b39; font-size: .68rem; font-weight: 800; } .ds-card h3 { margin: 6px 0 10px; font-size: 1.22rem; letter-spacing: -.025em; } .ds-card p { margin: 0; color: var(--amika-muted, #625c52); font-size: .86rem; line-height: 1.45; } .ds-card:focus-within { outline: 3px solid rgb(191 112 87 / 42%); outline-offset: 3px; }"
     },
     {
-      "name": "Daily Memory Composer",
+      "name": "Memory Seedling",
       "kind": "custom",
-      "refersTo": "card",
-      "description": "The pinned paper panel that makes the daily capture ritual unmistakable.",
-      "html": "<section class=\"ds-composer\"><header class=\"ds-composer-head\"><div><span>TODAY'S DROP</span><h2>Add one small moment.</h2></div><b>FRIENDS</b></header><div class=\"ds-composer-grid\"><button class=\"ds-photo-drop\" type=\"button\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\"><rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2\"></rect><circle cx=\"9\" cy=\"10\" r=\"2\"></circle><path d=\"m21 15-4.5-4.5L6 19\"></path></svg><strong>Add a photo</strong><span>or keep it in words</span></button><label><span>WHAT DO YOU WANT TO REMEMBER?</span><textarea placeholder=\"The tiny thing that made today yours…\"></textarea></label></div><button class=\"ds-composer-submit\" type=\"button\">ADD MEMORY</button></section>",
-      "css": ".ds-composer { max-width: 760px; padding: 24px; border: 2px solid var(--amika-ink, #15161e); border-radius: 14px; background: var(--amika-paper, #f7f7f2); color: var(--amika-ink, #15161e); font-family: \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; box-shadow: 9px 10px 0 var(--amika-ink, #15161e); } .ds-composer-head { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 18px; } .ds-composer-head span { color: var(--amika-violet-deep, #5b50ed); font-size: 0.7rem; font-weight: 850; letter-spacing: 0.04em; } .ds-composer-head h2 { margin: 2px 0 0; font-size: 1.8rem; line-height: 1; letter-spacing: -0.035em; } .ds-composer-head b { height: max-content; padding: 7px 10px; border: 1.5px solid var(--amika-ink, #15161e); border-radius: 999px; font-size: 0.68rem; } .ds-composer-grid { display: grid; grid-template-columns: 150px 1fr; gap: 16px; } .ds-photo-drop { min-height: 136px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 2px dashed var(--amika-ink, #15161e); border-radius: 10px; background: var(--amika-white, #ffffff); color: var(--amika-ink, #15161e); cursor: pointer; } .ds-photo-drop svg { width: 28px; color: var(--amika-violet-deep, #5b50ed); } .ds-photo-drop strong { font-size: 0.82rem; } .ds-photo-drop span { color: var(--amika-muted, #65666f); font-size: 0.65rem; } .ds-photo-drop:hover { background: #efefe8; } .ds-photo-drop:focus-visible { outline: 3px solid var(--amika-periwinkle, #7b74ff); outline-offset: 3px; } .ds-composer-grid label { display: grid; gap: 6px; font-size: 0.7rem; font-weight: 850; } .ds-composer-grid textarea { min-height: 108px; resize: vertical; padding: 14px; border: 1.5px solid var(--amika-ink, #15161e); border-radius: 10px; background: var(--amika-white, #ffffff); font: 600 0.95rem/1.45 \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; } .ds-composer-grid textarea:focus-visible { outline: 3px solid var(--amika-periwinkle, #7b74ff); outline-offset: 2px; } .ds-composer-submit { min-height: 44px; margin-top: 14px; padding: 0 18px; border: 2px solid var(--amika-ink, #15161e); border-radius: 8px; background: var(--amika-citrus, #dfff4f); color: var(--amika-ink, #15161e); font: 850 0.78rem/1 \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; box-shadow: 0 4px 0 var(--amika-ink, #15161e); cursor: pointer; } .ds-composer-submit:hover { background: #ecff8c; } .ds-composer-submit:focus-visible { outline: 3px solid var(--amika-periwinkle, #7b74ff); outline-offset: 3px; } .ds-composer-submit:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--amika-ink, #15161e); } @media (max-width: 560px) { .ds-composer-grid { grid-template-columns: 1fr; } }"
+      "refersTo": "save-celebration",
+      "description": "The small keeper: terracotta seed body, moss leaf and stem, quiet face, and optional butter memory orb.",
+      "html": "<span class=\"ds-seedling\" role=\"img\" aria-label=\"Memory Seedling holding a memory\"><i class=\"ds-leaf\"></i><i class=\"ds-stem\"></i><i class=\"ds-body\"><b></b><b></b><em></em></i><i class=\"ds-memory\"></i></span>",
+      "css": ".ds-seedling { position: relative; display: inline-block; width: 110px; aspect-ratio: 1; } .ds-seedling i { position: absolute; display: block; } .ds-body { left: 16%; bottom: 8%; width: 68%; height: 59%; border-radius: 49% 51% 45% 55% / 58% 58% 42% 42%; background: #d48768; } .ds-leaf { left: 52%; top: 1%; width: 31%; height: 36%; border-radius: 82% 18% 76% 24% / 78% 24% 76% 22%; background: #59674d; transform: rotate(-18deg); } .ds-stem { left: 49%; top: 24%; width: 4%; height: 18%; border-radius: 999px; background: #59674d; transform: rotate(5deg); } .ds-body b { position: absolute; top: 44%; width: 8%; aspect-ratio: 1; border-radius: 50%; background: #394238; } .ds-body b:first-child { left: 32%; } .ds-body b:nth-child(2) { right: 32%; } .ds-body em { position: absolute; top: 59%; left: 43%; width: 15%; height: 10%; border-bottom: 3px solid #394238; border-radius: 0 0 999px 999px; } .ds-memory { right: 3%; bottom: 24%; width: 18%; aspect-ratio: 1; border-radius: 50%; background: #d6ad5c; box-shadow: 0 4px 8px rgb(89 75 57 / 14%); }"
     },
     {
-      "name": "Friend Tag",
-      "kind": "chip",
-      "refersTo": "chip",
-      "description": "A small sky label connecting a moment to a real friend.",
-      "html": "<a class=\"ds-friend-tag\" href=\"#\">with Maya</a>",
-      "css": ".ds-friend-tag { display: inline-flex; align-items: center; min-height: 28px; padding: 5px 7px; border: 1px solid #18627a; border-radius: 5px; background: var(--amika-sky, #79dcfa); color: #0d4051; font: 800 0.64rem/1 \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; text-decoration: none; transition: transform 160ms ease, background-color 160ms ease; } .ds-friend-tag:hover { transform: translateY(-1px); background: #a7ebff; } .ds-friend-tag:focus-visible { outline: 3px solid var(--amika-periwinkle, #7b74ff); outline-offset: 3px; } .ds-friend-tag:active { transform: translateY(1px); }"
-    },
-    {
-      "name": "Native Pocket Accordion",
+      "name": "Journal Invitation",
       "kind": "custom",
-      "refersTo": "mobile-memory-card",
-      "description": "The native first-viewport packet that folds the complete daily capture ritual into one tactile object.",
-      "html": "<section class=\"ds-pocket\"><button class=\"ds-pocket-head\" type=\"button\" aria-expanded=\"false\"><span class=\"ds-pocket-spark\">✦</span><span><small>TODAY'S MEMORY</small><strong>What should today remember?</strong></span><b>⌄</b></button><button class=\"ds-pocket-fold\" type=\"button\">Add photo · tag a friend · keep it forever</button></section>",
-      "css": ".ds-pocket { width: min(360px, 100%); overflow: hidden; border: 1.5px solid #292826; border-radius: 20px; background: #9EA8F8; color: #20201F; box-shadow: 4px 4px 0 #20201F; font-family: Avenir, system-ui, sans-serif; } .ds-pocket-head { width: 100%; min-height: 92px; display: flex; align-items: center; gap: 12px; padding: 16px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; } .ds-pocket-head > span:nth-child(2) { flex: 1; display: grid; gap: 2px; } .ds-pocket-head small { color: #6470CF; font-size: 10px; font-weight: 800; letter-spacing: 1.4px; } .ds-pocket-head strong { font-size: 20px; line-height: 25px; } .ds-pocket-spark { width: 38px; height: 38px; display: grid; place-items: center; border: 1.5px solid #292826; border-radius: 12px; background: #FFD44D; font-size: 20px; } .ds-pocket-fold { width: 100%; min-height: 42px; padding: 0 16px; border: 0; border-top: 1.5px solid #292826; background: rgba(255,255,255,.22); color: #20201F; text-align: left; font: 500 12px/1.2 Avenir, system-ui, sans-serif; cursor: pointer; } .ds-pocket-head:hover, .ds-pocket-fold:hover { background-color: rgba(255,255,255,.3); } .ds-pocket-head:focus-visible, .ds-pocket-fold:focus-visible { outline: 3px solid #FFD44D; outline-offset: -3px; } .ds-pocket-head:active, .ds-pocket-fold:active { transform: translateY(2px); }"
+      "refersTo": "journal-invitation",
+      "description": "The full-width, private writing entry point below the opening prompt.",
+      "html": "<button class=\"ds-journal-invite\"><span>✎</span><span><strong>Begin writing</strong><small>A thought, a feeling, something that happened—whatever is present.</small></span><b>Open journal →</b></button>",
+      "css": ".ds-journal-invite { width: min(760px, 100%); min-height: 84px; display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 18px 20px; border: 1px solid var(--amika-flax, #dccfb9); border-radius: 16px; background: var(--amika-moss, #59674d); color: var(--amika-white, #fffaf2); box-shadow: 0 10px 24px rgb(57 66 56 / 16%); font-family: \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; text-align: left; cursor: pointer; transition: transform 160ms ease, box-shadow 160ms ease; } .ds-journal-invite > span:first-child { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 14px; background: var(--amika-apricot, #e8b080); color: var(--amika-moss-deep, #394238); font-size: 22px; } .ds-journal-invite > span:nth-child(2) { display: grid; gap: 3px; } .ds-journal-invite strong { font-size: 1rem; } .ds-journal-invite small { color: rgb(255 250 242 / 75%); font-size: .8rem; } .ds-journal-invite b { font-size: .78rem; } .ds-journal-invite:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgb(89 75 57 / 12%); } .ds-journal-invite:focus-visible { outline: 3px solid rgb(191 112 87 / 42%); outline-offset: 3px; }"
     },
     {
-      "name": "Native Five-tab Shell",
-      "kind": "nav",
-      "refersTo": "mobile-add-tab",
-      "description": "The safe-area-aware native shell with Home, Friends, Add, Messages, and Journal as the only primary destinations.",
-      "html": "<nav class=\"ds-native-tabs\" aria-label=\"Native destinations\"><button class=\"ds-native-tab ds-native-active\" type=\"button\"><span>⌂</span><b>Home</b></button><button class=\"ds-native-tab\" type=\"button\"><span>♙</span><b>Friends</b></button><button class=\"ds-native-tab ds-native-add\" type=\"button\"><span>＋</span><b>Add</b></button><button class=\"ds-native-tab\" type=\"button\"><span>◯</span><b>Messages</b></button><button class=\"ds-native-tab\" type=\"button\"><span>♡</span><b>Journal</b></button></nav>",
-      "css": ".ds-native-tabs { width: min(390px, 100%); min-height: 82px; display: grid; grid-template-columns: repeat(5, 1fr); align-items: start; padding: 8px 4px 0; border-top: 1.5px solid #292826; background: #FFFCF6; color: #746F68; font-family: Avenir, system-ui, sans-serif; } .ds-native-tab { min-height: 58px; display: grid; place-items: center; align-content: center; gap: 4px; border: 0; background: transparent; color: inherit; cursor: pointer; } .ds-native-tab span { font-size: 22px; line-height: 1; } .ds-native-tab b { font-size: 10px; } .ds-native-active { color: #20201F; } .ds-native-add span { width: 47px; height: 47px; display: grid; place-items: center; margin-top: -28px; border: 1.5px solid #292826; border-radius: 14px; background: #FFD44D; color: #20201F; font-size: 26px; } .ds-native-tab:hover { color: #20201F; } .ds-native-tab:focus-visible { outline: 3px solid #9EA8F8; outline-offset: -2px; } .ds-native-tab:active { transform: translateY(2px); }"
-    },
-    {
-      "name": "Native Full-screen Memory Viewer",
+      "name": "Gentle Reflection",
       "kind": "custom",
-      "refersTo": "mobile-memory-card",
-      "description": "The safe-area-aware detail view that reveals the complete picture, context, reactions, replies, and keyboard-safe reply field.",
-      "html": "<article class=\"ds-native-viewer\"><header><button type=\"button\" aria-label=\"Close memory\">×</button><span><small>A MEMORY WITH</small><strong>Maya</strong></span><b>R</b></header><div class=\"ds-native-photo\"><span>FULL PICTURE · CONTAIN</span></div><section><small>FRIDAY, AUGUST 7 · FRIENDS</small><h3>The ordinary walk that became the best part of today.</h3><p>♡ 12 hearts&nbsp;&nbsp;&nbsp; ◯ 3 replies</p></section><footer><input aria-label=\"Reply\" placeholder=\"Add a little something…\"><button type=\"button\">↑</button></footer></article>",
-      "css": ".ds-native-viewer { width: min(390px, 100%); overflow: hidden; border: 1.5px solid #292826; background: #F7F2E8; color: #20201F; font-family: Avenir, system-ui, sans-serif; } .ds-native-viewer header { min-height: 68px; display: flex; align-items: center; gap: 12px; padding: 12px 15px; border-bottom: 1.5px solid #292826; } .ds-native-viewer header button { width: 40px; height: 40px; border: 1.5px solid #292826; border-radius: 13px; background: #FFFCF6; font-size: 22px; } .ds-native-viewer header span { flex: 1; display: grid; } .ds-native-viewer header small, .ds-native-viewer section small { color: #6470CF; font-size: 9px; font-weight: 800; letter-spacing: 1.2px; } .ds-native-viewer header > b { width: 39px; height: 39px; display: grid; place-items: center; border: 1.5px solid #292826; border-radius: 50%; background: #FFD44D; } .ds-native-photo { height: 260px; display: grid; place-items: center; background: #20201F; color: #FFFCF6; font-size: 10px; letter-spacing: 1px; } .ds-native-viewer section { padding: 20px; } .ds-native-viewer h3 { margin: 12px 0; font-size: 20px; line-height: 1.35; } .ds-native-viewer section p { padding-block: 10px; border-block: 1.5px solid #292826; font-size: 12px; font-weight: 800; } .ds-native-viewer footer { display: flex; gap: 9px; padding: 10px; border-top: 1.5px solid #292826; } .ds-native-viewer input { min-width: 0; flex: 1; height: 45px; padding: 0 14px; border: 1.5px solid #292826; border-radius: 14px; background: #FFFCF6; } .ds-native-viewer footer button { width: 45px; border: 1.5px solid #292826; border-radius: 14px; background: #FFD44D; font-size: 20px; } .ds-native-viewer button:hover { filter: brightness(.97); } .ds-native-viewer button:focus-visible, .ds-native-viewer input:focus-visible { outline: 3px solid #9EA8F8; outline-offset: 2px; } .ds-native-viewer button:active { transform: translateY(2px); }"
+      "refersTo": "journal-reflection",
+      "description": "An explicitly requested Amika response that acknowledges and asks one open question.",
+      "html": "<aside class=\"ds-reflection\"><strong>Memory Seedling · A gentle reflection</strong><p>It sounds like that small moment stayed with you. What felt most important about it?</p></aside>",
+      "css": ".ds-reflection { max-width: 560px; padding: 18px; border-radius: 14px; background: var(--amika-apricot-soft, #f3cfad); color: var(--amika-moss-deep, #394238); font-family: \"Avenir Next\", Avenir, \"Segoe UI\", system-ui, sans-serif; } .ds-reflection strong { font-size: .8rem; } .ds-reflection p { margin: 10px 0 0; color: var(--amika-muted, #625c52); font-size: .85rem; line-height: 1.6; }"
     }
   ],
   "narrative": {
-    "northStar": "Daily Contact Sheet",
-    "overview": "Amika should feel like opening a contact sheet assembled by a close group chat: immediate, candid, colorful, and visibly handled. The interface uses strong ink outlines, paper-toned space, and offset print-like shadows so daily moments feel collected rather than optimized. The personality is energetic without becoming noisy; large editorial headings establish place, while compact social details keep the feed intimate and useful.\n\nThe broader direction is a Group Chat Scrapbook. Periwinkle creates a recognizable social world, citrus marks the next warm action, and coral or sky distinguish major collections without introducing a corporate dashboard palette. Images, names, dates, replies, and clear privacy cues stay closer to the eye than metrics.\n\nThe native iOS and Android expression is Pocket Accordion, the grounded structure selected as candidate 6 with seed `2e7d7b8a`. It keeps the Daily Contact Sheet identity while adapting the first viewport into a folded periwinkle packet above one chronological, tactile feed and a five-tab shell. The packet unfolds the whole capture story in place: capture today, choose a friend and privacy, then save the moment into the friendship stream. This is a daily-memory product for real friendships—not a generic social feed, logistics tool, or planning dashboard.",
+    "northStar": "A Memory Gently Held",
+    "overview": "Apricot Moss turns recording an everyday moment into a calm shared ritual. The system is warm and fresh without reading as a scrapbook: oat-cream space quiets the canvas, baked apricot gathers attention around capture, and moss gives actions a steady, trustworthy center. Photography and the people in each memory carry the emotional detail; the interface stays soft, clear, and unhurried around them.\n\nThe signature is the Memory Seedling, a single small keeper made from a terracotta seed body, moss leaf and stem, two quiet eyes, a tiny smile, and an optional butter memory orb. Its simple silhouette makes the brand friendly and recognizable across the wordmark, app icons, welcome screen, social previews, memory composer, journal, empty states, and earned save feedback.\n\nThe journal extends the same world into a private reflective room. It should feel like a calm conversation rather than a notes database: writing leads, organizational details recede, and Amika responds only when the writer explicitly asks for one gentle reflection.",
     "keyCharacteristics": [
-      "Tactile paper surfaces with dark structural outlines",
-      "Saturated color fields used as chapter markers, not decoration dust",
-      "Tight, heavy typography with oversized section statements",
-      "Offset shadows that evoke stacked prints and pinned notes",
-      "Dense social context balanced by generous page-level breathing room",
-      "Responsive navigation that becomes an installed-app-style bottom bar",
-      "A folded daily-memory packet that expands into the complete native capture ritual",
-      "Safe-area-aware native screens with one clear vertical reading path"
+      "Warm cream canvas with apricot, moss, terracotta, butter, and flax accents",
+      "Quiet tonal layering, soft borders, and broad organic corners",
+      "Clear hierarchy with short, tightly set headings and relaxed supporting copy",
+      "One capture-first story: moment, people and privacy, then shared history",
+      "Real photos and friend identity as the richest visual material",
+      "Memory Seedling poses used as a restrained brand language, not decorative clutter",
+      "A private journal that moves from one honest thought to searchable, durable history",
+      "Responsive shell with a left rail on desktop and fixed app navigation on mobile"
     ],
     "rules": [
-      {
-        "name": "The Warm Action Rule",
-        "body": "Citrus identifies the most consequential friendly action in a local area; multiple citrus buttons competing in one cluster dilute its meaning.",
-        "section": "colors"
-      },
-      {
-        "name": "The Color Field Rule",
-        "body": "Periwinkle, coral, citrus, and sky appear as meaningful bands, cards, tags, or shadows. Do not scatter them as arbitrary decorative dots.",
-        "section": "colors"
-      },
-      {
-        "name": "The Compression Rule",
-        "body": "Display type is large, heavy, tightly tracked, and brief; body text returns immediately to calm, readable spacing.",
-        "section": "typography"
-      },
-      {
-        "name": "The Contact Sheet Rule",
-        "body": "Use deliberate grid rhythm and occasional spanning cards to express a collected history; avoid uniform dashboard tile matrices where every object has equal visual weight.",
-        "section": "layout"
-      },
-      {
-        "name": "The Hard Shadow Rule",
-        "body": "Shadows have zero blur. If a surface needs softer separation, use Paper versus White and Pencil Line dividers instead of adding ambient blur.",
-        "section": "elevation"
-      },
-      {
-        "name": "The Flat-at-Rest Rule",
-        "body": "Internal rows and utility areas remain flat; stronger offsets are reserved for cards, decisive controls, and signature panels.",
-        "section": "elevation"
-      },
-      {
-        "name": "The Honest Edge Rule",
-        "body": "Interactive boundaries are visible. Avoid borderless pale cards whose edges depend only on a shadow.",
-        "section": "shapes"
-      }
+      { "name": "The Warm Center Rule", "body": "Baked Apricot belongs to the memory-capture ritual and a few selected moments. It should not flood every card or action.", "section": "colors" },
+      { "name": "The Moss Action Rule", "body": "Use Moss for the clearest next action. A cluster should not contain several equally weighted moss buttons.", "section": "colors" },
+      { "name": "The Earth, Not Autumn Rule", "body": "Keep the field luminous with Oat Cream and Warm White. The palette should feel warm and fuzzy, never brown, rustic, or seasonal.", "section": "colors" },
+      { "name": "The Warm Contrast Rule", "body": "Body copy uses Deep Moss or Muted Ink, and small warm labels use Deep Terracotta. Terracotta alone is an accent, not a substitute for readable small text.", "section": "colors" },
+      { "name": "The Gentle Contrast Rule", "body": "Pair one strong heading with quieter supporting copy. Do not stack several oversized or all-caps levels in the same card.", "section": "typography" },
+      { "name": "The Quiet Feed, Clear Action Rule", "body": "The first authenticated viewport prioritizes memory history while keeping one unmistakable plus action available at all times. The capture form never occupies the feed until the user asks for it.", "section": "layout" },
+      { "name": "The Breathing Stream Rule", "body": "Keep cards orderly and comfortably spaced. Avoid dense dashboard tile matrices or collage-like overlap.", "section": "layout" },
+      { "name": "The Writing Before Filing Rule", "body": "Journal title, people tags, and history support the thought; they never appear more prominent than the writing field.", "section": "layout" },
+      { "name": "The Soft-at-Rest Rule", "body": "Tonal separation and flax edges do most of the work. Use a stronger shadow only for the fixed plus action, the open composer, or the transient save moment.", "section": "elevation" },
+      { "name": "The Organic, Not Blobby Rule", "body": "Use clean rounded containers for interface structure. Reserve irregular forms for the Memory Seedling and rare brand accents.", "section": "shapes" },
+      { "name": "The Earned Motion Rule", "body": "Mascot motion rewards a completed memory or clarifies state. It does not loop, interrupt input, or compete with photography.", "section": "components" },
+      { "name": "The Asked, Never Assumed Rule", "body": "AI reflection begins only after an explicit ‘Get a response’ action and never changes, shares, or saves the writer’s entry by itself.", "section": "components" }
     ],
     "dos": [
-      "Do let Graphite Ink outlines and Paper/White layering carry most of the interface structure.",
-      "Do reserve Citrus Note for the next meaningful action in a component group.",
-      "Do use large, short headings to name a place, then return to compact social typography.",
-      "Do keep privacy, friend, and date context visible at the moment a memory is captured or read.",
-      "Do pair hard shadows with visible borders and clear press states.",
-      "Do collapse complex grids into a single readable column on mobile and preserve 44px touch targets.",
-      "Do keep the folded daily packet above the native feed and make its friend and privacy choices explicit before saving.",
-      "Do protect headers, full-screen memory media, reply controls, and the five-tab bar with device safe-area insets."
+      "Do keep Oat Cream visible around Warm White cards so the app feels light and held.",
+      "Do let memory history lead while keeping one Moss plus action unmistakable and persistent.",
+      "Do show audience and privacy in plain language at the point of saving.",
+      "Do use real memory photos, friend avatars, initials, and honest empty states.",
+      "Do use Memory Seedling poses sparingly and preserve its simple seed, leaf, face, and memory-orb anatomy.",
+      "Do keep journal entries private by default and describe people tags as private organization rather than sharing.",
+      "Do persist journal drafts per signed-in account, expose draft status, and preserve the draft through network or AI-response errors.",
+      "Do make AI reflection an explicit, reversible request for one gentle question.",
+      "Do maintain 44px touch targets, visible focus, readable muted copy, semantic status announcements, and reduced-motion behavior."
     ],
     "donts": [
-      "Don't turn the palette into confetti; every accent field should communicate chapter, state, person, or action.",
-      "Don't use blurred glass, translucent dashboard cards, gradient washes, or soft ambient shadows.",
-      "Don't fill a screen with equally weighted tiles; the daily ritual and meaningful memories need hierarchy.",
-      "Don't use pills for ordinary buttons, cards, or inputs; reserve them for filters, privacy, and counts.",
-      "Don't let follower metrics, performance language, or planning-oriented controls outrank people and moments.",
-      "Don't hide focus, press, disabled, empty, or privacy states to preserve a static composition.",
-      "Don't introduce trips, itineraries, events, calendars, destinations, or other planning surfaces into web or native navigation.",
-      "Don't substitute a generic floating social dock for the shipped Home, Friends, Add, Messages, and Journal shell."
+      "Don't reintroduce periwinkle, neon accents, hard graphite outlines, offset print shadows, or scrapbook ephemera.",
+      "Don't use gradients, glassmorphism, noisy texture, or decorative collage layers.",
+      "Don't turn every container into a rounded card or every label into a pill.",
+      "Don't add limbs, speech bubbles, detailed facial acting, character lore, or constant animation to the Memory Seedling.",
+      "Don't send journal text for AI reflection before the writer explicitly requests a response.",
+      "Don't present private people tags as recipients or imply that a journal entry was shared.",
+      "Don't let archive, discovery, engagement, or planning mechanics outrank today's capture ritual.",
+      "Don't fabricate people, memories, testimonials, or usage claims."
     ]
   }
 }

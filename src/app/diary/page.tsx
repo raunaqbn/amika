@@ -1,34 +1,37 @@
 'use client';
 
-import { useEffect, useMemo, useState, useRef, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { format, formatDistanceToNow, isThisWeek, isToday, startOfWeek, endOfWeek } from 'date-fns';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { format, formatDistanceToNow } from 'date-fns';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Heart, Search, Plus, X, MoreVertical, Share2, Image as ImageIcon, ArrowLeft, Compass } from 'lucide-react';
-import { NewNoteDialog } from '@/components/new-note-dialog';
-import { ShareItemDialog } from '@/components/share-item-dialog';
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ChevronRight,
+  LockKeyhole,
+  PenLine,
+  Search,
+  Send,
+  Sparkles,
+  Trash2,
+  UsersRound,
+} from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { MemorySeedling } from '@/components/memory-seedling';
+import { useAuth } from '@/lib/auth-context';
 
-interface Friend {
-  id: string;
-  name: string;
-  linkedUserId?: string | null;
-}
+/*
+THESIS: A private journal should feel like a calm conversation, not a notes database.
+OWN-WORLD: Oat cream pages, moss controls, apricot writing surfaces, flax rules, and the Memory Seedling as a quiet listener.
+STORY: Begin with one honest thought, optionally let Amika ask a gentle question, keep the draft automatically, then return to a searchable history.
+FIRST VIEWPORT: “What’s on your mind?” and one full-width writing invitation lead; a resumable draft and recent entries follow without competing cards.
+FORM: Saarthi’s journal-first rhythm adapted into Amika’s established Apricot Moss system for web and mobile.
+*/
 
-interface DiaryNote {
+type Friend = { id: string; name: string; linkedUserId?: string | null };
+type DiaryNote = {
   id: string;
   title: string | null;
   content: string;
@@ -37,878 +40,449 @@ interface DiaryNote {
   createdAt: string;
   updatedAt: string;
   friends: Friend[];
+};
+
+type StoredDraft = {
+  title: string;
+  input: string;
+  messages: JournalTurn[];
+  friendIds: string[];
+  updatedAt: string;
+};
+
+type JournalTurn = { id: string; role: 'user' | 'assistant'; content: string };
+
+function readDraft(key: string): StoredDraft | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const value = window.localStorage.getItem(key);
+    return value ? JSON.parse(value) as StoredDraft : null;
+  } catch {
+    return null;
+  }
 }
 
-function DiaryPageContent() {
+function titleFromBody(body: string) {
+  const firstLine = body.split(/\n|[.!?]\s/)[0]?.trim() || '';
+  if (!firstLine) return null;
+  return firstLine.length > 64 ? `${firstLine.slice(0, 61).trim()}…` : firstLine;
+}
+
+export default function DiaryPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { user, loading: authLoading } = useAuth();
   const [notes, setNotes] = useState<DiaryNote[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newNoteDialogOpen, setNewNoteDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [editingNote, setEditingNote] = useState<DiaryNote | null>(null);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
   const [selectedNote, setSelectedNote] = useState<DiaryNote | null>(null);
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('analysis');
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [shareWithFriendIds, setShareWithFriendIds] = useState<string[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [editingNote, setEditingNote] = useState<DiaryNote | null>(null);
+  const [composing, setComposing] = useState(false);
+  const [draft, setDraft] = useState<StoredDraft | null>(null);
+  const draftKey = user ? `amika-journal-draft-v3:${user.id}` : '';
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  async function load() {
+    setError('');
     try {
-      const [notesRes, friendsRes] = await Promise.all([
+      const [notesResponse, friendsResponse] = await Promise.all([
         fetch('/api/diary'),
         fetch('/api/friends'),
       ]);
-
-      const notesData = await notesRes.json();
-      const friendsData = await friendsRes.json();
-
-      setNotes(notesData);
-      setFriends(friendsData.map((friend: any) => ({ id: friend.id, name: friend.name, linkedUserId: friend.linkedUserId })));
-
-      // Check if there's an ID in the query params
-      const noteId = searchParams.get('id');
-
-      if (noteId) {
-        // Select the note from the query param
-        const noteToSelect = notesData.find((n: DiaryNote) => n.id === noteId);
-        if (noteToSelect) {
-          setSelectedNote(noteToSelect);
-          return;
-        }
-      }
-
-      // Otherwise, set first note as selected if none selected
-      if (notesData.length > 0 && !selectedNote) {
-        const sorted = [...notesData].sort(
-          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-        );
-        setSelectedNote(sorted[0]);
-      }
-    } catch (error) {
-      console.error('Error fetching diary data:', error);
+      if (!notesResponse.ok || !friendsResponse.ok) throw new Error('Your journal could not be opened.');
+      const [nextNotes, nextFriends] = await Promise.all([notesResponse.json(), friendsResponse.json()]);
+      const ordered = [...nextNotes].sort((a: DiaryNote, b: DiaryNote) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      setNotes(ordered);
+      setFriends(nextFriends);
+      setSelectedNote((current) => current ? ordered.find((note: DiaryNote) => note.id === current.id) || ordered[0] || null : ordered[0] || null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Your journal could not be opened.');
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const compressImage = async (file: File): Promise<File> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-
-          const maxSize = 1920;
-          if (width > height && width > maxSize) {
-            height = (height / width) * maxSize;
-            width = maxSize;
-          } else if (height > maxSize) {
-            width = (width / height) * maxSize;
-            height = maxSize;
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-
-          canvas.toBlob(
-            (blob) => {
-              if (blob) {
-                const compressedFile = new File([blob], file.name, {
-                  type: 'image/jpeg',
-                  lastModified: Date.now(),
-                });
-                resolve(compressedFile);
-              } else {
-                reject(new Error('Compression failed'));
-              }
-            },
-            'image/jpeg',
-            0.85
-          );
-        };
-
-        img.onerror = () => reject(new Error('Failed to load image'));
-      };
-
-      reader.onerror = () => reject(new Error('Failed to read file'));
-    });
-  };
-
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      if (!file.type.startsWith('image/')) {
-        alert('Please select an image file');
-        return;
-      }
-
-      const compressedFile = await compressImage(file);
-
-      if (compressedFile.size > 4 * 1024 * 1024) {
-        alert('Image is still too large after compression. Please use a smaller image.');
-        return;
-      }
-
-      setSelectedImage(compressedFile);
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(compressedFile);
-    } catch (error) {
-      console.error('Error processing image:', error);
-      alert('Failed to process image. Please try again.');
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.replace('/signin');
+      return;
     }
+    setDraft(readDraft(draftKey));
+    void load();
+  }, [authLoading, draftKey, router, user]);
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleRemoveImage = () => {
-    setSelectedImage(null);
-    setImagePreview(null);
-  };
-
-  const openCreateDialog = () => {
-    setNewNoteDialogOpen(true);
-  };
-
-  const openEditDialog = (note: DiaryNote) => {
-    setEditingNote(note);
-    setTitle(note.title ?? '');
-    setContent(note.content);
-    setSelectedFriends(note.friends.map((friend) => friend.id));
-    setSelectedImage(null);
-    setImagePreview(note.imageUrl || null);
-    setShareWithFriendIds([]);
-    setEditDialogOpen(true);
-  };
-
-  const handleNoteCreated = async () => {
-    // Refresh the notes list after a new note is created
-    const notesRes = await fetch('/api/diary');
-    const notesData = await notesRes.json();
-    setNotes(notesData);
-
-    // Select the newest note
-    const sorted = [...notesData].sort(
-      (a: DiaryNote, b: DiaryNote) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    );
-    if (sorted.length > 0) {
-      setSelectedNote(sorted[0]);
-    }
-  };
-
-  const toggleFriend = (friendId: string) => {
-    setSelectedFriends((prev) =>
-      prev.includes(friendId)
-        ? prev.filter((id) => id !== friendId)
-        : [...prev, friendId]
-    );
-  };
-
-  const handleSave = async () => {
-    if (!content.trim()) return;
-
-    setSaving(true);
-    try {
-      let imageUrl = editingNote?.imageUrl || null;
-
-      // Upload new image if one was selected
-      if (selectedImage) {
-        const formData = new FormData();
-        formData.append('file', selectedImage);
-
-        const uploadRes = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (uploadRes.ok) {
-          const data = await uploadRes.json();
-          imageUrl = data.url;
-        }
-      }
-
-      // Build friendTags with sharing info for API
-      const friendTags = selectedFriends.map(friendId => ({
-        friendId,
-        sharedWithFriend: shareWithFriendIds.includes(friendId),
-      }));
-
-      const payload = {
-        title: title.trim() || null,
-        content,
-        imageUrl,
-        friendIds: selectedFriends,
-        friendTags,
-      };
-
-      const response = await fetch('/api/diary', {
-        method: editingNote ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          editingNote ? { ...payload, id: editingNote.id } : payload
-        ),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save note');
-      }
-
-      const updatedNotes = await fetch('/api/diary').then(res => res.json());
-      setNotes(updatedNotes);
-
-      // Update selected note if it was edited
-      if (editingNote) {
-        const updated = updatedNotes.find((n: DiaryNote) => n.id === editingNote.id);
-        if (updated) setSelectedNote(updated);
-      }
-
-      setEditDialogOpen(false);
-    } catch (error) {
-      console.error('Error saving note:', error);
-      alert('Failed to save note. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      const response = await fetch(`/api/diary?id=${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete note');
-      }
-
-      setNotes((prev) => prev.filter((note) => note.id !== id));
-
-      // Clear selected note if it was deleted
-      if (selectedNote?.id === id) {
-        setSelectedNote(null);
-      }
-    } catch (error) {
-      console.error('Error deleting note:', error);
-    }
-  };
-
-  const sortedNotes = useMemo(
-    () =>
-      [...notes].sort(
-        (a, b) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-      ),
-    [notes]
-  );
-
-  // Filter notes based on search query
   const filteredNotes = useMemo(() => {
-    if (!searchQuery.trim()) return sortedNotes;
+    const term = search.trim().toLowerCase();
+    if (!term) return notes;
+    return notes.filter((note) => [note.title, note.content, note.analysis, ...note.friends.map((friend) => friend.name)].filter(Boolean).join(' ').toLowerCase().includes(term));
+  }, [notes, search]);
 
-    const query = searchQuery.toLowerCase();
-    return sortedNotes.filter(
-      (note) =>
-        note.title?.toLowerCase().includes(query) ||
-        note.content.toLowerCase().includes(query) ||
-        note.friends.some((friend) => friend.name.toLowerCase().includes(query))
-    );
-  }, [sortedNotes, searchQuery]);
+  function beginWriting(note: DiaryNote | null = null) {
+    setEditingNote(note);
+    setComposing(true);
+  }
 
-  // Group notes by date ranges
-  const groupedNotes = useMemo(() => {
-    const groups: { [key: string]: DiaryNote[] } = {
-      Drafts: [],
-      'Last week': [],
-    };
-
-    const now = new Date();
-    const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
-    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-
-    filteredNotes.forEach((note) => {
-      const noteDate = new Date(note.updatedAt);
-
-      if (isThisWeek(noteDate, { weekStartsOn: 1 })) {
-        groups['Last week'].push(note);
-      } else {
-        const weekKey = `${format(startOfWeek(noteDate, { weekStartsOn: 1 }), 'MMM do')} - ${format(endOfWeek(noteDate, { weekStartsOn: 1 }), 'MMM do, yyyy')}`;
-        if (!groups[weekKey]) {
-          groups[weekKey] = [];
-        }
-        groups[weekKey].push(note);
-      }
-    });
-
-    // Remove empty Drafts section for now
-    if (groups.Drafts.length === 0) {
-      delete groups.Drafts;
+  async function deleteNote(note: DiaryNote) {
+    if (!window.confirm('Delete this journal entry? This cannot be undone.')) return;
+    const response = await fetch(`/api/diary?id=${note.id}`, { method: 'DELETE' });
+    if (!response.ok) {
+      setError('That entry could not be deleted. Please try again.');
+      return;
     }
+    const remaining = notes.filter((item) => item.id !== note.id);
+    setNotes(remaining);
+    setSelectedNote(remaining[0] || null);
+  }
 
-    return groups;
-  }, [filteredNotes]);
+  if (authLoading || !user) {
+    return <div className="journal-auth-loading"><MemorySeedling pose="rest" size="lg" animated /><span>Opening your private journal…</span></div>;
+  }
 
-  if (loading) {
+  if (composing) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A8C5A8]" />
-      </div>
+      <JournalComposer
+        draftKey={draftKey}
+        friends={friends}
+        note={editingNote}
+        onClose={() => { setComposing(false); setEditingNote(null); setDraft(readDraft(draftKey)); }}
+        onSaved={async (saved) => {
+          setComposing(false);
+          setEditingNote(null);
+          setDraft(null);
+          await load();
+          setSelectedNote(saved);
+        }}
+      />
     );
   }
 
   return (
-    <div className="journal-page mt-14 h-[calc(100vh-3.5rem)] md:mt-16 md:h-[calc(100vh-4rem)] flex flex-col bg-gray-50">
-      {/* Main container with two-column layout - centered on desktop */}
-      <div className="flex-1 flex overflow-hidden md:max-w-6xl md:mx-auto md:w-full md:border-x md:border-gray-200">
-        {/* Left Sidebar - Hidden on mobile */}
-        <div className="hidden md:flex w-80 bg-white border-r border-gray-200 flex-col">
-          {/* Search bar and New Note button */}
-          <div className="p-4 border-b border-gray-200 space-y-3">
-            <div className="flex gap-2">
-              <Button
-                onClick={openCreateDialog}
-                className="flex-1 bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New note
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push('/explore')}
-                className="border-[#A8C5A8] text-[#A8C5A8] hover:bg-[#A8C5A8]/10"
-              >
-                <Compass className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search"
-                className="pl-9 bg-gray-50 border-gray-200"
-              />
-            </div>
-          </div>
-
-          {/* Entries list */}
-          <div className="flex-1 overflow-y-auto">
-            {sortedNotes.length === 0 ? (
-              <div className="p-4 text-center">
-                <p className="text-sm text-gray-500 mb-4">No diary notes yet</p>
-                <Button
-                  onClick={openCreateDialog}
-                  size="sm"
-                  className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New note
-                </Button>
-              </div>
-            ) : (
-              <>
-                {Object.entries(groupedNotes).map(([groupName, groupNotes]) => (
-                  <div key={groupName} className="mb-6">
-                    <div className="px-4 py-2">
-                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        {groupName}
-                      </h3>
-                    </div>
-                    <div className="space-y-1">
-                      {groupNotes.map((note) => (
-                        <button
-                          key={note.id}
-                          onClick={() => setSelectedNote(note)}
-                          className={`w-full text-left px-4 py-3 transition-colors ${
-                            selectedNote?.id === note.id
-                              ? 'bg-[#F0F5F0] border-r-2 border-[#A8C5A8]'
-                              : 'hover:bg-gray-50'
-                          }`}
-                        >
-                          <div className="flex items-start gap-2">
-                            <Heart className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-sm font-medium text-gray-900 truncate">
-                                {note.title?.trim() || 'Untitled'}
-                              </h4>
-                              <p className="text-xs text-gray-500 mt-0.5">
-                                {format(new Date(note.updatedAt), 'MMM do')} @ {format(new Date(note.updatedAt), 'h:mm a')}
-                              </p>
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
+    <div className="journal-shell">
+      <section className="journal-home-hero">
+        <div>
+          <span>{format(new Date(), 'EEEE, MMMM d')}</span>
+          <h1>What’s on your mind?</h1>
+          <p>Take a breath. Start anywhere—you do not need to make it coherent yet.</p>
         </div>
+        <MemorySeedling pose="listen" size="xl" label="Memory Seedling listening" />
+      </section>
 
-        {/* Right main content area */}
-        <div className="flex-1 flex flex-col bg-white overflow-hidden">
-          {/* Mobile List View - shown when no note selected on mobile */}
-          <div className={`md:hidden flex-1 flex flex-col ${selectedNote ? 'hidden' : ''}`}>
-            {/* Mobile header with new note button and search */}
-            <div className="p-4 border-b border-gray-200 space-y-3 bg-white">
-              <div className="flex gap-2">
-                <Button
-                  onClick={openCreateDialog}
-                  className="flex-1 bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New note
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => router.push('/explore')}
-                  className="border-[#A8C5A8] text-[#A8C5A8] hover:bg-[#A8C5A8]/10"
-                >
-                  <Compass className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search"
-                  className="pl-9 bg-gray-50 border-gray-200"
-                />
-              </div>
-            </div>
+      {draft ? (
+        <button className="journal-resume" onClick={() => beginWriting()}>
+          <span className="journal-action-mark"><PenLine aria-hidden="true" /></span>
+          <span>
+            <small>Continue draft · {formatDistanceToNow(new Date(draft.updatedAt), { addSuffix: true })}</small>
+            <strong>{draft.title || titleFromBody([...draft.messages.filter((message) => message.role === 'user').map((message) => message.content), draft.input].join(' ')) || 'Untitled thought'}</strong>
+            <span>{draft.input || draft.messages.filter((message) => message.role === 'user').at(-1)?.content || 'Your words are waiting.'}</span>
+          </span>
+          <span className="journal-action-label">Continue <ArrowRight aria-hidden="true" /></span>
+        </button>
+      ) : null}
 
-            {/* Mobile entries list */}
-            <div className="flex-1 overflow-y-auto pb-32">
-              {sortedNotes.length === 0 ? (
-                <div className="p-4 text-center">
-                  <p className="text-sm text-gray-500 mb-4">No diary notes yet</p>
-                  <Button
-                    onClick={openCreateDialog}
-                    size="sm"
-                    className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    New note
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  {Object.entries(groupedNotes).map(([groupName, groupNotes]) => (
-                    <div key={groupName} className="mb-4">
-                      <div className="px-4 py-2">
-                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                          {groupName}
-                        </h3>
-                      </div>
-                      <div className="space-y-1">
-                        {groupNotes.map((note) => (
-                          <button
-                            key={note.id}
-                            onClick={() => setSelectedNote(note)}
-                            className="w-full text-left px-4 py-3 transition-colors hover:bg-gray-50"
-                          >
-                            <div className="flex items-start gap-2">
-                              <Heart className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-sm font-medium text-gray-900 truncate">
-                                  {note.title?.trim() || 'Untitled'}
-                                </h4>
-                                <p className="text-xs text-gray-500 mt-0.5">
-                                  {format(new Date(note.updatedAt), 'MMM do')} @ {format(new Date(note.updatedAt), 'h:mm a')}
-                                </p>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-          </div>
+      <button className="journal-begin" onClick={() => beginWriting()}>
+        <span className="journal-action-mark"><PenLine aria-hidden="true" /></span>
+        <span>
+          <strong>Begin writing</strong>
+          <span>A thought, a feeling, something that happened—whatever is present.</span>
+        </span>
+        <span className="journal-action-label">Open journal <ArrowRight aria-hidden="true" /></span>
+      </button>
 
-          {/* Detail View - Desktop: always visible when note selected, Mobile: only when note selected */}
-          <div className={`flex-1 flex flex-col overflow-hidden ${selectedNote ? '' : 'hidden md:flex'}`}>
-          {selectedNote ? (
-            <>
-              {/* Header */}
-              <div className="border-b border-gray-200 px-4 md:px-8 py-4 md:py-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    {/* Back button for mobile */}
-                    <button
-                      onClick={() => setSelectedNote(null)}
-                      className="md:hidden -ml-1 mr-1 p-1 text-gray-500 hover:text-gray-700"
-                    >
-                      <ArrowLeft className="w-5 h-5" />
-                    </button>
-                    <Heart className="w-5 h-5 md:w-6 md:h-6 text-red-400 mt-0.5 md:mt-1" />
-                    <div className="flex-1 min-w-0">
-                      <h1 className="text-lg md:text-xl font-semibold text-gray-900 truncate">
-                        {selectedNote.title?.trim() || 'Untitled'}
-                      </h1>
-                      <p className="text-xs md:text-sm text-gray-500 mt-1">
-                        {format(new Date(selectedNote.updatedAt), 'EEEE, MMMM do')} @ {format(new Date(selectedNote.updatedAt), 'h:mm a')}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 md:gap-2">
-                    <ShareItemDialog
-                      itemType="note"
-                      itemId={selectedNote.id}
-                      itemTitle={selectedNote.title || 'Diary Note'}
-                      trigger={
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-gray-500 hover:text-[#A8C5A8]"
-                        >
-                          <Share2 className="w-4 h-4" />
-                        </Button>
-                      }
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEditDialog(selectedNote)}
-                      className="text-gray-500 hover:text-gray-700"
-                    >
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Tabs */}
-                <div className="mt-4 md:mt-6">
-                  <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <TabsList>
-                      <TabsTrigger value="entry">Entry</TabsTrigger>
-                      <TabsTrigger value="analysis">Analysis</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6 bg-gray-50 pb-32 md:pb-6">
-                {/* Page-like container */}
-                <div className="max-w-3xl mx-auto bg-white shadow-sm rounded-lg p-4 md:p-8 mb-8">
-                  <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <TabsContent value="analysis" className="space-y-6">
-                      {/* Analysis */}
-                      <div>
-                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                          Entry Reflection
-                        </h3>
-                        {selectedNote.analysis ? (
-                          <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                            {selectedNote.analysis}
-                          </p>
-                        ) : (
-                          <p className="text-gray-500 italic">
-                            No analysis available for this entry yet.
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Feelings - Placeholder for future implementation */}
-                      <div>
-                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                          Feelings
-                        </h3>
-                        <p className="text-gray-500 text-sm italic">
-                          Emotion tagging coming soon
-                        </p>
-                      </div>
-
-                      {/* People */}
-                      {selectedNote.friends.length > 0 && (
-                        <div>
-                          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                            People
-                          </h3>
-                          <div className="flex gap-2 flex-wrap">
-                            {selectedNote.friends.map((friend) => (
-                              <Badge
-                                key={friend.id}
-                                variant="secondary"
-                                className="bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1"
-                              >
-                                <span className="mr-2">👤</span>
-                                {friend.name}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Topics - Placeholder for future implementation */}
-                      <div>
-                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                          Topics
-                        </h3>
-                        <p className="text-gray-500 text-sm italic">
-                          Topic tagging coming soon
-                        </p>
-                      </div>
-                    </TabsContent>
-
-                    <TabsContent value="entry" className="space-y-6">
-                      {/* Entry content */}
-                      <div>
-                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                          What&apos;s on your mind?
-                        </h3>
-                        <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                          {selectedNote.content}
-                        </p>
-                      </div>
-
-                      {/* Image */}
-                      {selectedNote.imageUrl && (
-                        <div>
-                          <img
-                            src={selectedNote.imageUrl}
-                            alt="Note"
-                            className="w-full h-auto object-cover rounded-lg border border-gray-200"
-                          />
-                        </div>
-                      )}
-                    </TabsContent>
-                  </Tabs>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <h2 className="text-xl font-semibold text-gray-900 mb-2">Diary</h2>
-                <p className="text-gray-600 mb-6">
-                  Save reflections from Amika and tag the friends involved.
-                </p>
-                <Button
-                  onClick={openCreateDialog}
-                  className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New note
-                </Button>
-              </div>
-            </div>
-          )}
-          </div>
-        </div>
+      <div className="journal-activity" aria-label="Journal activity">
+        <span>{notes.length ? `${notes.length} ${notes.length === 1 ? 'entry' : 'entries'} in your private journal` : 'A fresh page is waiting'}</span>
+        <span><LockKeyhole aria-hidden="true" /> Private by default</span>
       </div>
 
-      {/* Floating action button for mobile - hidden when viewing a note */}
-      {!selectedNote && (
-        <Button
-          onClick={openCreateDialog}
-          className="fixed bottom-24 right-6 h-14 w-14 rounded-full bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white shadow-lg md:hidden"
-        >
-          <Plus className="w-6 h-6" />
-        </Button>
-      )}
-
-      {/* New Note Dialog */}
-      <NewNoteDialog
-        open={newNoteDialogOpen}
-        onOpenChange={setNewNoteDialogOpen}
-        friends={friends}
-        onNoteCreated={handleNoteCreated}
-      />
-
-      {/* Edit Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Edit note</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 overflow-y-auto pr-1 flex-1">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Title</label>
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Optional"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Content</label>
-              <Textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows={6}
-                placeholder="What's on your mind?"
-              />
-            </div>
-
-            <div className="space-y-2">
-              {imagePreview && (
-                <div className="relative inline-block">
-                  <img
-                    src={imagePreview}
-                    alt="Note preview"
-                    className="w-full max-w-md h-48 object-cover rounded-lg border border-gray-200"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={handleRemoveImage}
-                    className="absolute top-2 right-2 bg-white/90 hover:bg-white text-gray-700"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                className="border-[#A8C5A8]/60 text-[#A8C5A8]"
-              >
-                <ImageIcon className="w-4 h-4 mr-2" />
-                {imagePreview ? 'Change Image' : 'Add Image'}
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageSelect}
-                className="hidden"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Tag friends</label>
-              {friends.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  Add friends first to tag them here.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                  {friends.map((friend) => (
-                    <label
-                      key={friend.id}
-                      className="flex items-center gap-2 text-sm text-gray-700"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedFriends.includes(friend.id)}
-                        onChange={() => toggleFriend(friend.id)}
-                        className="h-4 w-4 rounded border-gray-300 text-[#A8C5A8] focus:ring-[#A8C5A8]"
-                      />
-                      {friend.name}
-                      {friend.linkedUserId && (
-                        <span className="text-xs px-1.5 py-0.5 bg-[#A8C5A8]/20 text-[#A8C5A8] rounded-full">
-                          Amika
-                        </span>
-                      )}
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Share with Amika friends option */}
-            {(() => {
-              const selectedAmikaFriends = selectedFriends
-                .map(id => friends.find(f => f.id === id))
-                .filter(f => f?.linkedUserId) as Friend[];
-
-              if (selectedAmikaFriends.length === 0) return null;
-
-              return (
-                <div className="space-y-2 p-3 bg-[#A8C5A8]/10 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Share2 className="w-4 h-4 text-[#A8C5A8]" />
-                    <span className="text-sm font-medium">Share with Amika friends</span>
-                  </div>
-                  <div className="space-y-2">
-                    {selectedAmikaFriends.map(friend => (
-                      <div key={friend.id} className="flex items-center gap-2">
-                        <Switch
-                          id={`share-note-${friend.id}`}
-                          checked={shareWithFriendIds.includes(friend.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setShareWithFriendIds([...shareWithFriendIds, friend.id]);
-                            } else {
-                              setShareWithFriendIds(shareWithFriendIds.filter(id => id !== friend.id));
-                            }
-                          }}
-                        />
-                        <Label htmlFor={`share-note-${friend.id}`} className="text-sm text-gray-600">
-                          Share with {friend.name}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    The note will appear in their Amika app
-                  </p>
-                </div>
-              );
-            })()}
+      <section className="journal-library">
+        <header>
+          <div>
+            <span>Your journal</span>
+            <h2>Recent writing</h2>
           </div>
+          <label className="journal-search">
+            <Search aria-hidden="true" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search your words" aria-label="Search journal entries" />
+          </label>
+        </header>
 
-          <DialogFooter>
-            <Button
-              onClick={handleSave}
-              disabled={saving || !content.trim()}
-              className="bg-[#A8C5A8] hover:bg-[#A8C5A8]/90 text-white"
-            >
-              {saving ? 'Saving...' : 'Save changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {loading ? (
+          <div className="journal-loading" role="status"><MemorySeedling pose="rest" size="lg" animated /><span>Opening your journal…</span></div>
+        ) : error ? (
+          <div className="journal-load-error" role="alert">
+            <MemorySeedling pose="rest" size="lg" />
+            <h3>Your journal could not be opened</h3>
+            <p>Your entries have not been changed. Check your connection and try again.</p>
+            <button onClick={() => void load()}>Try again</button>
+          </div>
+        ) : filteredNotes.length ? (
+          <div className="journal-library-layout">
+            <div className="journal-entry-list" aria-label="Journal entries">
+              {filteredNotes.map((note) => (
+                <button key={note.id} className={selectedNote?.id === note.id ? 'is-active' : ''} onClick={() => setSelectedNote(note)}>
+                  <span>{format(new Date(note.updatedAt), 'MMM d, yyyy')}</span>
+                  <strong>{note.title?.trim() || 'Untitled entry'}</strong>
+                  <p>{note.content}</p>
+                  <small>{note.friends.length ? note.friends.map((friend) => friend.name).join(', ') : 'Just you'}</small>
+                  <ChevronRight aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+
+            {selectedNote ? (
+              <article className="journal-entry-detail">
+                <header>
+                  <div>
+                    <span>{format(new Date(selectedNote.createdAt), 'EEEE, MMMM d, yyyy')}</span>
+                    <h2>{selectedNote.title?.trim() || 'Untitled entry'}</h2>
+                  </div>
+                  <div>
+                    <button onClick={() => beginWriting(selectedNote)}><PenLine aria-hidden="true" /> Edit</button>
+                    <button className="is-danger" onClick={() => void deleteNote(selectedNote)} aria-label="Delete entry"><Trash2 aria-hidden="true" /></button>
+                  </div>
+                </header>
+                {selectedNote.imageUrl ? <Image src={selectedNote.imageUrl} alt="Attached to this journal entry" width={1200} height={720} unoptimized /> : null}
+                <div className="journal-entry-copy">{selectedNote.content}</div>
+                {selectedNote.friends.length ? (
+                  <div className="journal-entry-people"><UsersRound aria-hidden="true" /><span>People in this note: {selectedNote.friends.map((friend) => friend.name).join(', ')}</span></div>
+                ) : null}
+                {selectedNote.analysis ? (
+                  <aside className="journal-gentle-reflection">
+                    <div><MemorySeedling pose="rest" size="sm" /><strong>A gentle reflection</strong></div>
+                    <p>{selectedNote.analysis}</p>
+                  </aside>
+                ) : null}
+              </article>
+            ) : null}
+          </div>
+        ) : (
+          <div className="journal-empty">
+            <MemorySeedling pose="peek" size="xl" />
+            <h3>{search ? 'No entries match' : 'A blank page, in a good way'}</h3>
+            <p>{search ? 'Try a feeling, a person, or a phrase you remember writing.' : 'Your journal is for the part of a memory that only needs to belong to you.'}</p>
+            {!search ? <button onClick={() => beginWriting()}>Write your first entry</button> : null}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
 
-export default function DiaryPage() {
+function JournalComposer({
+  draftKey,
+  friends,
+  note,
+  onClose,
+  onSaved,
+}: {
+  draftKey: string;
+  friends: Friend[];
+  note: DiaryNote | null;
+  onClose: () => void;
+  onSaved: (note: DiaryNote) => void;
+}) {
+  const hydrated = useRef(false);
+  const [title, setTitle] = useState(note?.title || '');
+  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>(note?.friends.map((friend) => friend.id) || []);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [responding, setResponding] = useState(false);
+  const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveError, setSaveError] = useState('');
+  const [messages, setMessages] = useState<JournalTurn[]>([]);
+  const [input, setInput] = useState('');
+  const transcriptEnd = useRef<HTMLDivElement>(null);
+  const storageKey = note ? `${draftKey}:edit:${note.id}` : draftKey;
+
+  useEffect(() => {
+    if (hydrated.current) return;
+    hydrated.current = true;
+    const stored = readDraft(storageKey);
+    if (stored) {
+      setTitle(stored.title);
+      setSelectedFriendIds(stored.friendIds);
+      setMessages(stored.messages);
+      setInput(stored.input);
+      setDraftStatus('saved');
+      return;
+    }
+    if (note) setMessages([{ id: `entry-${note.id}`, role: 'user', content: note.content }]);
+  }, [note, storageKey]);
+
+  useEffect(() => {
+    transcriptEnd.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages, responding]);
+
+  useEffect(() => {
+    if (!hydrated.current) return;
+    const hasWords = input.trim() || messages.some((message) => message.role === 'user' && message.content.trim());
+    if (!hasWords) {
+      window.localStorage.removeItem(storageKey);
+      setDraftStatus('idle');
+      return;
+    }
+    const nextDraft: StoredDraft = {
+      title,
+      input,
+      messages: messages.map(({ id, role, content }) => ({ id, role, content })),
+      friendIds: selectedFriendIds,
+      updatedAt: new Date().toISOString(),
+    };
+    setDraftStatus('saving');
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(nextDraft));
+      setDraftStatus('saved');
+    } catch {
+      setDraftStatus('error');
+    }
+  }, [input, messages, selectedFriendIds, storageKey, title]);
+
+  const authoredBody = useMemo(() => [
+    ...messages.filter((message) => message.role === 'user').map((message) => message.content.trim()),
+    input.trim(),
+  ].filter(Boolean).join('\n\n'), [input, messages]);
+  const wordCount = authoredBody ? authoredBody.split(/\s+/).length : 0;
+
+  async function saveEntry() {
+    if (!authoredBody) {
+      setSaveError('Write a few honest words before saving this entry.');
+      return;
+    }
+    setSaving(true);
+    setSaveError('');
+    try {
+      const friendTags = selectedFriendIds.map((friendId) => ({ friendId, sharedWithFriend: false }));
+      const response = await fetch('/api/diary', {
+        method: note ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(note ? { id: note.id, imageUrl: note.imageUrl } : {}),
+          title: title.trim() || titleFromBody(authoredBody),
+          content: authoredBody,
+          savedReflection: messages.filter((message) => message.role === 'assistant').at(-1)?.content || null,
+          friendIds: selectedFriendIds,
+          friendTags,
+        }),
+      });
+      if (!response.ok) throw new Error('Amika could not save this entry. Your draft is still here.');
+      const saved = await response.json() as DiaryNote;
+      window.localStorage.removeItem(storageKey);
+      onSaved({ ...saved, friends: friends.filter((friend) => selectedFriendIds.includes(friend.id)) });
+    } catch (cause) {
+      setSaveError(cause instanceof Error ? cause.message : 'Amika could not save this entry. Your draft is still here.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function askAmika() {
+    if (!input.trim()) {
+      setSaveError('Write a few honest words first.');
+      return;
+    }
+    setSaveError('');
+    const userTurn: JournalTurn = { id: `user-${Date.now()}`, role: 'user', content: input.trim() };
+    const nextMessages = [...messages, userTurn];
+    setMessages(nextMessages);
+    setInput('');
+    setResponding(true);
+    try {
+      const response = await fetch('/api/journal-guide', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          body: nextMessages.filter((message) => message.role === 'user').map((message) => message.content).join('\n\n'),
+          turns: nextMessages,
+        }),
+      });
+      const result = await response.json() as { message?: string; error?: string };
+      if (!response.ok || !result.message) throw new Error(result.error || 'Amika could not respond right now.');
+      setMessages([...nextMessages, { id: `amika-${Date.now()}`, role: 'assistant', content: result.message }]);
+    } catch (cause) {
+      setSaveError(cause instanceof Error ? cause.message : 'Amika could not respond right now. Your draft is still here.');
+    } finally {
+      setResponding(false);
+    }
+  }
+
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#A8C5A8]" />
+    <div className="journal-compose-page">
+      <header className="journal-compose-header">
+        <button onClick={onClose}><ArrowLeft aria-hidden="true" /><span>Back</span></button>
+        <div className="journal-compose-brand">
+          <MemorySeedling pose="listen" size="sm" />
+          <span><strong>Journal with Amika</strong><small>{messages.filter((message) => message.role === 'user').length ? `${messages.filter((message) => message.role === 'user').length} writing turns` : 'Write, reflect, then save'}</small></span>
+        </div>
+        <span className={`journal-private-status is-${draftStatus}`}><i />{draftStatus === 'saved' ? 'Saved on this device' : draftStatus === 'saving' ? 'Saving draft…' : draftStatus === 'error' ? 'Draft not saved' : 'New reflection'}</span>
+      </header>
+
+      <div className="journal-compose-layout">
+        <main className="journal-conversation" aria-label="Guided journal conversation">
+          <div className="journal-conversation-intro">
+            <MemorySeedling pose="listen" size="lg" />
+            <div><span>Amika</span><h1>What’s on your mind?</h1><p>Start with one honest thought. I’ll only respond when you ask.</p></div>
+          </div>
+
+          <div className="journal-transcript">
+            {messages.map((message) => (
+              <article key={message.id} className={message.role === 'user' ? 'is-user' : 'is-amika'}>
+                {message.role === 'assistant' ? <div className="journal-speaker"><MemorySeedling pose="listen" size="xs" /><span>Amika</span></div> : <span>You wrote</span>}
+                {message.role === 'assistant' ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                ) : <p>{message.content}</p>}
+              </article>
+            ))}
+            {responding ? <div className="journal-thinking"><MemorySeedling pose="listen" size="xs" animated /><span>Amika is reading your words…</span></div> : null}
+            <div ref={transcriptEnd} />
+          </div>
+
+          <div className="journal-composer">
+            <textarea
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder={messages.length ? 'Keep writing…' : 'Write what is true before trying to make it tidy…'}
+              aria-label="Write your next journal thought"
+              maxLength={4000}
+              autoFocus
+            />
+            <div>
+              <span>{wordCount} words · {draftStatus === 'error' ? 'Could not save this draft' : 'Draft stays on this device until you save'}</span>
+              <button type="button" onClick={() => void askAmika()} disabled={responding || !input.trim()}>Get a response <Send aria-hidden="true" /></button>
+            </div>
+          </div>
+          {saveError ? <p className="journal-compose-error" role="alert">{saveError}</p> : null}
+        </main>
+
+        <aside className={settingsOpen ? 'journal-compose-settings is-open' : 'journal-compose-settings'}>
+          <button className="journal-settings-toggle" aria-expanded={settingsOpen} aria-controls="journal-entry-details" onClick={() => setSettingsOpen((open) => !open)}>
+            <Sparkles aria-hidden="true" /><span>Entry details</span><ChevronRight aria-hidden="true" />
+          </button>
+          <div className="journal-settings-content" id="journal-entry-details">
+            <label><span>Title <small>Optional</small></span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="A small realization" /></label>
+            <fieldset>
+              <legend>People in this note <small>Private tags</small></legend>
+              <p>Tag someone for your own organization. This does not share the entry.</p>
+              <div>
+                {friends.map((friend) => (
+                  <button key={friend.id} type="button" aria-pressed={selectedFriendIds.includes(friend.id)} className={selectedFriendIds.includes(friend.id) ? 'is-selected' : ''} onClick={() => setSelectedFriendIds((current) => current.includes(friend.id) ? current.filter((id) => id !== friend.id) : [...current, friend.id])}>
+                    {friend.name}<Check aria-hidden="true" />
+                  </button>
+                ))}
+                {!friends.length ? <span>No friends added yet.</span> : null}
+              </div>
+            </fieldset>
+            <p className="journal-settings-note"><LockKeyhole aria-hidden="true" /> Journal entries stay private unless you explicitly share them elsewhere.</p>
+          </div>
+        </aside>
       </div>
-    }>
-      <DiaryPageContent />
-    </Suspense>
+
+      <footer className="journal-compose-footer">
+        <span><Sparkles aria-hidden="true" /> Amika asks one gentle question at a time.</span>
+        <button onClick={() => void saveEntry()} disabled={saving || responding || !authoredBody}>
+          {saving ? <span className="journal-saving-dot" /> : <Check aria-hidden="true" />}
+          {saving ? 'Keeping entry…' : note ? 'Save changes' : 'Finish & keep entry'}
+        </button>
+      </footer>
+    </div>
   );
 }

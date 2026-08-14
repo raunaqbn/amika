@@ -33,7 +33,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { MemorySavedCelebration, PebblePair } from '@/components/pebble-pair';
+import { MemorySavedCelebration, MemorySeedling } from '@/components/memory-seedling';
 import { HomeStories } from '@/components/home-stories';
 
 type Visibility = 'private' | 'friends' | 'public';
@@ -90,7 +90,7 @@ function DirectionContract() {
       aria-hidden="true"
       dangerouslySetInnerHTML={{
         __html:
-          '<!-- THESIS: Amika makes an everyday memory feel gently held, replacing the social scrapbook with a calm shared ritual. OWN-WORLD: Oat cream fields, baked apricot moments, deep moss actions, terracotta warmth, quiet flax edges, organic cards, and the two-shape Pebble Pair. STORY: Scan friendship history, open the plus action to capture one small moment, choose its people and privacy, then watch it settle into the stream. FIRST VIEWPORT: A warm cream shell opens directly on memory history with a quiet daily prompt, close friends, and one unmistakable plus action. FORM: Apricot Moss, selected Pebble Pair direction, responsive memory stream with a focused add-memory sheet and reunion save animation. -->',
+          '<!-- THESIS: Amika makes an everyday memory feel gently held, replacing the social scrapbook with a calm shared ritual. OWN-WORLD: Oat cream fields, baked apricot moments, deep moss actions, terracotta warmth, quiet flax edges, organic cards, and the small Memory Seedling. STORY: Scan friendship history, open the plus action to capture one small moment, choose its people and privacy, then watch it settle into the stream. FIRST VIEWPORT: A warm cream shell opens directly on memory history with a quiet daily prompt, close friends, and one unmistakable plus action. FORM: Apricot Moss, Memory Seedling, responsive memory stream with a focused add-memory sheet and a gentle sprout save animation. -->',
       }}
     />
   );
@@ -574,7 +574,7 @@ export function Dashboard() {
             Add photos or video, describe the moment, choose a friend, date, and audience, then save it to your memories.
           </DialogDescription>
           <form className="memory-composer" onSubmit={submitMemory}>
-          <PebblePair className="memory-composer__pebbles" pose="cradle" size="lg" />
+          <MemorySeedling className="memory-composer__seedling" pose="hold" size="lg" />
           <DialogClose asChild>
             <button className="memory-composer__close" type="button" aria-label="Close add memory" disabled={saving}>
               <X aria-hidden="true" />

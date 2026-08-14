@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Screen } from '@/components/screen';
 import { MemoryComposer } from '@/components/memory-composer';
-import { MemorySavedCelebration } from '@/components/pebble-pair';
+import { MemorySavedCelebration } from '@/components/memory-seedling';
 
 export default function AddScreen() {
   const router = useRouter();

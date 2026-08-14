@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/auth';
 import { border, colors, shadow, type } from '@/lib/theme';
 import { Button, DividerLabel, Field, Spinner } from '@/components/ui';
-import { PebblePair } from '@/components/pebble-pair';
+import { MemorySeedling } from '@/components/memory-seedling';
 
 export default function Welcome() {
   const { signIn, signInWithGoogle, signUp } = useAuth();
@@ -22,7 +22,7 @@ export default function Welcome() {
     finally { setGoogleLoading(false); }
   }
   return <SafeAreaView style={styles.safe}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}>
-    <View style={styles.brand}><View style={styles.mark}><PebblePair size={82} /></View><Text style={styles.logo}>amika</Text><Text style={styles.tagline}>Keep the little moments that make a friendship yours.</Text></View>
+    <View style={styles.brand}><View style={styles.mark}><MemorySeedling size={82} /></View><Text style={styles.logo}>amika</Text><Text style={styles.tagline}>Keep the little moments that make a friendship yours.</Text></View>
     <View style={styles.packet}><View style={styles.tabs}><Button label="Sign in" tone={mode === 'signin' ? 'citrus' : 'quiet'} disabled={loading || googleLoading} onPress={() => setMode('signin')} style={{ flex: 1 }} /><Button label="I’m new" tone={mode === 'signup' ? 'citrus' : 'quiet'} disabled={loading || googleLoading} onPress={() => setMode('signup')} style={{ flex: 1 }} /></View><DividerLabel>{mode === 'signin' ? 'Welcome back' : 'Start your memory circle'}</DividerLabel><Pressable accessibilityRole="button" accessibilityLabel="Continue with Google" disabled={loading || googleLoading} onPress={continueWithGoogle} style={({ pressed }) => [styles.googleButton, pressed && styles.googlePressed, (loading || googleLoading) && styles.disabled]}>{googleLoading ? <Spinner /> : <><View style={styles.googleMark}><Text style={styles.googleLetter}>G</Text></View><Text style={styles.googleText}>Continue with Google</Text></>}</Pressable><DividerLabel>or use email</DividerLabel>{mode === 'signup' ? <Field label="Your name" value={name} onChangeText={setName} autoComplete="name" placeholder="Raunaq" editable={!loading && !googleLoading} /> : null}<Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" placeholder="you@example.com" editable={!loading && !googleLoading} /><Field label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} placeholder="At least 6 characters" editable={!loading && !googleLoading} /><Button label={mode === 'signin' ? 'Open Amika' : 'Create my Amika'} loading={loading} disabled={googleLoading} onPress={submit} />
     </View><Text style={styles.foot}>No follower counts. No performance. Just memories with people you love.</Text>
   </ScrollView></KeyboardAvoidingView></SafeAreaView>;
