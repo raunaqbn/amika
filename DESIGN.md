@@ -132,7 +132,7 @@ components:
 
 Apricot Moss turns recording an everyday moment into a calm shared ritual. The system is warm and fresh without reading as a scrapbook: oat-cream space quiets the canvas, baked apricot gathers attention around capture, and moss gives actions a steady, trustworthy center. Photography and the people in each memory carry the emotional detail; the interface stays soft, clear, and unhurried around them.
 
-The signature is the **Memory Seedling**, a single small keeper made from a terracotta seed body, moss leaf and stem, two quiet eyes, a tiny smile, and an optional butter memory orb. Its simple silhouette makes the brand friendly and recognizable across the wordmark, app icons, welcome screen, social previews, memory composer, journal, empty states, and earned save feedback.
+The signature is the **Memory Seedling**, a single small keeper made from a softly asymmetric terracotta seed body, a gently tilted moss leaf and stem, two curved resting eyes, a tiny smile, and an optional butter memory orb. Its calm silhouette makes the brand friendly and recognizable across the wordmark, app icons, welcome screen, social previews, memory composer, journal, empty states, and earned save feedback.
 
 The journal extends the same world into a private reflective room. It should feel like a calm conversation rather than a notes database: writing leads, organizational details recede, and Amika responds only when the writer explicitly asks for one gentle reflection.
 
@@ -238,7 +238,7 @@ Depth is soft and ambient. Warm White cards sit on Oat Cream with flax edges and
 
 Amika uses broad, organic rounded rectangles. Controls are usually 14px, content cards 18px, compact mobile cards 20px, and signature surfaces such as the composer or save confirmation 24px. Pills remain useful for counts and privacy states, but they are not the default container shape.
 
-The Memory Seedling supplies the only intentionally irregular silhouette. Its anatomy stays stable: one rounded terracotta body, one moss leaf, a short moss stem, two deep-moss eyes, one tiny smile, and—when the moment calls for it—a butter memory orb with small apricot or butter echoes. Web poses are **rest**, **peek**, **hold**, **listen**, **celebrate**, and **mark**. Native keeps the canonical upright silhouette and scales it to the available role; the native save celebration adds the memory dots separately.
+The Memory Seedling supplies the only intentionally irregular silhouette. Its anatomy stays stable: one softly asymmetric terracotta body, one tilted moss leaf, a short moss stem, two deep-moss crescent eyes, one tiny smile, and—when the moment calls for it—a butter memory orb with small apricot or butter echoes. Web poses are **rest**, **peek**, **hold**, **listen**, **celebrate**, and **mark**. Native keeps the canonical upright silhouette and scales it to the available role; the native save celebration adds the memory dots separately.
 
 Borders are quiet: generally one pixel of Flax or a low-opacity Moss boundary. Focus is more explicit, using Terracotta with a visible two-pixel outline and offset.
 

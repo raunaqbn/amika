@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Screen } from '@/components/screen';
 import { MemoryComposer } from '@/components/memory-composer';
@@ -8,10 +8,9 @@ export default function AddScreen() {
   const router = useRouter();
   const { friendId } = useLocalSearchParams<{ friendId?: string }>();
   const [saved, setSaved] = useState(false);
-  useEffect(() => {
-    if (!saved) return;
-    const timer = setTimeout(() => router.replace('/'), 1900);
-    return () => clearTimeout(timer);
-  }, [router, saved]);
-  return <><Screen title="Keep today" eyebrow="One honest moment"><MemoryComposer initiallyOpen compact initialFriendId={friendId} onSaved={() => setSaved(true)} /></Screen><MemorySavedCelebration visible={saved} /></>;
+  const dismissSaved = useCallback(() => {
+    setSaved(false);
+    router.replace('/');
+  }, [router]);
+  return <><Screen title="Keep today" eyebrow="One honest moment"><MemoryComposer initiallyOpen compact initialFriendId={friendId} onSaved={() => setSaved(true)} /></Screen><MemorySavedCelebration visible={saved} onDismiss={dismissSaved} /></>;
 }

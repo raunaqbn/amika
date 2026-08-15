@@ -13,12 +13,14 @@ import {
   View,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { ChevronLeft, ChevronRight, Globe2, Heart, Lock, MessageCircle, Plus, Send, Trash2, X } from 'lucide-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { api, imageSource, prepareImageForUpload, uploadImage } from '@/lib/api';
+import { ChevronLeft, ChevronRight, Heart, MessageCircle, Plus, Send, Trash2, X } from 'lucide-react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { api, imageSource } from '@/lib/api';
 import { Avatar, Spinner } from '@/components/ui';
+import { StoryComposer, type StoryPhoto } from '@/components/story-composer';
 import { border, colors, shadow, type } from '@/lib/theme';
 import type { Story, StoryComment } from '@/types';
 
@@ -39,10 +41,7 @@ export function ProfileStories({ ownerId, ownerName, ownerImage, canPost = false
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const [draftUri, setDraftUri] = useState<string | null>(null);
-  const [caption, setCaption] = useState('');
-  const [visibility, setVisibility] = useState<'public' | 'friends'>('public');
-  const [posting, setPosting] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<StoryPhoto | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -66,8 +65,7 @@ export function ProfileStories({ ownerId, ownerName, ownerImage, canPost = false
     }
     const options: ImagePicker.ImagePickerOptions = {
       mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [9, 16],
+      allowsEditing: false,
       quality: 1,
       ...(source === 'library' ? { preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible } : {}),
     };
@@ -76,10 +74,7 @@ export function ProfileStories({ ownerId, ownerName, ownerImage, canPost = false
       : await ImagePicker.launchImageLibraryAsync(options);
     if (result.canceled) return;
     const asset = result.assets[0];
-    const prepared = await prepareImageForUpload(asset.uri, asset.width, asset.height);
-    setDraftUri(prepared);
-    setCaption('');
-    setVisibility('public');
+    setSelectedPhoto({ height: asset.height, uri: asset.uri, width: asset.width });
   }, []);
 
   const openPicker = useCallback(() => {
@@ -99,34 +94,6 @@ export function ProfileStories({ ownerId, ownerName, ownerImage, canPost = false
       { text: 'Cancel', style: 'cancel' },
     ]);
   }, [pickPhoto]);
-
-  const closeComposer = () => {
-    if (posting) return;
-    setDraftUri(null);
-    setCaption('');
-    setVisibility('public');
-  };
-
-  const post = async () => {
-    if (!draftUri || posting) return;
-    setPosting(true);
-    try {
-      const uploaded = await uploadImage(draftUri);
-      await api<Story>('/api/stories', {
-        method: 'POST',
-        body: JSON.stringify({ imageUrl: uploaded.url, content: caption.trim(), visibility }),
-      });
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setDraftUri(null);
-      setCaption('');
-      setVisibility('public');
-      await load();
-    } catch (error) {
-      Alert.alert('Story not posted', error instanceof Error ? error.message : 'Try another photo.');
-    } finally {
-      setPosting(false);
-    }
-  };
 
   if (!canPost && !loading && stories.length === 0) return null;
 
@@ -150,29 +117,13 @@ export function ProfileStories({ ownerId, ownerName, ownerImage, canPost = false
       </Pressable>)}
     </ScrollView>
 
-    <Modal visible={Boolean(draftUri)} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeComposer}>
-      <SafeAreaView style={styles.composerSafe} edges={['top', 'bottom']}>
-        <View style={styles.modalHeader}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Cancel story" disabled={posting} onPress={closeComposer} style={styles.headerButton}><X size={23} color={colors.ink} /></Pressable>
-          <Text style={styles.modalTitle}>New story</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="Post story" disabled={posting} onPress={() => void post()} style={[styles.postButton, posting && styles.disabled]}>{posting ? <Spinner size="small" /> : <Text style={styles.postLabel}>Post</Text>}</Pressable>
-        </View>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.composerBody}>
-          {draftUri ? <Image source={draftUri} style={styles.draftImage} contentFit="contain" /> : null}
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.composerControls}>
-            <Text style={styles.fieldLabel}>Caption</Text>
-            <TextInput value={caption} onChangeText={setCaption} maxLength={280} multiline placeholder="Add a little context…" placeholderTextColor={colors.muted} style={styles.captionInput} />
-            <View style={styles.captionCount}><Text style={styles.counter}>{caption.length}/280</Text></View>
-            <Text style={styles.fieldLabel}>Audience</Text>
-            <View style={styles.segmented}>
-              <Pressable accessibilityRole="radio" accessibilityState={{ checked: visibility === 'public' }} onPress={() => setVisibility('public')} style={[styles.segment, visibility === 'public' && styles.segmentSelected]}><Globe2 size={17} color={colors.ink} /><Text style={styles.segmentText}>Public</Text></Pressable>
-              <Pressable accessibilityRole="radio" accessibilityState={{ checked: visibility === 'friends' }} onPress={() => setVisibility('friends')} style={[styles.segment, visibility === 'friends' && styles.segmentSelected]}><Lock size={17} color={colors.ink} /><Text style={styles.segmentText}>Friends</Text></Pressable>
-            </View>
-            <Text style={styles.audienceNote}>Public is the default. Either choice stays off the Home feed.</Text>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </Modal>
+    <StoryComposer
+      photo={selectedPhoto}
+      defaultVisibility="friends"
+      onCancel={() => setSelectedPhoto(null)}
+      onChooseAnother={openPicker}
+      onPosted={async () => { setSelectedPhoto(null); await load(); }}
+    />
 
     {activeIndex !== null && stories[activeIndex] ? <StoryViewer
       story={stories[activeIndex]}
@@ -239,31 +190,39 @@ export function StoryViewer({ story, ownerName, ownerImage, position, total, onC
     { text: 'Delete', style: 'destructive', onPress: () => void api(`/api/stories?id=${story.id}`, { method: 'DELETE' }).then(onDeleted) },
   ]);
 
-  return <Modal visible animationType="fade" presentationStyle="fullScreen" onRequestClose={onClose} statusBarTranslucent>
-    <SafeAreaView style={styles.viewerSafe} edges={['top', 'bottom']}>
-      <View style={styles.progress}>{Array.from({ length: total }, (_, index) => <View key={index} style={[styles.progressTrack, index <= position && styles.progressDone]} />)}</View>
-      <View style={styles.viewerHeader}>
-        <Avatar name={ownerName} uri={ownerImage} size={40} color={colors.citrus} />
-        <View style={styles.viewerIdentity}><Text numberOfLines={1} style={styles.viewerName}>{ownerName}</Text><Text style={styles.viewerMeta}>{expiry} · {story.visibility === 'public' ? 'Public' : 'Friends'}</Text></View>
-        {story.isOwn ? <Pressable accessibilityRole="button" accessibilityLabel="Delete story" onPress={confirmDelete} style={styles.viewerHeaderButton}><Trash2 size={19} color={colors.white} /></Pressable> : null}
-        <Pressable accessibilityRole="button" accessibilityLabel="Close story" onPress={onClose} style={styles.viewerHeaderButton}><X size={22} color={colors.white} /></Pressable>
-      </View>
-      <Image source={imageSource(story.imageUrl)} style={styles.viewerImage} contentFit="contain" cachePolicy="memory-disk" priority="high" />
-      {story.content ? <Text style={styles.viewerCaption}>{story.content}</Text> : null}
-      <View style={styles.viewerActions}>
-        <Pressable accessibilityRole="button" accessibilityLabel={story.reactedByMe ? 'Remove heart' : 'Love story'} onPress={() => void react()} style={styles.viewerAction}><Heart size={21} color={story.reactedByMe ? colors.rose : colors.white} fill={story.reactedByMe ? colors.rose : 'transparent'} /><Text style={styles.viewerActionText}>{story.reactionCount || 'Love'}</Text></Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Open story replies" onPress={() => void openReplies()} style={[styles.viewerAction, styles.replyAction]}><MessageCircle size={20} color={colors.ink} /><Text style={styles.replyActionText}>Reply{story.commentCount ? ` · ${story.commentCount}` : ''}</Text></Pressable>
-      </View>
-      {total > 1 ? <>
-        <Pressable accessibilityRole="button" accessibilityLabel="Previous story" disabled={position === 0} onPress={() => onMove(position - 1)} style={[styles.previous, position === 0 && styles.hidden]}><ChevronLeft size={26} color={colors.white} /></Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Next story" disabled={position === total - 1} onPress={() => onMove(position + 1)} style={[styles.next, position === total - 1 && styles.hidden]}><ChevronRight size={26} color={colors.white} /></Pressable>
-      </> : null}
-      {threadOpen ? <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.thread}>
-        <View style={styles.threadHeader}><Text style={styles.threadTitle}>Replies</Text><Pressable accessibilityRole="button" accessibilityLabel="Close replies" onPress={() => setThreadOpen(false)} style={styles.headerButton}><X size={21} color={colors.ink} /></Pressable></View>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.commentList}>{comments.length ? comments.map((item) => <View key={item.id} style={styles.comment}><Text style={styles.commentAuthor}>{item.author.name}</Text><Text style={styles.commentText}>{item.content}</Text></View>) : <Text style={styles.emptyComments}>No replies yet. Start the conversation.</Text>}</ScrollView>
-        <View style={styles.replyComposer}><TextInput value={reply} onChangeText={setReply} maxLength={240} placeholder="Send a reply…" placeholderTextColor={colors.muted} autoFocus style={styles.replyInput} /><Pressable accessibilityRole="button" accessibilityLabel="Send reply" disabled={!reply.trim() || sending} onPress={() => void sendReply()} style={[styles.sendButton, (!reply.trim() || sending) && styles.disabled]}>{sending ? <Spinner size="small" /> : <Send size={19} color={colors.ink} />}</Pressable></View>
-      </KeyboardAvoidingView> : null}
-    </SafeAreaView>
+  return <Modal visible animationType="fade" presentationStyle="fullScreen" onRequestClose={onClose}>
+    <SafeAreaProvider style={styles.viewerProvider}>
+      <StatusBar hidden animated />
+      <SafeAreaView style={styles.viewerSafe} edges={['top', 'right', 'bottom', 'left']}>
+        <View style={styles.progress}>{Array.from({ length: total }, (_, index) => <View key={index} style={[styles.progressTrack, index <= position && styles.progressDone]} />)}</View>
+        <View style={styles.viewerHeader}>
+          <Avatar name={ownerName} uri={ownerImage} size={40} color={colors.citrus} />
+          <View style={styles.viewerIdentity}><Text numberOfLines={1} style={styles.viewerName}>{ownerName}</Text><Text style={styles.viewerMeta}>{expiry} · {story.visibility === 'public' ? 'Public' : 'Friends'}</Text></View>
+          {story.isOwn ? <Pressable accessibilityRole="button" accessibilityLabel="Delete story" onPress={confirmDelete} style={styles.viewerHeaderButton}><Trash2 size={19} color={colors.white} /></Pressable> : null}
+          <Pressable accessibilityRole="button" accessibilityLabel="Close story" onPress={onClose} style={styles.viewerHeaderButton}><X size={22} color={colors.white} /></Pressable>
+        </View>
+
+        <View style={styles.viewerStage}>
+          <Image source={imageSource(story.imageUrl)} style={StyleSheet.absoluteFill} contentFit="contain" cachePolicy="memory-disk" priority="high" />
+          {story.content ? <View style={styles.viewerCaptionWrap}><ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.viewerCaptionContent}><Text style={styles.viewerCaption}>{story.content}</Text></ScrollView></View> : null}
+          {total > 1 ? <>
+            <Pressable accessibilityRole="button" accessibilityLabel="Previous story" disabled={position === 0} onPress={() => onMove(position - 1)} style={[styles.previous, position === 0 && styles.hidden]}><ChevronLeft size={26} color={colors.white} /></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Next story" disabled={position === total - 1} onPress={() => onMove(position + 1)} style={[styles.next, position === total - 1 && styles.hidden]}><ChevronRight size={26} color={colors.white} /></Pressable>
+          </> : null}
+        </View>
+
+        <View style={styles.viewerActions}>
+          <Pressable accessibilityRole="button" accessibilityLabel={story.reactedByMe ? 'Remove heart' : 'Love story'} onPress={() => void react()} style={styles.viewerAction}><Heart size={21} color={story.reactedByMe ? colors.rose : colors.white} fill={story.reactedByMe ? colors.rose : 'transparent'} /><Text style={styles.viewerActionText}>{story.reactionCount || 'Love'}</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Open story replies" onPress={() => void openReplies()} style={[styles.viewerAction, styles.replyAction]}><MessageCircle size={20} color={colors.ink} /><Text style={styles.replyActionText}>Reply{story.commentCount ? ` · ${story.commentCount}` : ''}</Text></Pressable>
+        </View>
+
+        {threadOpen ? <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.thread}>
+          <View style={styles.threadHeader}><Text style={styles.threadTitle}>Replies</Text><Pressable accessibilityRole="button" accessibilityLabel="Close replies" onPress={() => setThreadOpen(false)} style={styles.headerButton}><X size={21} color={colors.ink} /></Pressable></View>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.commentList}>{comments.length ? comments.map((item) => <View key={item.id} style={styles.comment}><Text style={styles.commentAuthor}>{item.author.name}</Text><Text style={styles.commentText}>{item.content}</Text></View>) : <Text style={styles.emptyComments}>No replies yet. Start the conversation.</Text>}</ScrollView>
+          <View style={styles.replyComposer}><TextInput value={reply} onChangeText={setReply} maxLength={240} placeholder="Send a reply…" placeholderTextColor={colors.muted} autoFocus style={styles.replyInput} /><Pressable accessibilityRole="button" accessibilityLabel="Send reply" disabled={!reply.trim() || sending} onPress={() => void sendReply()} style={[styles.sendButton, (!reply.trim() || sending) && styles.disabled]}>{sending ? <Spinner size="small" /> : <Send size={19} color={colors.ink} />}</Pressable></View>
+        </KeyboardAvoidingView> : null}
+      </SafeAreaView>
+    </SafeAreaProvider>
   </Modal>;
 }
 
@@ -282,25 +241,9 @@ const styles = StyleSheet.create({
   storyLabel: { maxWidth: 78, fontFamily: type.heavy, color: colors.ink, fontSize: 11 },
   loading: { width: 78, height: 74, alignItems: 'center', justifyContent: 'center', gap: 4 },
   loadingText: { fontFamily: type.medium, color: colors.muted, fontSize: 10 },
-  composerSafe: { flex: 1, backgroundColor: colors.paper },
-  modalHeader: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, borderBottomWidth: 1.5, borderBottomColor: colors.line },
   headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  modalTitle: { fontFamily: type.heavy, color: colors.ink, fontSize: 18 },
-  postButton: { minWidth: 62, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: colors.citrus, ...border },
-  postLabel: { fontFamily: type.heavy, color: colors.ink, fontSize: 14 },
-  composerBody: { flex: 1 },
-  draftImage: { flex: 1, minHeight: 260, backgroundColor: colors.ink },
-  composerControls: { padding: 17, paddingBottom: 28 },
-  fieldLabel: { marginTop: 3, marginBottom: 7, fontFamily: type.heavy, color: colors.ink, fontSize: 12 },
-  captionInput: { minHeight: 86, padding: 13, borderRadius: 14, backgroundColor: colors.white, fontFamily: type.regular, color: colors.ink, fontSize: 16, lineHeight: 22, textAlignVertical: 'top', ...border },
-  captionCount: { alignItems: 'flex-end', marginTop: 5, marginBottom: 15 },
-  counter: { fontFamily: type.medium, color: colors.muted, fontSize: 11 },
-  segmented: { flexDirection: 'row', padding: 3, borderRadius: 14, backgroundColor: colors.paperDeep, ...border },
-  segment: { minHeight: 44, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 10 },
-  segmentSelected: { backgroundColor: colors.citrus },
-  segmentText: { fontFamily: type.heavy, color: colors.ink, fontSize: 13 },
-  audienceNote: { marginTop: 8, fontFamily: type.regular, color: colors.muted, fontSize: 12, lineHeight: 17 },
-  viewerSafe: { flex: 1, backgroundColor: colors.ink },
+  viewerProvider: { flex: 1, backgroundColor: colors.ink },
+  viewerSafe: { flex: 1, minHeight: 0, backgroundColor: colors.ink },
   progress: { flexDirection: 'row', gap: 4, paddingHorizontal: 10, paddingTop: 7 },
   progressTrack: { height: 3, flex: 1, borderRadius: 2, backgroundColor: 'rgba(255,255,255,.3)' },
   progressDone: { backgroundColor: colors.white },
@@ -309,15 +252,17 @@ const styles = StyleSheet.create({
   viewerName: { fontFamily: type.heavy, color: colors.white, fontSize: 14 },
   viewerMeta: { marginTop: 1, fontFamily: type.medium, color: colors.paperDeep, fontSize: 11 },
   viewerHeaderButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  viewerImage: { flex: 1, backgroundColor: '#11110F' },
-  viewerCaption: { paddingHorizontal: 16, paddingTop: 12, fontFamily: type.medium, color: colors.white, fontSize: 15, lineHeight: 21 },
-  viewerActions: { flexDirection: 'row', gap: 9, padding: 12 },
+  viewerStage: { flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', backgroundColor: '#11110F' },
+  viewerCaptionWrap: { position: 'absolute', left: 16, right: 16, bottom: 14, maxHeight: 126, alignItems: 'center' },
+  viewerCaptionContent: { alignItems: 'center' },
+  viewerCaption: { paddingHorizontal: 12, paddingVertical: 8, overflow: 'hidden', borderRadius: 12, backgroundColor: 'rgba(17,17,15,.72)', fontFamily: type.heavy, color: colors.white, fontSize: 16, lineHeight: 22, textAlign: 'center' },
+  viewerActions: { flexShrink: 0, flexDirection: 'row', gap: 9, padding: 10 },
   viewerAction: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 15, borderRadius: 14, borderWidth: 1.5, borderColor: colors.white },
   viewerActionText: { fontFamily: type.heavy, color: colors.white, fontSize: 13 },
   replyAction: { flex: 1, backgroundColor: colors.white },
   replyActionText: { fontFamily: type.heavy, color: colors.ink, fontSize: 13 },
-  previous: { position: 'absolute', left: 8, top: '47%', width: 44, height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: 'rgba(32,32,31,.72)' },
-  next: { position: 'absolute', right: 8, top: '47%', width: 44, height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: 'rgba(32,32,31,.72)' },
+  previous: { position: 'absolute', left: 8, top: '44%', width: 44, height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: 'rgba(32,32,31,.72)' },
+  next: { position: 'absolute', right: 8, top: '44%', width: 44, height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: 'rgba(32,32,31,.72)' },
   hidden: { opacity: 0 },
   thread: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '55%', borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: colors.paper, overflow: 'hidden' },
   threadHeader: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 17, borderBottomWidth: 1.5, borderBottomColor: colors.line },

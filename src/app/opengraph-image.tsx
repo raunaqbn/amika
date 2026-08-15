@@ -34,12 +34,12 @@ export default async function Image() {
           }}
         >
           <svg width="170" height="170" viewBox="0 0 120 120">
-            <path d="M62 36c4-17 20-26 36-20-1 18-14 31-33 28Z" fill="#59674D" />
-            <path d="M60 39c-2 8-2 15 0 22" stroke="#394238" strokeWidth="4" strokeLinecap="round" />
-            <path d="M20 76c0-23 18-35 40-35 24 0 41 12 41 36 0 23-18 35-41 35S20 99 20 76Z" fill="#D48768" />
-            <circle cx="48" cy="78" r="3.3" fill="#394238" />
-            <circle cx="72" cy="78" r="3.3" fill="#394238" />
-            <path d="M52 88q8 7 16 0" stroke="#394238" strokeWidth="3.2" strokeLinecap="round" fill="none" />
+            <path d="M62 39C66 20 81 10 100 14C99 33 85 45 66 44Z" fill="#59674D" />
+            <path d="M62 39C59 46 59 51 61 57" stroke="#394238" strokeWidth="4" strokeLinecap="round" fill="none" />
+            <path d="M20 75C20 55 34 44 58 43C82 42 100 55 100 76C100 96 83 108 60 108C36 108 20 97 20 75Z" fill="#D48768" />
+            <path d="M39 74Q45 68 51 74" stroke="#394238" strokeWidth="3.6" strokeLinecap="round" fill="none" />
+            <path d="M68 74Q74 68 80 74" stroke="#394238" strokeWidth="3.6" strokeLinecap="round" fill="none" />
+            <path d="M51 87Q60 93 69 87" stroke="#394238" strokeWidth="3.4" strokeLinecap="round" fill="none" />
           </svg>
         </div>
 

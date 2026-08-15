@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, Modal, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { X } from 'lucide-react-native';
+import Svg, { Path } from 'react-native-svg';
 import { colors, shadow, type } from '@/lib/theme';
 
 export function MemorySeedling({ size = 52 }: { size?: number }) {
@@ -11,18 +12,18 @@ export function MemorySeedling({ size = 52 }: { size?: number }) {
       style={{ width: size, height: size }}
     >
       <Svg width={size} height={size} viewBox="0 0 100 100">
-        <Path d="M51 26C55 12 68 7 82 10C81 25 70 34 55 32Z" fill={colors.moss} />
-        <Path d="M50 27C48 34 48 40 50 45" stroke={colors.mossDeep} strokeWidth="4" strokeLinecap="round" />
-        <Path d="M16 61C16 42 31 33 50 34C70 34 84 43 84 62C84 81 70 90 50 90C30 90 16 81 16 61Z" fill={colors.terracotta} />
-        <Circle cx="40" cy="61" r="3.2" fill={colors.mossDeep} />
-        <Circle cx="60" cy="61" r="3.2" fill={colors.mossDeep} />
-        <Path d="M43 70Q50 76 57 70" stroke={colors.mossDeep} strokeWidth="3.2" strokeLinecap="round" fill="none" />
+        <Path d="M52 34C55 18 68 9 84 12C83 28 71 38 55 37Z" fill={colors.moss} />
+        <Path d="M52 34C49 40 49 44 51 48" stroke={colors.mossDeep} strokeWidth="3.6" strokeLinecap="round" fill="none" />
+        <Path d="M17 62C17 45 29 36 49 35C69 34 84 45 84 63C84 80 70 90 50 90C30 90 17 81 17 62Z" fill={colors.terracotta} />
+        <Path d="M33 61Q38 56 43 61" stroke={colors.mossDeep} strokeWidth="3.2" strokeLinecap="round" fill="none" />
+        <Path d="M57 61Q62 56 67 61" stroke={colors.mossDeep} strokeWidth="3.2" strokeLinecap="round" fill="none" />
+        <Path d="M43 72Q50 77 57 72" stroke={colors.mossDeep} strokeWidth="3" strokeLinecap="round" fill="none" />
       </Svg>
     </View>
   );
 }
 
-export function MemorySavedCelebration({ visible, friendName }: { visible: boolean; friendName?: string }) {
+export function MemorySavedCelebration({ visible, friendName, onDismiss }: { visible: boolean; friendName?: string; onDismiss: () => void }) {
   const arrival = useRef(new Animated.Value(0)).current;
   const unfurl = useRef(new Animated.Value(0)).current;
 
@@ -34,11 +35,19 @@ export function MemorySavedCelebration({ visible, friendName }: { visible: boole
     ]).start();
   }, [arrival, unfurl, visible]);
 
+  useEffect(() => {
+    if (!visible) return;
+    const timer = setTimeout(onDismiss, 2800);
+    return () => clearTimeout(timer);
+  }, [onDismiss, visible]);
+
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
-      <View pointerEvents="none" style={styles.overlay}>
+    <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onDismiss}>
+      <View accessibilityViewIsModal style={styles.overlay}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Dismiss memory saved message" onPress={onDismiss} style={StyleSheet.absoluteFill} />
         <Animated.View style={[styles.halo, { opacity: arrival, transform: [{ scale: arrival.interpolate({ inputRange: [0, 1], outputRange: [.55, 1] }) }] }]} />
         <Animated.View style={[styles.celebration, { opacity: arrival, transform: [{ translateY: arrival.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }, { scale: arrival.interpolate({ inputRange: [0, 1], outputRange: [.95, 1] }) }] }]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close memory saved message" onPress={onDismiss} style={styles.closeButton}><X size={21} color={colors.mossDeep} /></Pressable>
           <Animated.View style={{ transform: [{ rotate: unfurl.interpolate({ inputRange: [0, 1], outputRange: ['-5deg', '0deg'] }) }, { scale: unfurl.interpolate({ inputRange: [0, 1], outputRange: [.88, 1] }) }] }}>
             <MemorySeedling size={118} />
           </Animated.View>
@@ -58,6 +67,7 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: 'rgba(57,66,56,.25)' },
   halo: { position: 'absolute', width: 330, height: 330, borderRadius: 165, backgroundColor: 'rgba(232,176,128,.32)' },
   celebration: { width: '100%', maxWidth: 380, alignItems: 'center', padding: 24, borderRadius: 26, backgroundColor: colors.white, ...shadow },
+  closeButton: { position: 'absolute', top: 8, right: 8, zIndex: 2, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   memoryDots: { position: 'absolute', top: 42, right: 92, width: 48, height: 42 },
   memoryDot: { position: 'absolute', right: 4, bottom: 0, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.butter },
   memoryDotSmall: { position: 'absolute', right: 0, top: 2, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.apricot },

@@ -1,15 +1,15 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
-import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from 'expo-router';
 import { Plus } from 'lucide-react-native';
-import { api, imageSource, prepareImageForUpload, uploadImage } from '@/lib/api';
+import { api, imageSource } from '@/lib/api';
 import { colors, type } from '@/lib/theme';
 import { useAuth } from '@/context/auth';
 import { Spinner } from '@/components/ui';
 import { StoryViewer } from '@/components/profile-stories';
+import { StoryComposer, type StoryPhoto } from '@/components/story-composer';
 import type { Story } from '@/types';
 
 type Group = { userId: string; name: string; image?: string | null; stories: Story[] };
@@ -18,7 +18,7 @@ export function HomeStories() {
   const { user } = useAuth();
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
-  const [posting, setPosting] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<StoryPhoto | null>(null);
   const [active, setActive] = useState<{ group: number; story: number } | null>(null);
 
   const load = useCallback(async () => {
@@ -42,7 +42,6 @@ export function HomeStories() {
   }, [stories, user]);
 
   const pick = useCallback(async (source: 'camera' | 'library') => {
-    if (posting) return;
     const permission = source === 'camera'
       ? await ImagePicker.requestCameraPermissionsAsync()
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -52,25 +51,15 @@ export function HomeStories() {
     }
     const options: ImagePicker.ImagePickerOptions = {
       mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [9, 16],
+      allowsEditing: false,
       quality: 1,
       ...(source === 'library' ? { preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible } : {}),
     };
     const result = source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
     if (result.canceled) return;
-    setPosting(true);
-    try {
-      const asset = result.assets[0];
-      const prepared = await prepareImageForUpload(asset.uri, asset.width, asset.height);
-      const uploaded = await uploadImage(prepared);
-      await api<Story>('/api/stories', { method: 'POST', body: JSON.stringify({ imageUrl: uploaded.url, visibility: 'friends' }) });
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await load();
-    } catch (error) {
-      Alert.alert('Story not posted', error instanceof Error ? error.message : 'Try another photo.');
-    } finally { setPosting(false); }
-  }, [load, posting]);
+    const asset = result.assets[0];
+    setSelectedPhoto({ height: asset.height, uri: asset.uri, width: asset.width });
+  }, []);
 
   const openPicker = useCallback(() => {
     if (Platform.OS === 'ios') {
@@ -93,9 +82,9 @@ export function HomeStories() {
   return <View style={styles.section}>
     <View style={styles.heading}><View><Text style={styles.kicker}>Fresh from your circle</Text><Text style={styles.title}>Stories</Text></View><Text style={styles.helper}>24 hours</Text></View>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Add a story" disabled={posting} onPress={openPicker} style={styles.storyButton}>
-        <View style={[styles.storyRing, styles.addRing]}>{posting ? <Spinner size="small" color={colors.moss} /> : <Plus size={27} color={colors.moss} />}</View>
-        <Text numberOfLines={1} style={styles.storyLabel}>{posting ? 'Posting…' : 'Add story'}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="Add a story" onPress={openPicker} style={styles.storyButton}>
+        <View style={[styles.storyRing, styles.addRing]}><Plus size={27} color={colors.moss} /></View>
+        <Text numberOfLines={1} style={styles.storyLabel}>Add story</Text>
       </Pressable>
       {loading ? <View style={styles.loading}><Spinner size="small" /><Text style={styles.loadingText}>Gathering…</Text></View> : groups.map((group, groupIndex) => {
         const newest = group.stories[group.stories.length - 1];
@@ -116,11 +105,18 @@ export function HomeStories() {
       onRefresh={load}
       onDeleted={() => { setActive(null); void load(); }}
     /> : null}
+    <StoryComposer
+      photo={selectedPhoto}
+      defaultVisibility="friends"
+      onCancel={() => setSelectedPhoto(null)}
+      onChooseAnother={openPicker}
+      onPosted={async () => { setSelectedPhoto(null); await load(); }}
+    />
   </View>;
 }
 
 const styles = StyleSheet.create({
-  section: { marginHorizontal: -18, paddingHorizontal: 18, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.flax, backgroundColor: colors.white },
+  section: { paddingBottom: 4 },
   heading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   kicker: { fontFamily: type.medium, color: colors.terracotta, fontSize: 11 },
   title: { marginTop: 1, fontFamily: type.heavy, color: colors.mossDeep, fontSize: 24, letterSpacing: -.5 },
